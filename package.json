@@ -1,0 +1,28 @@
+{
+  "name": "@drakulavich/uae-news-digest",
+  "version": "0.1.0",
+  "description": "Daily UAE news digest from Google News RSS with optional DeepL translation",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core.ts"
+  },
+  "bin": {
+    "uae-news-digest": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun --banner '#!/usr/bin/env bun'",
+    "dev": "bun src/index.ts",
+    "test": "bun test"
+  },
+  "files": ["dist"],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.3",
+    "fast-xml-parser": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "typescript": "^5.9.3"
+  }
+}
