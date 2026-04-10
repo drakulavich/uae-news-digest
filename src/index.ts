@@ -115,6 +115,7 @@ program.action(async (options) => {
       limit,
       deeplAuthKey,
       targetLang: options.targetLang,
+      region: options.region,
     });
 
     if (options.json) {
