@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { Command } from 'commander';
 import { dirname } from 'node:path';
 import {
@@ -20,14 +21,13 @@ program
   .option('--hours <number>', 'lookback window in hours', '36')
   .option('--limit <number>', 'max items in digest', '6')
   .option('--timeout-ms <number>', 'RSS fetch timeout in milliseconds', '15000')
-  .option('--target-lang <code>', 'DeepL target language code (e.g. RU, DE, FR)', 'RU')
+  .option('--target-lang <code>', 'translate via DeepL (requires DEEPL_AUTH_KEY)')
   .option('--dry-run', 'print digest without updating state file', false)
-  .option('--no-translate', 'skip DeepL, use keyword fallback (RU) or raw English')
   .addHelpText('after', `
 Example:
-  uae-news-digest --hours 12 --limit 10 --target-lang DE
+  uae-news-digest --hours 12 --limit 10
   uae-news-digest --dry-run --format table
-  DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang FR`);
+  DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE`);
 
 // ── Manifest subcommand (inlined from @openclaw/cli-common) ──
 
@@ -45,8 +45,8 @@ program
         {
           name: '(default)',
           description: 'Fetch and print news digest',
-          flags: ['--hours <n>', '--limit <n>', '--state-file <path>', '--target-lang <code>', '--dry-run', '--no-translate', '--format <json|table>'],
-          examples: ['uae-news-digest --hours 12 --limit 10 --target-lang DE'],
+          flags: ['--hours <n>', '--limit <n>', '--state-file <path>', '--target-lang <code>', '--dry-run', '--format <json|table>'],
+          examples: ['uae-news-digest --hours 12 --limit 10'],
         },
       ],
       envVars: ['DEEPL_AUTH_KEY'],
@@ -79,7 +79,12 @@ program.action(async (options) => {
     const hours = validatePositiveNumber('hours', options.hours);
     const limit = validatePositiveNumber('limit', options.limit);
     const timeoutMs = validatePositiveNumber('timeout-ms', options.timeoutMs);
-    const targetLang: string = options.targetLang ?? 'RU';
+    const deeplAuthKey = process.env.DEEPL_AUTH_KEY;
+
+    if (options.targetLang && !deeplAuthKey) {
+      console.error(`--target-lang requires DEEPL_AUTH_KEY to be set.`);
+      process.exit(1);
+    }
 
     await Bun.$`mkdir -p ${dirname(options.stateFile)}`.quiet();
     const seenKeys = await readSeenKeys(options.stateFile);
@@ -95,11 +100,9 @@ program.action(async (options) => {
     }
 
     const xml = await response.text();
-    const deeplAuthKey = process.env.DEEPL_AUTH_KEY;
-    const translate = options.translate !== false;
 
-    if (translate && deeplAuthKey) {
-      console.error(`Translating to ${targetLang} via DeepL...`);
+    if (options.targetLang && deeplAuthKey) {
+      console.error(`Translating to ${options.targetLang} via DeepL...`);
     }
 
     const result = await runDigest({
@@ -107,9 +110,8 @@ program.action(async (options) => {
       seenKeys,
       hours,
       limit,
-      translate,
       deeplAuthKey,
-      targetLang,
+      targetLang: options.targetLang,
     });
 
     if (fmt === 'json') {

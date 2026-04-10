@@ -8,14 +8,12 @@
     "./core": "./src/core.ts"
   },
   "bin": {
-    "uae-news-digest": "./dist/index.js"
+    "uae-news-digest": "./src/index.ts"
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun --banner '#!/usr/bin/env bun'",
     "dev": "bun src/index.ts",
     "test": "bun test"
   },
-  "files": ["dist"],
   "license": "MIT",
   "dependencies": {
     "commander": "^14.0.3",

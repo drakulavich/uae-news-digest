@@ -41,7 +41,6 @@ export type RunDigestOptions = {
   hours: number;
   limit: number;
   now?: Date;
-  translate?: boolean;
   deeplAuthKey?: string;
   targetLang?: string;
   /** Override fetch for testing */
@@ -289,201 +288,17 @@ export async function translateDeepL(
   }
 }
 
-// ── Keyword Fallback Translation ───────────────────────────────
-
-const REPLACEMENTS: Array<[RegExp, string]> = [
-  // ── Places ──
-  [/\bUAE\b/gi, 'ОАЭ'],
-  [/\bUnited Arab Emirates\b/gi, 'ОАЭ'],
-  [/\bAbu Dhabi\b/gi, 'Абу-Даби'],
-  [/\bDubai\b/gi, 'Дубай'],
-  [/\bSharjah\b/gi, 'Шарджа'],
-  [/\bRas al-Khaimah\b/gi, 'Рас-эль-Хайма'],
-  [/\bFujairah\b/gi, 'Фуджейра'],
-  [/\bAjman\b/gi, 'Аджман'],
-  [/\bSaudi Arabia\b/gi, 'Саудовская Аравия'],
-  [/\bIran\b/gi, 'Иран'],
-  [/\bIsrael\b/gi, 'Израиль'],
-  [/\bMiddle East\b/gi, 'Ближний Восток'],
-  [/\bStrait of Hormuz\b/gi, 'Ормузский пролив'],
-  [/\bGCC\b/g, 'ССАГПЗ'],
-  [/\bGulf\b/gi, 'Залив'],
-
-  // ── People / titles ──
-  [/\bSheikh\b/gi, 'Шейх'],
-  [/\bPresident\b/gi, 'Президент'],
-  [/\bPrime Minister\b/gi, 'Премьер-министр'],
-  [/\bCrown Prince\b/gi, 'Наследный принц'],
-  [/\bTop official\b/gi, 'Высокопоставленный чиновник'],
-  [/\btop official\b/gi, 'высокопоставленный чиновник'],
-
-  // ── Military / security ──
-  [/\bair defences?\b/gi, 'ПВО'],
-  [/\bair defenses?\b/gi, 'ПВО'],
-  [/\bballistic missiles?\b/gi, 'баллистические ракеты'],
-  [/\bmissiles?\b/gi, 'ракеты'],
-  [/\bdrones?\b/gi, 'БПЛА'],
-  [/\bUAVs?\b/gi, 'БПЛА'],
-  [/\bintercepted\b/gi, 'перехватили'],
-  [/\bengage[ds]?\b/gi, 'перехватили'],
-  [/\bair attack\b/gi, 'воздушная атака'],
-  [/\bair strikes?\b/gi, 'авиаудары'],
-  [/\bsanctions?\b/gi, 'санкции'],
-  [/\bthreat\b/gi, 'угроза'],
-  [/\bterrorist network\b/gi, 'террористическая сеть'],
-  [/\bterrorist\b/gi, 'террорист'],
-  [/\bHezbollah\b/gi, 'Хезболла'],
-  [/\bfunded by\b/gi, 'финансируемый'],
-
-  // ── Real estate / economy ──
-  [/\bproperty sector\b/gi, 'рынок недвижимости'],
-  [/\bproperty market\b/gi, 'рынок недвижимости'],
-  [/\bproperty prices?\b/gi, 'цены на недвижимость'],
-  [/\bproperty\b/gi, 'недвижимость'],
-  [/\breal estate\b/gi, 'недвижимость'],
-  [/\bhousing\b/gi, 'жильё'],
-  [/\brent(?:al)?s?\b/gi, 'аренда'],
-  [/\bmarket\b/gi, 'рынок'],
-  [/\beconomy\b/gi, 'экономика'],
-  [/\binvestment\b/gi, 'инвестиции'],
-  [/\binvestors?\b/gi, 'инвесторы'],
-  [/\bgrowth\b/gi, 'рост'],
-  [/\binflation\b/gi, 'инфляция'],
-  [/\boil prices?\b/gi, 'цены на нефть'],
-  [/\boil\b/gi, 'нефть'],
-  [/\bstock\b/gi, 'акции'],
-  [/\btrade\b/gi, 'торговля'],
-  [/\bexports?\b/gi, 'экспорт'],
-  [/\bimports?\b/gi, 'импорт'],
-  [/\bGDP\b/g, 'ВВП'],
-
-  // ── Transport / aviation ──
-  [/\bairspace\b/gi, 'воздушное пространство'],
-  [/\bairport\b/gi, 'аэропорт'],
-  [/\bflight status\b/gi, 'статус рейсов'],
-  [/\bflights?\b/gi, 'рейсы'],
-  [/\bpassengers?\b/gi, 'пассажиры'],
-  [/\bshipping\b/gi, 'судоходство'],
-  [/\broads?\b/gi, 'дороги'],
-  [/\btraffic\b/gi, 'движение'],
-  [/\bmetro\b/gi, 'метро'],
-
-  // ── Weather ──
-  [/\bheavy rain\b/gi, 'сильный дождь'],
-  [/\brain\b/gi, 'дождь'],
-  [/\bflooding\b/gi, 'наводнение'],
-  [/\bflood\b/gi, 'наводнение'],
-  [/\bweather\b/gi, 'погода'],
-  [/\bunstable\b/gi, 'нестабильная'],
-  [/\btemperature\b/gi, 'температура'],
-  [/\bheatwave\b/gi, 'аномальная жара'],
-  [/\bsandstorm\b/gi, 'песчаная буря'],
-  [/\bdust storm\b/gi, 'пылевая буря'],
-  [/\bfog\b/gi, 'туман'],
-
-  // ── Law / governance ──
-  [/\bgovernment\b/gi, 'правительство'],
-  [/\blaw\b/gi, 'закон'],
-  [/\bregulation\b/gi, 'регулирование'],
-  [/\bresident(?:s)?\b/gi, 'резиденты'],
-  [/\bexpat(?:riate)?s?\b/gi, 'экспаты'],
-  [/\bcitizens?\b/gi, 'граждане'],
-  [/\bvisa\b/gi, 'виза'],
-  [/\bgolden visa\b/gi, 'золотая виза'],
-  [/\btravel advisory\b/gi, 'предупреждение для путешественников'],
-  [/\bfines?\b/gi, 'штрафы'],
-
-  // ── Education / social ──
-  [/\bschools?\b/gi, 'школы'],
-  [/\beducation\b/gi, 'образование'],
-  [/\bstudents?\b/gi, 'ученики'],
-  [/\buniversit(?:y|ies)\b/gi, 'университет'],
-  [/\bhospitals?\b/gi, 'больницы'],
-  [/\bworkers?\b/gi, 'рабочие'],
-  [/\bfirms?\b/gi, 'компании'],
-  [/\bcompan(?:y|ies)\b/gi, 'компании'],
-  [/\bbusinesses?\b/gi, 'бизнес'],
-  [/\bjobs?\b/gi, 'рабочие места'],
-  [/\bsalaries\b/gi, 'зарплаты'],
-  [/\bsalary\b/gi, 'зарплата'],
-
-  // ── Verbs / phrases ──
-  [/\bshows early signs of weakness\b/gi, 'показывает первые признаки слабости'],
-  [/\breopens?\b/gi, 'открывают'],
-  [/\bcloses?\b/gi, 'закрывают'],
-  [/\blaunches?\b/gi, 'запускают'],
-  [/\bannounces?\b/gi, 'объявляют'],
-  [/\breports?\b/gi, 'сообщают'],
-  [/\burges?\b/gi, 'призывают'],
-  [/\bwarns?\b/gi, 'предупреждают'],
-  [/\bplans?\b/gi, 'планируют'],
-  [/\bapplies to\b/gi, 'подаёт заявку на'],
-  [/\bapproves?\b/gi, 'одобряют'],
-  [/\bbans?\b/gi, 'запрещают'],
-  [/\bsays\b/gi, 'заявляет'],
-  [/\bsaid\b/gi, 'заявил'],
-  [/\bnew\b/gi, 'новый'],
-  [/\bafter\b/gi, 'после'],
-  [/\bbefore\b/gi, 'до'],
-  [/\bprotect\b/gi, 'защитить'],
-  [/\bsafeguard\b/gi, 'обеспечить безопасность'],
-  [/\bhigh praise\b/gi, 'высокую оценку'],
-  [/\bresponse\b/gi, 'реагирование'],
-  [/\b(?:got|received)\b/gi, 'получило'],
-  [/\bexplains? why\b/gi, 'объясняет почему'],
-  [/\bcome[s]? first\b/gi, 'на первом месте'],
-  [/\b'People come first'\b/gi, '«Люди на первом месте»'],
-  [/\bSee\b/, 'Смотрите'],
-
-  // ── Connectors ──
-  [/\bas\b/gi, 'когда'],
-  [/\bamid\b/gi, 'на фоне'],
-  [/\bfrom\b/gi, 'из'],
-  [/\bhits?\b/gi, 'обрушивается'],
-  [/\bdrives through\b/gi, 'проезжает по'],
-  [/\bdesert outskirts\b/gi, 'окрестностям пустыни'],
-  [/\bin the\b/gi, 'под'],
-  [/\bsome\b/gi, 'некоторых'],
-  [/\bfor\b/gi, 'для'],
-  [/\bwhy\b/gi, 'почему'],
-  [/\bhow\b/gi, 'как'],
-  [/\bto\b/gi, 'чтобы'],
-  [/\bat\b/gi, 'на'],
-  [/\bon\b/gi, 'на'],
-  [/\bwith\b/gi, 'с'],
-  [/\band\b/gi, 'и'],
-  [/\bbut\b/gi, 'но'],
-];
-
-/** Keyword-based fallback translation (no API needed). */
-export function translateTitleRu(title: string): string {
-  let output = title;
-  for (const [pattern, replacement] of REPLACEMENTS) {
-    output = output.replace(pattern, replacement);
-  }
-  output = output.replace(/\s+-\s+/g, ' — ');
-  output = output.replace(/\s{2,}/g, ' ').trim();
-  return output;
-}
-
 // ── Render ─────────────────────────────────────────────────────
 
-/**
- * Render digest to text.
- * @param items Digest items
- * @param translations Optional map of original title → translated title (from DeepL).
- *   If provided, uses DeepL translations; missing entries fall back to keyword translation.
- */
-export function renderDigest(items: DigestItem[], translations?: Map<string, string>, targetLang: string = 'RU'): string {
+export function renderDigest(items: DigestItem[], translations?: Map<string, string>): string {
   if (items.length === 0) {
     return '🇦🇪 UAE Latest News Digest\n\n• No significant news in the check window.';
   }
 
   const lines = ['🇦🇪 UAE Latest News Digest', ''];
   for (const item of items) {
-    const translated = translations?.get(item.title)
-      ?? (targetLang === 'RU' ? translateTitleRu(item.title) : item.title);
-    lines.push(`${emojiFor(item.title)} ${translated} (${item.source})`);
+    const title = translations?.get(item.title) ?? item.title;
+    lines.push(`${emojiFor(item.title)} ${title} (${item.source})`);
   }
   return lines.join('\n');
 }
@@ -492,10 +307,6 @@ export function mergeSeenKeys(seenKeys: Set<string>, digest: DigestItem[]): Set<
   return new Set([...seenKeys, ...digest.map((item) => item.key)]);
 }
 
-/**
- * Run the full digest pipeline: parse → filter → translate → render.
- * Now async to support DeepL translation.
- */
 export async function runDigest(options: RunDigestOptions): Promise<{ digest: DigestItem[]; output: string; nextSeenKeys: Set<string> }> {
   const items = parseRss(options.xml);
   const digest = buildDigest(items, {
@@ -507,24 +318,20 @@ export async function runDigest(options: RunDigestOptions): Promise<{ digest: Di
 
   let translations: Map<string, string> | undefined;
 
-  // Attempt DeepL translation if enabled and key is available
-  const shouldTranslate = options.translate !== false;
-  if (shouldTranslate && options.deeplAuthKey && digest.length > 0) {
+  if (options.targetLang && options.deeplAuthKey && digest.length > 0) {
     const titles = digest.map((d) => d.title);
-    const targetLang = options.targetLang ?? 'RU';
-    const translated = await translateDeepL(titles, options.deeplAuthKey, targetLang, options.fetchFn);
+    const translated = await translateDeepL(titles, options.deeplAuthKey, options.targetLang, options.fetchFn);
     if (translated) {
       translations = new Map();
       for (let i = 0; i < titles.length; i++) {
         translations.set(titles[i]!, translated[i]!);
       }
     }
-    // If translateDeepL returned null, translations stays undefined → keyword fallback
   }
 
   return {
     digest,
-    output: renderDigest(digest, translations, options.targetLang ?? 'RU'),
+    output: renderDigest(digest, translations),
     nextSeenKeys: mergeSeenKeys(options.seenKeys, digest),
   };
 }
