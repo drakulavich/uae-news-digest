@@ -305,6 +305,7 @@ describe('translateDeepL', () => {
 // ── renderDigest ───────────────────────────────────────────────
 
 describe('renderDigest', () => {
+  const now = new Date('2026-03-22T08:00:00Z');
   const sampleItem: DigestItem = {
     score: 5,
     publishedAt: new Date('2026-03-22T07:00:00Z'),
@@ -313,26 +314,35 @@ describe('renderDigest', () => {
     key: makeKey('Dubai property sector shows early signs of weakness', 'Reuters'),
   };
 
-  test('prints English digest header and bullets by default', () => {
-    const output = renderDigest([sampleItem]);
+  test('prints digest with hours ago suffix', () => {
+    const output = renderDigest([sampleItem], undefined, now);
     expect(output).toContain('🇦🇪 UAE Latest News Digest');
     expect(output).toContain('📉');
     expect(output).toContain('Dubai property sector shows early signs of weakness');
-    expect(output).toContain('Reuters');
+    expect(output).toContain('Reuters, 1h ago');
+  });
+
+  test('shows 0h ago for very recent items', () => {
+    const recentItem: DigestItem = {
+      ...sampleItem,
+      publishedAt: new Date('2026-03-22T07:45:00Z'),
+    };
+    const output = renderDigest([recentItem], undefined, now);
+    expect(output).toContain('Reuters, 0h ago');
   });
 
   test('uses DeepL translations when provided', () => {
     const translations = new Map([
-      ['Dubai property sector shows early signs of weakness', 'Сектор недвижимости Дубая демонстрирует первые признаки ослабления'],
+      ['Dubai property sector shows early signs of weakness', 'Сектор недвижимости Дубая'],
     ]);
-    const output = renderDigest([sampleItem], translations);
-    expect(output).toContain('Сектор недвижимости Дубая демонстрирует первые признаки ослабления');
-    expect(output).toContain('Reuters');
+    const output = renderDigest([sampleItem], translations, now);
+    expect(output).toContain('Сектор недвижимости Дубая');
+    expect(output).toContain('Reuters, 1h ago');
   });
 
   test('keeps original title when translations map has no entry', () => {
-    const translations = new Map<string, string>(); // empty map — no DeepL results
-    const output = renderDigest([sampleItem], translations);
+    const translations = new Map<string, string>();
+    const output = renderDigest([sampleItem], translations, now);
     expect(output).toContain('Dubai property sector shows early signs of weakness');
   });
 
@@ -369,6 +379,8 @@ describe('runDigest', () => {
 
     expect(result.output).toContain('Аэропорт Дубая возобновил работу после дождя');
     expect(result.output).toContain('Обзор рынка Абу-Даби');
+    expect(result.output).toContain('1h ago');
+    expect(result.output).toContain('2h ago');
     expect(result.digest).toHaveLength(2);
   });
 
@@ -386,9 +398,9 @@ describe('runDigest', () => {
       fetchFn: mockFetch,
     });
 
-    // Should still produce output in English (no keyword fallback)
     expect(result.output).toContain('🇦🇪 UAE Latest News Digest');
     expect(result.output).toContain('Dubai airport reopens after rain');
+    expect(result.output).toContain('Reuters, 1h ago');
     expect(result.digest).toHaveLength(2);
   });
 
@@ -410,8 +422,8 @@ describe('runDigest', () => {
     });
 
     expect(deeplCalled).toBe(false);
-    // Output is English
     expect(result.output).toContain('Dubai airport reopens after rain');
+    expect(result.output).toContain('1h ago');
   });
 
   test('skips DeepL when no auth key', async () => {
@@ -421,11 +433,11 @@ describe('runDigest', () => {
       hours: 36,
       limit: 6,
       now: new Date('2026-03-22T08:00:00Z'),
-      // No deeplAuthKey
     });
 
     expect(result.output).toContain('🇦🇪 UAE Latest News Digest');
     expect(result.output).toContain('Dubai airport reopens after rain');
+    expect(result.output).toContain('Reuters, 1h ago');
   });
 });
 

@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name('uae-news-digest')
   .description('Daily UAE news digest from Google News RSS with optional DeepL translation')
-  .option('--format <format>', 'output format: json, table', 'json')
+  .option('--json', 'output as JSON', false)
   .option('--rss-url <url>', 'RSS URL to fetch', DEFAULT_RSS_URL)
   .option('--state-file <path>', 'path to seen-items state file', DEFAULT_STATE_FILE)
   .option('--hours <number>', 'lookback window in hours', '36')
@@ -26,7 +26,8 @@ program
   .addHelpText('after', `
 Example:
   uae-news-digest --hours 12 --limit 10
-  uae-news-digest --dry-run --format table
+  uae-news-digest --dry-run
+  uae-news-digest --json
   DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE`);
 
 // ── Manifest subcommand (inlined from @openclaw/cli-common) ──
@@ -45,7 +46,7 @@ program
         {
           name: '(default)',
           description: 'Fetch and print news digest',
-          flags: ['--hours <n>', '--limit <n>', '--state-file <path>', '--target-lang <code>', '--dry-run', '--format <json|table>'],
+          flags: ['--hours <n>', '--limit <n>', '--state-file <path>', '--target-lang <code>', '--dry-run', '--json'],
           examples: ['uae-news-digest --hours 12 --limit 10'],
         },
       ],
@@ -74,7 +75,6 @@ program
 // ── Main action ──
 
 program.action(async (options) => {
-  const fmt = options.format ?? 'json';
   try {
     const hours = validatePositiveNumber('hours', options.hours);
     const limit = validatePositiveNumber('limit', options.limit);
@@ -114,18 +114,27 @@ program.action(async (options) => {
       targetLang: options.targetLang,
     });
 
-    if (fmt === 'json') {
-      console.log(JSON.stringify({
-        output: result.output,
-        items: result.digest.length,
-        digest: result.digest.map(d => ({ title: d.title, source: d.source, score: d.score, publishedAt: d.publishedAt.toISOString() })),
-        dryRun: options.dryRun,
-      }));
+    if (options.json) {
+      const now = new Date();
+      process.stdout.write(JSON.stringify({
+        tool: 'uae-news-digest',
+        version: '0.1.0',
+        query: { hours, limit, targetLang: options.targetLang ?? null },
+        count: result.digest.length,
+        items: result.digest.map(d => ({
+          title: d.title,
+          source: d.source,
+          score: d.score,
+          publishedAt: d.publishedAt.toISOString(),
+          hoursAgo: Math.round((now.getTime() - d.publishedAt.getTime()) / 3_600_000),
+        })),
+      }, null, 2) + '\n');
     } else {
-      console.log(result.output);
-      if (options.dryRun) {
-        console.log('\n(dry run — state file not updated)');
-      }
+      process.stdout.write(result.output + '\n');
+    }
+
+    if (options.dryRun) {
+      console.error('(dry run — state file not updated)');
     }
 
     if (result.digest.length > 0 && !options.dryRun) {

@@ -26,7 +26,7 @@ bun run dev -- --dry-run
 uae-news-digest                                    # fetch + print in English
 uae-news-digest --dry-run                           # preview without updating state
 uae-news-digest --hours 12 --limit 10               # last 12h, max 10 items
-uae-news-digest --format table                      # human-readable output
+uae-news-digest --json                              # output as JSON for agents/scripts
 DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # translate to German via DeepL
 ```
 
@@ -38,21 +38,17 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # translate to German via D
 | `--state-file <path>` | `./seen_titles.txt` | Seen-items state file |
 | `--timeout-ms <n>` | `15000` | RSS fetch timeout |
 | `--dry-run` | `false` | Preview without updating state |
-| `--format <fmt>` | `json` | Output: `json` or `table` |
-
-Set `DEEPL_AUTH_KEY` env var and pass `--target-lang` for translation. Without these, output is in English.
+| `--json` | `false` | Output as JSON (agent-friendly envelope) |
 
 ## Example Output
 
 ```
-🇦🇪 UAE Latest News Digest
-
-🛡️ UAE intercepts 79 Iranian strike assets (The National)
-📉 Dubai property sales drop more than 30% (Anadolu Ajansı)
-⛴️ Container ship incident at Khor Fakkan (Reuters)
-✈️ Abu Dhabi airport reopens after rain (Khaleej Times)
-🌧️ Unstable weather hits some emirates (Gulf News)
-🛢️ Oil prices: OPEC+ mulls output increase (CNBC)
+🛡️ UAE intercepts 79 Iranian strike assets (The National, 2h ago)
+📉 Dubai property sales drop more than 30% (Anadolu Ajansı, 5h ago)
+⛴️ Container ship incident at Khor Fakkan (Reuters, 3h ago)
+✈️ Abu Dhabi airport reopens after rain (Khaleej Times, 1h ago)
+🌧️ Unstable weather hits some emirates (Gulf News, 4h ago)
+🛢️ Oil prices: OPEC+ mulls output increase (CNBC, 6h ago)
 ```
 
 ## How It Works
