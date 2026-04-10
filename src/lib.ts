@@ -290,7 +290,7 @@ export async function translateDeepL(
 
 // ── Render ─────────────────────────────────────────────────────
 
-export function renderDigest(items: DigestItem[], translations?: Map<string, string>): string {
+export function renderDigest(items: DigestItem[], translations?: Map<string, string>, now: Date = new Date()): string {
   if (items.length === 0) {
     return '🇦🇪 UAE Latest News Digest\n\n• No significant news in the check window.';
   }
@@ -298,7 +298,8 @@ export function renderDigest(items: DigestItem[], translations?: Map<string, str
   const lines = ['🇦🇪 UAE Latest News Digest', ''];
   for (const item of items) {
     const title = translations?.get(item.title) ?? item.title;
-    lines.push(`${emojiFor(item.title)} ${title} (${item.source})`);
+    const hoursAgo = Math.round((now.getTime() - item.publishedAt.getTime()) / 3_600_000);
+    lines.push(`${emojiFor(item.title)} ${title} (${item.source}, ${hoursAgo}h ago)`);
   }
   return lines.join('\n');
 }
@@ -331,7 +332,7 @@ export async function runDigest(options: RunDigestOptions): Promise<{ digest: Di
 
   return {
     digest,
-    output: renderDigest(digest, translations),
+    output: renderDigest(digest, translations, options.now ?? new Date()),
     nextSeenKeys: mergeSeenKeys(options.seenKeys, digest),
   };
 }
