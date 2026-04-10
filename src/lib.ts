@@ -1,6 +1,22 @@
 import { XMLParser } from 'fast-xml-parser';
 
-export const DEFAULT_RSS_URL = 'https://news.google.com/rss/search?q=UAE+OR+%22Abu+Dhabi%22+OR+Dubai&hl=en&gl=AE&ceid=AE:en';
+export const REGION_PRESETS: Record<string, { q: string; hl: string; gl: string; ceid: string }> = {
+  uae: { q: 'UAE OR "Abu Dhabi" OR Dubai', hl: 'en', gl: 'AE', ceid: 'AE:en' },
+  us:  { q: 'USA OR "United States"', hl: 'en', gl: 'US', ceid: 'US:en' },
+  uk:  { q: 'UK OR "United Kingdom" OR London', hl: 'en', gl: 'GB', ceid: 'GB:en' },
+  de:  { q: 'Deutschland OR Berlin OR München', hl: 'de', gl: 'DE', ceid: 'DE:de' },
+  ru:  { q: 'Россия OR Москва', hl: 'ru', gl: 'RU', ceid: 'RU:ru' },
+};
+
+export function buildRssUrl(region: string): string {
+  const preset = REGION_PRESETS[region.toLowerCase()];
+  if (!preset) {
+    const available = Object.keys(REGION_PRESETS).join(', ');
+    throw new Error(`Unknown region "${region}". Available: ${available}`);
+  }
+  const q = encodeURIComponent(preset.q);
+  return `https://news.google.com/rss/search?q=${q}&hl=${preset.hl}&gl=${preset.gl}&ceid=${preset.ceid}`;
+}
 export const DEFAULT_STATE_FILE = './seen_titles.txt';
 export const DEEPL_API_URL = process.env.DEEPL_API_URL ?? 'https://api-free.deepl.com/v2/translate';
 
