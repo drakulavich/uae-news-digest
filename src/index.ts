@@ -45,8 +45,8 @@ program
         {
           name: '(default)',
           description: 'Fetch and print news digest',
-          flags: ['--hours <n>', '--limit <n>', '--state-file <path>', '--target-lang <code>', '--dry-run', '--no-translate', '--format <json|table>'],
-          examples: ['uae-news-digest --hours 12 --limit 10 --target-lang DE'],
+          flags: ['--hours <n>', '--limit <n>', '--state-file <path>', '--target-lang <code>', '--dry-run', '--format <json|table>'],
+          examples: ['uae-news-digest --hours 12 --limit 10'],
         },
       ],
       envVars: ['DEEPL_AUTH_KEY'],
