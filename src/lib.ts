@@ -41,7 +41,6 @@ export type RunDigestOptions = {
   hours: number;
   limit: number;
   now?: Date;
-  translate?: boolean;
   deeplAuthKey?: string;
   targetLang?: string;
   /** Override fetch for testing */
@@ -291,22 +290,15 @@ export async function translateDeepL(
 
 // ── Render ─────────────────────────────────────────────────────
 
-/**
- * Render digest to text.
- * @param items Digest items
- * @param translations Optional map of original title → translated title (from DeepL).
- *   If provided, uses DeepL translations; missing entries fall back to keyword translation.
- */
-export function renderDigest(items: DigestItem[], translations?: Map<string, string>, targetLang: string = 'RU'): string {
+export function renderDigest(items: DigestItem[], translations?: Map<string, string>): string {
   if (items.length === 0) {
     return '🇦🇪 UAE Latest News Digest\n\n• No significant news in the check window.';
   }
 
   const lines = ['🇦🇪 UAE Latest News Digest', ''];
   for (const item of items) {
-    const translated = translations?.get(item.title)
-      ?? (targetLang === 'RU' ? translateTitleRu(item.title) : item.title);
-    lines.push(`${emojiFor(item.title)} ${translated} (${item.source})`);
+    const title = translations?.get(item.title) ?? item.title;
+    lines.push(`${emojiFor(item.title)} ${title} (${item.source})`);
   }
   return lines.join('\n');
 }
@@ -315,10 +307,6 @@ export function mergeSeenKeys(seenKeys: Set<string>, digest: DigestItem[]): Set<
   return new Set([...seenKeys, ...digest.map((item) => item.key)]);
 }
 
-/**
- * Run the full digest pipeline: parse → filter → translate → render.
- * Now async to support DeepL translation.
- */
 export async function runDigest(options: RunDigestOptions): Promise<{ digest: DigestItem[]; output: string; nextSeenKeys: Set<string> }> {
   const items = parseRss(options.xml);
   const digest = buildDigest(items, {
@@ -330,24 +318,20 @@ export async function runDigest(options: RunDigestOptions): Promise<{ digest: Di
 
   let translations: Map<string, string> | undefined;
 
-  // Attempt DeepL translation if enabled and key is available
-  const shouldTranslate = options.translate !== false;
-  if (shouldTranslate && options.deeplAuthKey && digest.length > 0) {
+  if (options.targetLang && options.deeplAuthKey && digest.length > 0) {
     const titles = digest.map((d) => d.title);
-    const targetLang = options.targetLang ?? 'RU';
-    const translated = await translateDeepL(titles, options.deeplAuthKey, targetLang, options.fetchFn);
+    const translated = await translateDeepL(titles, options.deeplAuthKey, options.targetLang, options.fetchFn);
     if (translated) {
       translations = new Map();
       for (let i = 0; i < titles.length; i++) {
         translations.set(titles[i]!, translated[i]!);
       }
     }
-    // If translateDeepL returned null, translations stays undefined → keyword fallback
   }
 
   return {
     digest,
-    output: renderDigest(digest, translations, options.targetLang ?? 'RU'),
+    output: renderDigest(digest, translations),
     nextSeenKeys: mergeSeenKeys(options.seenKeys, digest),
   };
 }
