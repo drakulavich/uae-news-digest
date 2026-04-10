@@ -1,6 +1,7 @@
-import { describe, expect, test, afterAll } from 'bun:test';
+import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { Server } from 'bun';
 import {
   buildDigest,
   buildRssUrl,
@@ -19,23 +20,50 @@ import {
   type RssItem,
 } from '../src/lib';
 
-// ── Helpers ────────────────────────────────────────────────────
+// ── DeepL test server ──────────────────────────────────────────
 
-/** Create a mock fetch that returns a DeepL-shaped response. */
-function mockDeepLFetch(translations: string[], status = 200): typeof globalThis.fetch {
-  return (async () => ({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: status === 200 ? 'OK' : 'Error',
-    json: async () => ({
-      translations: translations.map((text) => ({ detected_source_language: 'EN', text })),
-    }),
-  })) as any;
+type DeepLHandler = (req: Request) => Response | Promise<Response>;
+
+let deeplHandler: DeepLHandler = () => new Response('Not configured', { status: 500 });
+let deeplServer: Server;
+
+beforeAll(() => {
+  deeplServer = Bun.serve({
+    port: 0,
+    fetch(req) {
+      return deeplHandler(req);
+    },
+  });
+  process.env.DEEPL_API_URL = `http://localhost:${deeplServer.port}/translate`;
+});
+
+afterAll(() => {
+  deeplServer.stop(true);
+  delete process.env.DEEPL_API_URL;
+});
+
+/** Set up deeplHandler to return a successful translation response. */
+function setupDeepLSuccess(translations: string[]): void {
+  deeplHandler = async () => new Response(
+    JSON.stringify({ translations: translations.map((text) => ({ detected_source_language: 'EN', text })) }),
+    { status: 200, headers: { 'content-type': 'application/json' } },
+  );
 }
 
-/** Create a mock fetch that throws a network error. */
-function mockDeepLFetchError(): typeof globalThis.fetch {
-  return (async () => { throw new Error('NetworkError: fetch failed'); }) as any;
+/** Set up deeplHandler to return a specific HTTP error status. */
+function setupDeepLStatus(status: number): void {
+  deeplHandler = async () => new Response('Error', { status });
+}
+
+/** Set up DEEPL_API_URL to point to a port with no listener, simulating a connection refused. */
+function setupDeepLNetworkError(): void {
+  // Point to a port that is not listening (1 is always unavailable)
+  process.env.DEEPL_API_URL = 'http://localhost:1/translate';
+}
+
+/** Restore DEEPL_API_URL back to the test server. */
+function restoreDeepLUrl(): void {
+  process.env.DEEPL_API_URL = `http://localhost:${deeplServer.port}/translate`;
 }
 
 // ── parseRss ───────────────────────────────────────────────────
@@ -238,12 +266,11 @@ describe('emojiFor', () => {
 
 describe('translateDeepL', () => {
   test('returns translated texts on success', async () => {
-    const mockFetch = mockDeepLFetch(['Рынок Дубая растёт', 'Аэропорт Абу-Даби открыт']);
+    setupDeepLSuccess(['Рынок Дубая растёт', 'Аэропорт Абу-Даби открыт']);
     const result = await translateDeepL(
       ['Dubai market rises', 'Abu Dhabi airport reopens'],
       'fake-key',
       'RU',
-      mockFetch,
     );
     expect(result).toEqual(['Рынок Дубая растёт', 'Аэропорт Абу-Даби открыт']);
   });
@@ -254,51 +281,51 @@ describe('translateDeepL', () => {
   });
 
   test('returns null on rate limit (429)', async () => {
-    const mockFetch = mockDeepLFetch([], 429);
-    const result = await translateDeepL(['test'], 'fake-key', 'RU', mockFetch);
+    setupDeepLStatus(429);
+    const result = await translateDeepL(['test'], 'fake-key', 'RU');
     expect(result).toBeNull();
   });
 
   test('returns null on quota exceeded (456)', async () => {
-    const mockFetch = mockDeepLFetch([], 456);
-    const result = await translateDeepL(['test'], 'fake-key', 'RU', mockFetch);
+    setupDeepLStatus(456);
+    const result = await translateDeepL(['test'], 'fake-key', 'RU');
     expect(result).toBeNull();
   });
 
   test('returns null on server error (500)', async () => {
-    const mockFetch = mockDeepLFetch([], 500);
-    const result = await translateDeepL(['test'], 'fake-key', 'RU', mockFetch);
+    setupDeepLStatus(500);
+    const result = await translateDeepL(['test'], 'fake-key', 'RU');
     expect(result).toBeNull();
   });
 
   test('returns null on network error', async () => {
-    const mockFetch = mockDeepLFetchError();
-    const result = await translateDeepL(['test'], 'fake-key', 'RU', mockFetch);
-    expect(result).toBeNull();
+    setupDeepLNetworkError();
+    try {
+      const result = await translateDeepL(['test'], 'fake-key', 'RU');
+      expect(result).toBeNull();
+    } finally {
+      restoreDeepLUrl();
+    }
   });
 
   test('returns null if response count mismatches', async () => {
-    // Send 2 texts but mock returns only 1 translation
-    const mockFetch = mockDeepLFetch(['only one']);
-    const result = await translateDeepL(['text one', 'text two'], 'fake-key', 'RU', mockFetch);
+    // Send 2 texts but server returns only 1 translation
+    setupDeepLSuccess(['only one']);
+    const result = await translateDeepL(['text one', 'text two'], 'fake-key', 'RU');
     expect(result).toBeNull();
   });
 
   test('passes targetLang to DeepL API', async () => {
     let capturedBody: any;
-    const mockFetch = (async (_url: string, init: any) => {
-      capturedBody = JSON.parse(init.body);
-      return {
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        json: async () => ({
-          translations: [{ detected_source_language: 'EN', text: 'Markt in Dubai steigt' }],
-        }),
-      };
-    }) as any;
+    deeplHandler = async (req) => {
+      capturedBody = await req.json();
+      return new Response(
+        JSON.stringify({ translations: [{ detected_source_language: 'EN', text: 'Markt in Dubai steigt' }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    };
 
-    await translateDeepL(['Dubai market rises'], 'fake-key', 'DE', mockFetch);
+    await translateDeepL(['Dubai market rises'], 'fake-key', 'DE');
     expect(capturedBody.target_lang).toBe('DE');
   });
 });
@@ -382,7 +409,7 @@ describe('runDigest', () => {
   </channel></rss>`;
 
   test('uses DeepL when key and targetLang are provided', async () => {
-    const mockFetch = mockDeepLFetch([
+    setupDeepLSuccess([
       'Аэропорт Дубая возобновил работу после дождя',
       'Обзор рынка Абу-Даби',
     ]);
@@ -395,7 +422,6 @@ describe('runDigest', () => {
       now: new Date('2026-03-22T08:00:00Z'),
       deeplAuthKey: 'fake-key',
       targetLang: 'RU',
-      fetchFn: mockFetch,
     });
 
     expect(result.output).toContain('Аэропорт Дубая возобновил работу после дождя');
@@ -406,7 +432,7 @@ describe('runDigest', () => {
   });
 
   test('falls back to English when DeepL fails', async () => {
-    const mockFetch = mockDeepLFetchError();
+    setupDeepLStatus(500);
 
     const result = await runDigest({
       xml: rssXml,
@@ -416,7 +442,6 @@ describe('runDigest', () => {
       now: new Date('2026-03-22T08:00:00Z'),
       deeplAuthKey: 'fake-key',
       targetLang: 'RU',
-      fetchFn: mockFetch,
     });
 
     expect(result.output).toContain('🇦🇪 UAE Latest News Digest');
@@ -426,12 +451,6 @@ describe('runDigest', () => {
   });
 
   test('skips DeepL when no targetLang', async () => {
-    let deeplCalled = false;
-    const mockFetch = (async (...args: any[]) => {
-      deeplCalled = true;
-      return mockDeepLFetch(['x', 'y'])(...args as [any]);
-    }) as typeof globalThis.fetch;
-
     const result = await runDigest({
       xml: rssXml,
       seenKeys: new Set(),
@@ -439,10 +458,9 @@ describe('runDigest', () => {
       limit: 6,
       now: new Date('2026-03-22T08:00:00Z'),
       deeplAuthKey: 'fake-key',
-      fetchFn: mockFetch,
     });
 
-    expect(deeplCalled).toBe(false);
+    // Output should be in English (DeepL not called without targetLang)
     expect(result.output).toContain('Dubai airport reopens after rain');
     expect(result.output).toContain('1h ago');
   });

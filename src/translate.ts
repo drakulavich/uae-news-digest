@@ -1,4 +1,4 @@
-export const DEEPL_API_URL = process.env.DEEPL_API_URL ?? 'https://api-free.deepl.com/v2/translate';
+export const DEEPL_API_URL = 'https://api-free.deepl.com/v2/translate';
 
 export type DeepLTranslation = {
   detected_source_language: string;
@@ -13,12 +13,12 @@ export async function translateDeepL(
   texts: string[],
   authKey: string,
   targetLang: string = 'RU',
-  fetchFn: typeof globalThis.fetch = globalThis.fetch,
 ): Promise<string[] | null> {
   if (texts.length === 0) return [];
 
   try {
-    const response = await fetchFn(DEEPL_API_URL, {
+    const url = process.env.DEEPL_API_URL ?? DEEPL_API_URL;
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `DeepL-Auth-Key ${authKey}`,

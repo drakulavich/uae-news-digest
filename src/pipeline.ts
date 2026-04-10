@@ -13,8 +13,6 @@ export type RunDigestOptions = {
   deeplAuthKey?: string;
   targetLang?: string;
   region?: string;
-  /** Override fetch for testing */
-  fetchFn?: typeof globalThis.fetch;
 };
 
 export function mergeSeenKeys(seenKeys: Set<string>, digest: DigestItem[]): Set<string> {
@@ -34,7 +32,7 @@ export async function runDigest(options: RunDigestOptions): Promise<{ digest: Di
 
   if (options.targetLang && options.deeplAuthKey && digest.length > 0) {
     const titles = digest.map((d) => d.title);
-    const translated = await translateDeepL(titles, options.deeplAuthKey, options.targetLang, options.fetchFn);
+    const translated = await translateDeepL(titles, options.deeplAuthKey, options.targetLang);
     if (translated) {
       translations = new Map();
       for (let i = 0; i < titles.length; i++) {
