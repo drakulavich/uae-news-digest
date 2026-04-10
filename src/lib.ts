@@ -2,7 +2,7 @@ import { XMLParser } from 'fast-xml-parser';
 
 export const DEFAULT_RSS_URL = 'https://news.google.com/rss/search?q=UAE+OR+%22Abu+Dhabi%22+OR+Dubai&hl=en&gl=AE&ceid=AE:en';
 export const DEFAULT_STATE_FILE = './seen_titles.txt';
-export const DEEPL_API_URL = 'https://api-free.deepl.com/v2/translate';
+export const DEEPL_API_URL = process.env.DEEPL_API_URL ?? 'https://api-free.deepl.com/v2/translate';
 
 const DEFAULT_SKIP_RE = /(opinion|daily mail|travel and tour world|tradingview|cycling|horse|football|msn|substack|influencer|hotel room|fitness journey|baskin-robbins)/i;
 const DEFAULT_PREFER_RE = /(reuters|the national|gulf news|khaleej times|cnbc|ap news|bbc|anadolu|zawya)/i;
