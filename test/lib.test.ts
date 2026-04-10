@@ -351,6 +351,26 @@ describe('renderDigest', () => {
     const output = renderDigest([]);
     expect(output).toContain('No significant news in the check window.');
   });
+
+  test('uses UAE header for default region', () => {
+    const output = renderDigest([sampleItem], undefined, now);
+    expect(output).toContain('🇦🇪 UAE');
+  });
+
+  test('uses US header for us region', () => {
+    const output = renderDigest([sampleItem], undefined, now, 'us');
+    expect(output).toContain('🇺🇸 US');
+  });
+
+  test('uses Germany header for de region', () => {
+    const output = renderDigest([sampleItem], undefined, now, 'de');
+    expect(output).toContain('🇩🇪 Germany');
+  });
+
+  test('uses generic header for unknown region', () => {
+    const output = renderDigest([sampleItem], undefined, now, 'xx');
+    expect(output).toContain('📰 News');
+  });
 });
 
 // ── runDigest (integration) ────────────────────────────────────
