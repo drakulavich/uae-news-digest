@@ -1,5 +1,6 @@
 export {
-  DEFAULT_RSS_URL,
+  REGION_PRESETS,
+  buildRssUrl,
   DEFAULT_STATE_FILE,
   DEEPL_API_URL,
   parseRss,

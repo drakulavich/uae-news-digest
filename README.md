@@ -23,7 +23,8 @@ bun run dev -- --dry-run
 ## Usage
 
 ```bash
-uae-news-digest                                    # fetch + print in English
+uae-news-digest                                    # fetch + print UAE news (default)
+uae-news-digest --region us                         # US news
 uae-news-digest --dry-run                           # preview without updating state
 uae-news-digest --hours 12 --limit 10               # last 12h, max 10 items
 uae-news-digest --json                              # output as JSON for agents/scripts
@@ -34,6 +35,7 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # translate to German via D
 |------|---------|-------------|
 | `--hours <n>` | `36` | Lookback window in hours |
 | `--limit <n>` | `6` | Max items in digest |
+| `--region <code>` | `uae` | News region preset (`uae`, `us`, `uk`, `de`, `ru`) |
 | `--target-lang <code>` | | DeepL target language (e.g. `DE`, `FR`, `JA`). Requires `DEEPL_AUTH_KEY` |
 | `--state-file <path>` | `./seen_titles.txt` | Seen-items state file |
 | `--timeout-ms <n>` | `15000` | RSS fetch timeout |
@@ -70,6 +72,8 @@ uae-news-digest --hours 12 --limit 10
 ```
 
 State file (`seen_titles.txt`) tracks seen articles to avoid repeats across runs.
+
+Set `DEEPL_AUTH_KEY` env var and pass `--target-lang` for translation. Use `--rss-url` to override the region preset with a custom RSS URL.
 
 ## Requirements
 
