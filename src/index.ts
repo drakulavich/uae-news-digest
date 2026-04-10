@@ -61,7 +61,7 @@ program
   .action(async () => {
     const start = performance.now();
     try {
-      const res = await fetch('https://news.google.com/rss/search?q=UAE&hl=en-AE&gl=AE&ceid=AE:en', { signal: AbortSignal.timeout(10000) });
+      const res = await fetch(buildRssUrl('uae'), { signal: AbortSignal.timeout(10000) });
       const result = { ok: res.ok, version: '0.1.0', latencyMs: Math.round(performance.now() - start) };
       console.log(JSON.stringify(result));
       process.exit(result.ok ? 0 : 1);
