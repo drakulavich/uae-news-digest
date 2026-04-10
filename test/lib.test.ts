@@ -12,7 +12,6 @@ import {
   scoreItem,
   titleSimilarity,
   translateDeepL,
-  translateTitleRu,
   writeSeenKeys,
   type DeepLResponse,
   type DigestItem,
@@ -234,45 +233,6 @@ describe('emojiFor', () => {
   });
 });
 
-// ── translateTitleRu (keyword fallback) ────────────────────────
-
-describe('translateTitleRu', () => {
-  test('translates place names', () => {
-    const t = translateTitleRu('Dubai and Abu Dhabi see growth');
-    expect(t).toContain('Дубай');
-    expect(t).toContain('Абу-Даби');
-  });
-
-  test('translates UAE', () => {
-    expect(translateTitleRu('UAE announces new law')).toContain('ОАЭ');
-  });
-
-  test('translates military terms', () => {
-    const t = translateTitleRu('UAE air defences engage 5 ballistic missiles');
-    expect(t).toContain('ПВО');
-    expect(t).toContain('баллистические ракеты');
-  });
-
-  test('translates weather terms', () => {
-    expect(translateTitleRu('Heavy rain expected')).toContain('сильный дождь');
-  });
-
-  test('translates property/economy terms', () => {
-    expect(translateTitleRu('property sector shows early signs of weakness')).toContain('рынок недвижимости');
-    expect(translateTitleRu('property sector shows early signs of weakness')).toContain('первые признаки слабости');
-  });
-
-  test('cleans up dashes', () => {
-    const t = translateTitleRu('Dubai - latest updates');
-    expect(t).toContain('—');
-    expect(t).not.toContain(' - ');
-  });
-
-  test('handles empty string', () => {
-    expect(translateTitleRu('')).toBe('');
-  });
-});
-
 // ── translateDeepL ─────────────────────────────────────────────
 
 describe('translateDeepL', () => {
@@ -353,11 +313,11 @@ describe('renderDigest', () => {
     key: makeKey('Dubai property sector shows early signs of weakness', 'Reuters'),
   };
 
-  test('prints Russian digest header and bullets with keyword fallback', () => {
+  test('prints English digest header and bullets by default', () => {
     const output = renderDigest([sampleItem]);
     expect(output).toContain('🇦🇪 UAE Latest News Digest');
     expect(output).toContain('📉');
-    expect(output).toContain('Дубай');
+    expect(output).toContain('Dubai property sector shows early signs of weakness');
     expect(output).toContain('Reuters');
   });
 
@@ -370,18 +330,10 @@ describe('renderDigest', () => {
     expect(output).toContain('Reuters');
   });
 
-  test('falls back to keyword translation for missing DeepL entries', () => {
+  test('keeps original title when translations map has no entry', () => {
     const translations = new Map<string, string>(); // empty map — no DeepL results
-    const output = renderDigest([sampleItem], translations, 'RU');
-    // Should use keyword fallback
-    expect(output).toContain('Дубай');
-    expect(output).toContain('рынок недвижимости');
-  });
-
-  test('keeps English titles when targetLang is not RU and no DeepL translations', () => {
-    const output = renderDigest([sampleItem], undefined, 'DE');
+    const output = renderDigest([sampleItem], translations);
     expect(output).toContain('Dubai property sector shows early signs of weakness');
-    expect(output).not.toContain('Дубай');
   });
 
   test('prints empty message for no items', () => {
@@ -398,7 +350,7 @@ describe('runDigest', () => {
     <item><title>Abu Dhabi market overview</title><pubDate>Sun, 22 Mar 2026 06:00:00 GMT</pubDate><source url="https://example.com">Gulf News</source></item>
   </channel></rss>`;
 
-  test('uses DeepL when key is provided', async () => {
+  test('uses DeepL when key and targetLang are provided', async () => {
     const mockFetch = mockDeepLFetch([
       'Аэропорт Дубая возобновил работу после дождя',
       'Обзор рынка Абу-Даби',
@@ -411,6 +363,7 @@ describe('runDigest', () => {
       limit: 6,
       now: new Date('2026-03-22T08:00:00Z'),
       deeplAuthKey: 'fake-key',
+      targetLang: 'RU',
       fetchFn: mockFetch,
     });
 
@@ -419,7 +372,7 @@ describe('runDigest', () => {
     expect(result.digest).toHaveLength(2);
   });
 
-  test('falls back to keyword translation when DeepL fails', async () => {
+  test('falls back to English when DeepL fails', async () => {
     const mockFetch = mockDeepLFetchError();
 
     const result = await runDigest({
@@ -429,16 +382,17 @@ describe('runDigest', () => {
       limit: 6,
       now: new Date('2026-03-22T08:00:00Z'),
       deeplAuthKey: 'fake-key',
+      targetLang: 'RU',
       fetchFn: mockFetch,
     });
 
-    // Should still produce output using keyword fallback
+    // Should still produce output in English (no keyword fallback)
     expect(result.output).toContain('🇦🇪 UAE Latest News Digest');
-    expect(result.output).toContain('Дубай');
+    expect(result.output).toContain('Dubai airport reopens after rain');
     expect(result.digest).toHaveLength(2);
   });
 
-  test('skips DeepL when translate=false', async () => {
+  test('skips DeepL when no targetLang', async () => {
     let deeplCalled = false;
     const mockFetch = (async (...args: any[]) => {
       deeplCalled = true;
@@ -451,14 +405,13 @@ describe('runDigest', () => {
       hours: 36,
       limit: 6,
       now: new Date('2026-03-22T08:00:00Z'),
-      translate: false,
       deeplAuthKey: 'fake-key',
       fetchFn: mockFetch,
     });
 
     expect(deeplCalled).toBe(false);
-    // Uses keyword fallback
-    expect(result.output).toContain('Дубай');
+    // Output is English
+    expect(result.output).toContain('Dubai airport reopens after rain');
   });
 
   test('skips DeepL when no auth key', async () => {
@@ -472,7 +425,7 @@ describe('runDigest', () => {
     });
 
     expect(result.output).toContain('🇦🇪 UAE Latest News Digest');
-    expect(result.output).toContain('Дубай');
+    expect(result.output).toContain('Dubai airport reopens after rain');
   });
 });
 
