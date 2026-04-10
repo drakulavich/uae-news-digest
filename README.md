@@ -1,5 +1,6 @@
 # 🇦🇪 uae-news-digest
 
+[![CI](https://github.com/drakulavich/uae-news-digest/actions/workflows/ci.yml/badge.svg)](https://github.com/drakulavich/uae-news-digest/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bun](https://img.shields.io/badge/runtime-Bun-f9f1e1?logo=bun)](https://bun.sh)
 
