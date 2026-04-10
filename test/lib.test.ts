@@ -1,0 +1,507 @@
+import { describe, expect, test, afterAll } from 'bun:test';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  buildDigest,
+  emojiFor,
+  makeKey,
+  parseRss,
+  readSeenKeys,
+  renderDigest,
+  runDigest,
+  scoreItem,
+  titleSimilarity,
+  translateDeepL,
+  translateTitleRu,
+  writeSeenKeys,
+  type DeepLResponse,
+  type DigestItem,
+  type RssItem,
+} from '../src/lib';
+
+// ── Helpers ────────────────────────────────────────────────────
+
+/** Create a mock fetch that returns a DeepL-shaped response. */
+function mockDeepLFetch(translations: string[], status = 200): typeof globalThis.fetch {
+  return (async () => ({
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status === 200 ? 'OK' : 'Error',
+    json: async () => ({
+      translations: translations.map((text) => ({ detected_source_language: 'EN', text })),
+    }),
+  })) as any;
+}
+
+/** Create a mock fetch that throws a network error. */
+function mockDeepLFetchError(): typeof globalThis.fetch {
+  return (async () => { throw new Error('NetworkError: fetch failed'); }) as any;
+}
+
+// ── parseRss ───────────────────────────────────────────────────
+
+describe('parseRss', () => {
+  test('extracts items and source text', () => {
+    const xml = `<?xml version="1.0"?><rss><channel><item><title>Dubai market rises</title><pubDate>Sun, 22 Mar 2026 04:00:00 GMT</pubDate><source url="https://example.com">Reuters</source></item></channel></rss>`;
+    const items = parseRss(xml);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toEqual({
+      title: 'Dubai market rises',
+      pubDate: 'Sun, 22 Mar 2026 04:00:00 GMT',
+      source: 'Reuters',
+    });
+  });
+
+  test('returns empty array for empty channel', () => {
+    const xml = `<?xml version="1.0"?><rss><channel></channel></rss>`;
+    expect(parseRss(xml)).toEqual([]);
+  });
+
+  test('handles single item (not wrapped in array)', () => {
+    const xml = `<?xml version="1.0"?><rss><channel><item><title>Only one</title></item></channel></rss>`;
+    const items = parseRss(xml);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.title).toBe('Only one');
+  });
+
+  test('handles malformed XML gracefully', () => {
+    expect(() => parseRss('not xml at all')).not.toThrow();
+    const items = parseRss('not xml at all');
+    expect(items).toEqual([]);
+  });
+
+  test('handles XML with no rss root', () => {
+    const xml = `<?xml version="1.0"?><feed><entry><title>Atom</title></entry></feed>`;
+    expect(parseRss(xml)).toEqual([]);
+  });
+});
+
+// ── buildDigest ────────────────────────────────────────────────
+
+describe('buildDigest', () => {
+  test('filters seen, old, and low-signal items deterministically', () => {
+    const now = new Date('2026-03-22T08:00:00Z');
+    const items: RssItem[] = [
+      { title: 'Dubai property sector shows early signs of weakness', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Reuters' },
+      { title: 'Dubai property sector shows early signs of weakness', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Reuters' },
+      { title: 'UAE football roundup', pubDate: 'Sun, 22 Mar 2026 07:30:00 GMT', source: 'MSN' },
+      { title: 'Abu Dhabi airport reopens airspace', pubDate: 'Fri, 20 Mar 2026 01:00:00 GMT', source: 'The National' },
+      { title: 'Dubai flight status updates after rain', pubDate: 'Sun, 22 Mar 2026 06:45:00 GMT', source: 'Khaleej Times' },
+    ];
+
+    const digest = buildDigest(items, {
+      seenKeys: new Set([makeKey('Dubai flight status updates after rain', 'Khaleej Times')]),
+      hours: 36,
+      limit: 6,
+      now,
+    });
+
+    expect(digest).toHaveLength(1);
+    expect(digest[0]?.title).toContain('Dubai property sector');
+    expect(digest[0]?.source).toBe('Reuters');
+  });
+
+  test('fuzzy dedup coalesces similar titles from different sources', () => {
+    const now = new Date('2026-03-22T08:00:00Z');
+    const items: RssItem[] = [
+      { title: 'UAE says it intercepted 5 Iranian missiles, 17 drones', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Reuters' },
+      { title: 'UAE air defences engage 5 ballistic missiles, 17 UAVs on March 24', pubDate: 'Sun, 22 Mar 2026 07:30:00 GMT', source: 'Gulf News' },
+    ];
+
+    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now });
+    expect(digest).toHaveLength(1);
+  });
+
+  test('returns empty for all-skipped items', () => {
+    const now = new Date('2026-03-22T08:00:00Z');
+    const items: RssItem[] = [
+      { title: 'UAE football roundup', pubDate: 'Sun, 22 Mar 2026 07:30:00 GMT', source: 'MSN' },
+    ];
+    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now });
+    expect(digest).toHaveLength(0);
+  });
+
+  test('respects limit', () => {
+    const now = new Date('2026-03-22T08:00:00Z');
+    const topics = ['airport closure', 'property market crash', 'oil price surge', 'visa regulation change', 'metro expansion plan', 'weather sandstorm warning', 'hospital opening ceremony', 'shipping trade agreement', 'drone technology expo', 'education reform policy'];
+    const items: RssItem[] = topics.map((topic, i) => ({
+      title: `Dubai ${topic}`,
+      pubDate: `Sun, 22 Mar 2026 0${Math.min(7, i)}:00:00 GMT`,
+      source: 'Reuters',
+    }));
+    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 3, now });
+    expect(digest).toHaveLength(3);
+  });
+});
+
+// ── scoreItem ──────────────────────────────────────────────────
+
+describe('scoreItem', () => {
+  test('preferred source gets +3', () => {
+    expect(scoreItem('Generic headline', 'Reuters')).toBe(3);
+    expect(scoreItem('Generic headline', 'AP News')).toBe(3);
+  });
+
+  test('UAE mention in title gets +2', () => {
+    expect(scoreItem('Dubai sees growth', 'Unknown Blog')).toBe(2);
+    expect(scoreItem('Abu Dhabi airport news', 'Unknown Blog')).toBe(4);
+  });
+
+  test('priority keyword gets +2', () => {
+    expect(scoreItem('Rain expected tomorrow', 'Unknown')).toBe(2);
+    expect(scoreItem('Missile launch detected', 'Unknown')).toBe(2);
+  });
+
+  test('preferred source + UAE + priority stacks', () => {
+    expect(scoreItem('Dubai airport closed due to rain', 'Reuters')).toBe(7);
+  });
+
+  test('no match returns 0', () => {
+    expect(scoreItem('Generic headline about nothing', 'Unknown Blog')).toBe(0);
+  });
+});
+
+// ── titleSimilarity ────────────────────────────────────────────
+
+describe('titleSimilarity', () => {
+  test('identical titles return 1', () => {
+    expect(titleSimilarity('Dubai market rises', 'Dubai market rises')).toBe(1);
+  });
+
+  test('completely different titles return low similarity', () => {
+    const sim = titleSimilarity('Dubai airport closure', 'Iran nuclear talks resume');
+    expect(sim).toBeLessThan(0.3);
+  });
+
+  test('similar titles about the same event score high', () => {
+    const sim = titleSimilarity(
+      'UAE says it intercepted 5 Iranian missiles, 17 drones',
+      'UAE air defences engage 5 ballistic missiles, 17 UAVs'
+    );
+    expect(sim).toBeGreaterThan(0.4);
+  });
+
+  test('empty titles return 1', () => {
+    expect(titleSimilarity('', '')).toBe(1);
+  });
+});
+
+// ── emojiFor ───────────────────────────────────────────────────
+
+describe('emojiFor', () => {
+  test('weather/rain', () => {
+    expect(emojiFor('Heavy rain expected')).toBe('🌧️');
+    expect(emojiFor('Unstable weather conditions')).toBe('🌧️');
+  });
+
+  test('property/market', () => {
+    expect(emojiFor('Property prices surge')).toBe('📉');
+    expect(emojiFor('Dubai market overview')).toBe('📉');
+  });
+
+  test('aviation', () => {
+    expect(emojiFor('Airport reopens after delays')).toBe('✈️');
+    expect(emojiFor('Airspace closed for safety')).toBe('✈️');
+  });
+
+  test('military', () => {
+    expect(emojiFor('Missile intercepted')).toBe('🛡️');
+    expect(emojiFor('Drone attack reported')).toBe('🛡️');
+  });
+
+  test('shipping', () => {
+    expect(emojiFor('Hormuz strait tensions')).toBe('⛴️');
+  });
+
+  test('terrorism', () => {
+    expect(emojiFor('Hezbollah funding traced')).toBe('🚨');
+  });
+
+  test('education', () => {
+    expect(emojiFor('Schools reopen after break')).toBe('🎓');
+  });
+
+  test('oil/energy', () => {
+    expect(emojiFor('Oil prices drop sharply')).toBe('🛢️');
+  });
+
+  test('default bullet for unmatched', () => {
+    expect(emojiFor('Something completely unrelated')).toBe('•');
+  });
+
+  test('Russian погода', () => {
+    expect(emojiFor('нестабильная погода обрушивается')).toBe('🌧️');
+  });
+});
+
+// ── translateTitleRu (keyword fallback) ────────────────────────
+
+describe('translateTitleRu', () => {
+  test('translates place names', () => {
+    const t = translateTitleRu('Dubai and Abu Dhabi see growth');
+    expect(t).toContain('Дубай');
+    expect(t).toContain('Абу-Даби');
+  });
+
+  test('translates UAE', () => {
+    expect(translateTitleRu('UAE announces new law')).toContain('ОАЭ');
+  });
+
+  test('translates military terms', () => {
+    const t = translateTitleRu('UAE air defences engage 5 ballistic missiles');
+    expect(t).toContain('ПВО');
+    expect(t).toContain('баллистические ракеты');
+  });
+
+  test('translates weather terms', () => {
+    expect(translateTitleRu('Heavy rain expected')).toContain('сильный дождь');
+  });
+
+  test('translates property/economy terms', () => {
+    expect(translateTitleRu('property sector shows early signs of weakness')).toContain('рынок недвижимости');
+    expect(translateTitleRu('property sector shows early signs of weakness')).toContain('первые признаки слабости');
+  });
+
+  test('cleans up dashes', () => {
+    const t = translateTitleRu('Dubai - latest updates');
+    expect(t).toContain('—');
+    expect(t).not.toContain(' - ');
+  });
+
+  test('handles empty string', () => {
+    expect(translateTitleRu('')).toBe('');
+  });
+});
+
+// ── translateDeepL ─────────────────────────────────────────────
+
+describe('translateDeepL', () => {
+  test('returns translated texts on success', async () => {
+    const mockFetch = mockDeepLFetch(['Рынок Дубая растёт', 'Аэропорт Абу-Даби открыт']);
+    const result = await translateDeepL(
+      ['Dubai market rises', 'Abu Dhabi airport reopens'],
+      'fake-key',
+      'RU',
+      mockFetch,
+    );
+    expect(result).toEqual(['Рынок Дубая растёт', 'Аэропорт Абу-Даби открыт']);
+  });
+
+  test('returns empty array for empty input', async () => {
+    const result = await translateDeepL([], 'fake-key');
+    expect(result).toEqual([]);
+  });
+
+  test('returns null on rate limit (429)', async () => {
+    const mockFetch = mockDeepLFetch([], 429);
+    const result = await translateDeepL(['test'], 'fake-key', 'RU', mockFetch);
+    expect(result).toBeNull();
+  });
+
+  test('returns null on quota exceeded (456)', async () => {
+    const mockFetch = mockDeepLFetch([], 456);
+    const result = await translateDeepL(['test'], 'fake-key', 'RU', mockFetch);
+    expect(result).toBeNull();
+  });
+
+  test('returns null on server error (500)', async () => {
+    const mockFetch = mockDeepLFetch([], 500);
+    const result = await translateDeepL(['test'], 'fake-key', 'RU', mockFetch);
+    expect(result).toBeNull();
+  });
+
+  test('returns null on network error', async () => {
+    const mockFetch = mockDeepLFetchError();
+    const result = await translateDeepL(['test'], 'fake-key', 'RU', mockFetch);
+    expect(result).toBeNull();
+  });
+
+  test('returns null if response count mismatches', async () => {
+    // Send 2 texts but mock returns only 1 translation
+    const mockFetch = mockDeepLFetch(['only one']);
+    const result = await translateDeepL(['text one', 'text two'], 'fake-key', 'RU', mockFetch);
+    expect(result).toBeNull();
+  });
+
+  test('passes targetLang to DeepL API', async () => {
+    let capturedBody: any;
+    const mockFetch = (async (_url: string, init: any) => {
+      capturedBody = JSON.parse(init.body);
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({
+          translations: [{ detected_source_language: 'EN', text: 'Markt in Dubai steigt' }],
+        }),
+      };
+    }) as any;
+
+    await translateDeepL(['Dubai market rises'], 'fake-key', 'DE', mockFetch);
+    expect(capturedBody.target_lang).toBe('DE');
+  });
+});
+
+// ── renderDigest ───────────────────────────────────────────────
+
+describe('renderDigest', () => {
+  const sampleItem: DigestItem = {
+    score: 5,
+    publishedAt: new Date('2026-03-22T07:00:00Z'),
+    title: 'Dubai property sector shows early signs of weakness',
+    source: 'Reuters',
+    key: makeKey('Dubai property sector shows early signs of weakness', 'Reuters'),
+  };
+
+  test('prints Russian digest header and bullets with keyword fallback', () => {
+    const output = renderDigest([sampleItem]);
+    expect(output).toContain('🇦🇪 UAE Latest News Digest');
+    expect(output).toContain('📉');
+    expect(output).toContain('Дубай');
+    expect(output).toContain('Reuters');
+  });
+
+  test('uses DeepL translations when provided', () => {
+    const translations = new Map([
+      ['Dubai property sector shows early signs of weakness', 'Сектор недвижимости Дубая демонстрирует первые признаки ослабления'],
+    ]);
+    const output = renderDigest([sampleItem], translations);
+    expect(output).toContain('Сектор недвижимости Дубая демонстрирует первые признаки ослабления');
+    expect(output).toContain('Reuters');
+  });
+
+  test('falls back to keyword translation for missing DeepL entries', () => {
+    const translations = new Map<string, string>(); // empty map — no DeepL results
+    const output = renderDigest([sampleItem], translations, 'RU');
+    // Should use keyword fallback
+    expect(output).toContain('Дубай');
+    expect(output).toContain('рынок недвижимости');
+  });
+
+  test('keeps English titles when targetLang is not RU and no DeepL translations', () => {
+    const output = renderDigest([sampleItem], undefined, 'DE');
+    expect(output).toContain('Dubai property sector shows early signs of weakness');
+    expect(output).not.toContain('Дубай');
+  });
+
+  test('prints empty message for no items', () => {
+    const output = renderDigest([]);
+    expect(output).toContain('No significant news in the check window.');
+  });
+});
+
+// ── runDigest (integration) ────────────────────────────────────
+
+describe('runDigest', () => {
+  const rssXml = `<?xml version="1.0"?><rss><channel>
+    <item><title>Dubai airport reopens after rain</title><pubDate>Sun, 22 Mar 2026 07:00:00 GMT</pubDate><source url="https://example.com">Reuters</source></item>
+    <item><title>Abu Dhabi market overview</title><pubDate>Sun, 22 Mar 2026 06:00:00 GMT</pubDate><source url="https://example.com">Gulf News</source></item>
+  </channel></rss>`;
+
+  test('uses DeepL when key is provided', async () => {
+    const mockFetch = mockDeepLFetch([
+      'Аэропорт Дубая возобновил работу после дождя',
+      'Обзор рынка Абу-Даби',
+    ]);
+
+    const result = await runDigest({
+      xml: rssXml,
+      seenKeys: new Set(),
+      hours: 36,
+      limit: 6,
+      now: new Date('2026-03-22T08:00:00Z'),
+      deeplAuthKey: 'fake-key',
+      fetchFn: mockFetch,
+    });
+
+    expect(result.output).toContain('Аэропорт Дубая возобновил работу после дождя');
+    expect(result.output).toContain('Обзор рынка Абу-Даби');
+    expect(result.digest).toHaveLength(2);
+  });
+
+  test('falls back to keyword translation when DeepL fails', async () => {
+    const mockFetch = mockDeepLFetchError();
+
+    const result = await runDigest({
+      xml: rssXml,
+      seenKeys: new Set(),
+      hours: 36,
+      limit: 6,
+      now: new Date('2026-03-22T08:00:00Z'),
+      deeplAuthKey: 'fake-key',
+      fetchFn: mockFetch,
+    });
+
+    // Should still produce output using keyword fallback
+    expect(result.output).toContain('🇦🇪 UAE Latest News Digest');
+    expect(result.output).toContain('Дубай');
+    expect(result.digest).toHaveLength(2);
+  });
+
+  test('skips DeepL when translate=false', async () => {
+    let deeplCalled = false;
+    const mockFetch = (async (...args: any[]) => {
+      deeplCalled = true;
+      return mockDeepLFetch(['x', 'y'])(...args as [any]);
+    }) as typeof globalThis.fetch;
+
+    const result = await runDigest({
+      xml: rssXml,
+      seenKeys: new Set(),
+      hours: 36,
+      limit: 6,
+      now: new Date('2026-03-22T08:00:00Z'),
+      translate: false,
+      deeplAuthKey: 'fake-key',
+      fetchFn: mockFetch,
+    });
+
+    expect(deeplCalled).toBe(false);
+    // Uses keyword fallback
+    expect(result.output).toContain('Дубай');
+  });
+
+  test('skips DeepL when no auth key', async () => {
+    const result = await runDigest({
+      xml: rssXml,
+      seenKeys: new Set(),
+      hours: 36,
+      limit: 6,
+      now: new Date('2026-03-22T08:00:00Z'),
+      // No deeplAuthKey
+    });
+
+    expect(result.output).toContain('🇦🇪 UAE Latest News Digest');
+    expect(result.output).toContain('Дубай');
+  });
+});
+
+// ── readSeenKeys / writeSeenKeys ───────────────────────────────
+
+describe('readSeenKeys / writeSeenKeys', () => {
+  const testFile = join(tmpdir(), `uae-news-test-${Date.now()}.txt`);
+
+  afterAll(async () => {
+    try { await Bun.$`rm -f ${testFile}`.quiet(); } catch {}
+  });
+
+  test('returns empty set for non-existent file', async () => {
+    const keys = await readSeenKeys('/tmp/does-not-exist-uae-test.txt');
+    expect(keys.size).toBe(0);
+  });
+
+  test('round-trip: write then read preserves keys', async () => {
+    const keys = new Set(['key one || source a', 'key two || source b', 'key three || source c']);
+    await writeSeenKeys(testFile, keys);
+    const loaded = await readSeenKeys(testFile);
+    expect(loaded).toEqual(keys);
+  });
+
+  test('written file is sorted', async () => {
+    const keys = new Set(['zebra || z', 'alpha || a', 'middle || m']);
+    await writeSeenKeys(testFile, keys);
+    const raw = await Bun.file(testFile).text();
+    const lines = raw.trim().split('\n');
+    expect(lines).toEqual(['alpha || a', 'middle || m', 'zebra || z']);
+  });
+});
