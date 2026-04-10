@@ -13,11 +13,3 @@ export type { DeepLTranslation, DeepLResponse } from './translate';
 export { readSeenKeys, writeSeenKeys, DEFAULT_STATE_FILE } from './state';
 export { runDigest, mergeSeenKeys } from './pipeline';
 export type { RunDigestOptions } from './pipeline';
-
-export function validatePositiveNumber(name: string, raw: string | number): number {
-  const value = typeof raw === 'number' ? raw : Number(raw);
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`Invalid --${name}: ${raw}`);
-  }
-  return value;
-}

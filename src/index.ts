@@ -6,9 +6,16 @@ import {
   DEFAULT_STATE_FILE,
   readSeenKeys,
   runDigest,
-  validatePositiveNumber,
   writeSeenKeys,
 } from './lib';
+
+function validatePositiveNumber(name: string, raw: string | number): number {
+  const value = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`Invalid --${name}: ${raw}`);
+  }
+  return value;
+}
 
 const program = new Command();
 
