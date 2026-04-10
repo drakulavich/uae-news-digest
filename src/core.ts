@@ -13,7 +13,6 @@ export {
   titleSimilarity,
   parsePubDate,
   validatePositiveNumber,
-  translateTitleRu,
   translateDeepL,
   mergeSeenKeys,
   readSeenKeys,
