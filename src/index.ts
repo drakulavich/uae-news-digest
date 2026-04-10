@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 import { dirname } from 'node:path';
 import {
-  DEFAULT_RSS_URL,
+  buildRssUrl,
   DEFAULT_STATE_FILE,
   readSeenKeys,
   runDigest,
@@ -16,7 +16,8 @@ program
   .name('uae-news-digest')
   .description('Daily UAE news digest from Google News RSS with optional DeepL translation')
   .option('--json', 'output as JSON', false)
-  .option('--rss-url <url>', 'RSS URL to fetch', DEFAULT_RSS_URL)
+  .option('--region <code>', 'news region preset (uae, us, uk, de, ru)', 'uae')
+  .option('--rss-url <url>', 'RSS URL (overrides --region)')
   .option('--state-file <path>', 'path to seen-items state file', DEFAULT_STATE_FILE)
   .option('--hours <number>', 'lookback window in hours', '36')
   .option('--limit <number>', 'max items in digest', '6')
@@ -26,7 +27,7 @@ program
   .addHelpText('after', `
 Example:
   uae-news-digest --hours 12 --limit 10
-  uae-news-digest --dry-run
+  uae-news-digest --region us
   uae-news-digest --json
   DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE`);
 
@@ -46,7 +47,7 @@ program
         {
           name: '(default)',
           description: 'Fetch and print news digest',
-          flags: ['--hours <n>', '--limit <n>', '--state-file <path>', '--target-lang <code>', '--dry-run', '--json'],
+          flags: ['--region <code>', '--rss-url <url>', '--hours <n>', '--limit <n>', '--state-file <path>', '--target-lang <code>', '--dry-run', '--json'],
           examples: ['uae-news-digest --hours 12 --limit 10'],
         },
       ],
@@ -86,10 +87,12 @@ program.action(async (options) => {
       process.exit(1);
     }
 
+    const rssUrl = options.rssUrl ?? buildRssUrl(options.region);
+
     await Bun.$`mkdir -p ${dirname(options.stateFile)}`.quiet();
     const seenKeys = await readSeenKeys(options.stateFile);
 
-    const response = await fetch(options.rssUrl, {
+    const response = await fetch(rssUrl, {
       headers: { 'user-agent': 'Mozilla/5.0 (uae-news-digest)' },
       signal: AbortSignal.timeout(timeoutMs),
     });
