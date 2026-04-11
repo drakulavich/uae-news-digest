@@ -46,7 +46,7 @@ program
   .action(() => {
     console.log(JSON.stringify({
       id: 'uae-news-digest',
-      version: '0.1.0',
+      version: '0.0.1',
       runtime: 'bun',
       bin: null,
       description: 'Daily UAE news digest from Google News RSS with optional DeepL translation',
@@ -69,12 +69,12 @@ program
     const start = performance.now();
     try {
       const res = await fetch(buildRssUrl('uae'), { signal: AbortSignal.timeout(10000) });
-      const result = { ok: res.ok, version: '0.1.0', latencyMs: Math.round(performance.now() - start) };
+      const result = { ok: res.ok, version: '0.0.1', latencyMs: Math.round(performance.now() - start) };
       console.log(JSON.stringify(result));
       process.exit(result.ok ? 0 : 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      const result = { ok: false, version: '0.1.0', latencyMs: Math.round(performance.now() - start), error: message };
+      const result = { ok: false, version: '0.0.1', latencyMs: Math.round(performance.now() - start), error: message };
       console.log(JSON.stringify(result));
       process.exit(1);
     }
@@ -129,7 +129,7 @@ program.action(async (options) => {
       const now = new Date();
       process.stdout.write(JSON.stringify({
         tool: 'uae-news-digest',
-        version: '0.1.0',
+        version: '0.0.1',
         query: { hours, limit, targetLang: options.targetLang ?? null },
         count: result.digest.length,
         items: result.digest.map(d => ({
