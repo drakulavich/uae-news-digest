@@ -1,23 +1,32 @@
 # 🇦🇪 uae-news-digest
 
 [![CI](https://github.com/drakulavich/uae-news-digest/actions/workflows/ci.yml/badge.svg)](https://github.com/drakulavich/uae-news-digest/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@drakulavich/uae-news-digest)](https://www.npmjs.com/package/@drakulavich/uae-news-digest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bun](https://img.shields.io/badge/runtime-Bun-f9f1e1?logo=bun)](https://bun.sh)
 
-Daily UAE news digest from Google News RSS. Deterministic filtering, no ML.
+Daily news digest from Google News RSS. Deterministic filtering, no ML. Supports multiple regions.
 
+- **Multi-region** — UAE (default), US, UK, Germany, Russia — or any custom RSS URL
 - **Source scoring** — Reuters, The National, Gulf News, Khaleej Times ranked higher
 - **Fuzzy dedup** — Jaccard similarity with synonym normalization catches duplicate stories
 - **DeepL translation** — optional, any language via DeepL API
 - **Emoji categories** — 🌧️ weather, 🛡️ defense, 📉 property, ✈️ aviation, ⛴️ shipping, and more
+- **Agent-friendly** — `--json` outputs a structured envelope for automation
 
-## Quick Start
+## Install
+
+```bash
+bun install -g @drakulavich/uae-news-digest
+```
+
+Or run from source:
 
 ```bash
 git clone https://github.com/drakulavich/uae-news-digest.git
 cd uae-news-digest
 bun install
-bun run dev -- --dry-run
+bun link
 ```
 
 ## Usage
@@ -25,6 +34,7 @@ bun run dev -- --dry-run
 ```bash
 uae-news-digest                                    # fetch + print UAE news (default)
 uae-news-digest --region us                         # US news
+uae-news-digest --region de                         # Germany news
 uae-news-digest --dry-run                           # preview without updating state
 uae-news-digest --hours 12 --limit 10               # last 12h, max 10 items
 uae-news-digest --json                              # output as JSON for agents/scripts
@@ -33,10 +43,11 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # translate to German via D
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--region <code>` | `uae` | News region preset (`uae`, `us`, `uk`, `de`, `ru`) |
 | `--hours <n>` | `36` | Lookback window in hours |
 | `--limit <n>` | `6` | Max items in digest |
-| `--region <code>` | `uae` | News region preset (`uae`, `us`, `uk`, `de`, `ru`) |
 | `--target-lang <code>` | | DeepL target language (e.g. `DE`, `FR`, `JA`). Requires `DEEPL_AUTH_KEY` |
+| `--rss-url <url>` | | Custom RSS URL (overrides `--region`) |
 | `--state-file <path>` | `./seen_titles.txt` | Seen-items state file |
 | `--timeout-ms <n>` | `15000` | RSS fetch timeout |
 | `--dry-run` | `false` | Preview without updating state |
@@ -45,6 +56,8 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # translate to German via D
 ## Example Output
 
 ```
+🇦🇪 UAE Latest News Digest
+
 🛡️ UAE intercepts 79 Iranian strike assets (The National, 2h ago)
 📉 Dubai property sales drop more than 30% (Anadolu Ajansı, 5h ago)
 ⛴️ Container ship incident at Khor Fakkan (Reuters, 3h ago)
@@ -53,12 +66,20 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # translate to German via D
 🛢️ Oil prices: OPEC+ mulls output increase (CNBC, 6h ago)
 ```
 
+## Programmatic API
+
+```typescript
+import { parseRss, buildDigest, runDigest, renderDigest } from "@drakulavich/uae-news-digest/core";
+```
+
 ## How It Works
 
 ```
-uae-news-digest --hours 12 --limit 10
+uae-news-digest --region us --hours 12 --limit 10
   │
-  ├── Fetch RSS ─── Google News (UAE + Dubai + Abu Dhabi)
+  ├── Region ────── resolve RSS URL from preset (or --rss-url override)
+  │
+  ├── Fetch RSS ─── Google News RSS feed
   │
   ├── Filter ────── skip: opinion, tabloids, sports, travel
   │
@@ -68,12 +89,10 @@ uae-news-digest --hours 12 --limit 10
   │
   ├── Translate ─── DeepL API (optional, when --target-lang set)
   │
-  └── Render ────── emoji + title + source
+  └── Render ────── region flag + emoji + title + source + hours ago
 ```
 
 State file (`seen_titles.txt`) tracks seen articles to avoid repeats across runs.
-
-Set `DEEPL_AUTH_KEY` env var and pass `--target-lang` for translation. Use `--rss-url` to override the region preset with a custom RSS URL.
 
 ## Requirements
 
