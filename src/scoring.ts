@@ -1,4 +1,7 @@
-const DEFAULT_PREFER_RE = /(reuters|the national|gulf news|khaleej times|cnbc|ap news|bbc|anadolu|zawya)/i;
+const TIER_1_RE = /(reuters|\bap news\b|associated press|bbc|new york times|nytimes|washington post|the economist|financial times|\bft\.com\b|bloomberg|wall street journal|\bwsj\b|the guardian)/i;
+const TIER_2_RE = /(al jazeera|deutsche welle|\bdw\.com\b|france 24|france24|cnbc|cnn|anadolu)/i;
+const TIER_3_RE = /(gulf news|khaleej times|the national|zawya)/i;
+
 const UAE_RE = /(UAE|Dubai|Abu Dhabi|Sharjah|Ras al-Khaimah|Fujairah)/i;
 const PRIORITY_RE = /(weather|rain|missile|drone|airspace|defence|defense|property|market|flight|shipping|Hezbollah|Iran|airport|Hormuz)/i;
 
@@ -36,11 +39,13 @@ export function titleSimilarity(a: string, b: string): number {
   return intersection / (wa.size + wb.size - intersection);
 }
 
-export { DEFAULT_PREFER_RE };
+export { TIER_1_RE, TIER_2_RE, TIER_3_RE };
 
-export function scoreItem(title: string, source: string, preferRe = DEFAULT_PREFER_RE): number {
+export function scoreItem(title: string, source: string): number {
   let score = 0;
-  if (preferRe.test(source)) score += 3;
+  if (TIER_1_RE.test(source)) score += 4;
+  else if (TIER_2_RE.test(source)) score += 3;
+  else if (TIER_3_RE.test(source)) score += 2;
   if (UAE_RE.test(title)) score += 2;
   if (PRIORITY_RE.test(title)) score += 2;
   return score;
