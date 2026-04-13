@@ -116,7 +116,7 @@ describe('CLI integration', () => {
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
     expect(parsed.tool).toBe('uae-news-digest');
-    expect(parsed.version).toBe('0.0.1');
+    expect(parsed.version).toBe('0.0.2');
     expect(parsed.query).toHaveProperty('hours');
     expect(parsed.query).toHaveProperty('limit');
     expect(parsed.query).toHaveProperty('targetLang');
