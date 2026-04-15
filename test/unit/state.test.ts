@@ -1,0 +1,32 @@
+import { describe, expect, test, afterAll } from 'bun:test';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { readSeenKeys, writeSeenKeys } from '../../src/state';
+
+describe('readSeenKeys / writeSeenKeys', () => {
+  const testFile = join(tmpdir(), `uae-news-test-${Date.now()}.txt`);
+
+  afterAll(async () => {
+    try { await Bun.$`rm -f ${testFile}`.quiet(); } catch {}
+  });
+
+  test('returns empty set for non-existent file', async () => {
+    const keys = await readSeenKeys('/tmp/does-not-exist-uae-test.txt');
+    expect(keys.size).toBe(0);
+  });
+
+  test('round-trip: write then read preserves keys', async () => {
+    const keys = new Set(['key one || source a', 'key two || source b', 'key three || source c']);
+    await writeSeenKeys(testFile, keys);
+    const loaded = await readSeenKeys(testFile);
+    expect(loaded).toEqual(keys);
+  });
+
+  test('written file is sorted', async () => {
+    const keys = new Set(['zebra || z', 'alpha || a', 'middle || m']);
+    await writeSeenKeys(testFile, keys);
+    const raw = await Bun.file(testFile).text();
+    const lines = raw.trim().split('\n');
+    expect(lines).toEqual(['alpha || a', 'middle || m', 'zebra || z']);
+  });
+});
