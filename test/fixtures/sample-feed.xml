@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>Sample Feed</title>
+  <item>
+    <title>UAE launches new satellite from Abu Dhabi</title>
+    <link>https://example.com/a</link>
+    <pubDate>Wed, 15 Apr 2026 09:00:00 GMT</pubDate>
+    <source url="https://reuters.com">Reuters</source>
+  </item>
+  <item>
+    <title>Dubai property market grows 12 percent</title>
+    <link>https://example.com/b</link>
+    <pubDate>Wed, 15 Apr 2026 06:00:00 GMT</pubDate>
+    <source url="https://khaleejtimes.com">Khaleej Times</source>
+  </item>
+  <item>
+    <title>Sharjah opens new cultural center</title>
+    <link>https://example.com/c</link>
+    <pubDate>Tue, 14 Apr 2026 22:00:00 GMT</pubDate>
+    <source url="https://thenationalnews.com">The National</source>
+  </item>
+  <item>
+    <title>UAE satellite launched from Abu Dhabi site</title>
+    <link>https://example.com/d</link>
+    <pubDate>Wed, 15 Apr 2026 10:00:00 GMT</pubDate>
+    <source url="https://bbc.com">BBC</source>
+  </item>
+  <item>
+    <title>Ajman announces new transport plan</title>
+    <link>https://example.com/e</link>
+    <pubDate>Tue, 14 Apr 2026 18:00:00 GMT</pubDate>
+    <source url="https://gulfnews.com">Gulf News</source>
+  </item>
+</channel></rss>
