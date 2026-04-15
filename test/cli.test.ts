@@ -197,6 +197,18 @@ describe('CLI integration', () => {
     expect(stderr).toContain('timed out');
   });
 
+  test('RSS network failure shows network message and exits 1', async () => {
+    const stateFile = tmpStateFile();
+    const { stderr, exitCode } = await run([
+      '--rss-url', 'http://localhost:1/rss',
+      '--state-file', stateFile,
+      '--timeout-ms', '2000',
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Unable to connect');
+  });
+
   test('RSS HTTP error shows message and exits 1', async () => {
     const stateFile = tmpStateFile();
     const { stderr, exitCode } = await run([
