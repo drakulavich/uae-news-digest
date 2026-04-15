@@ -50,6 +50,12 @@ beforeAll(() => {
         return new Response(DEEPL_RESPONSE, { headers: { 'content-type': 'application/json' } });
       }
 
+      if (url.pathname === '/rss/hang') {
+        return new Promise<Response>(() => {
+          // Intentionally never resolves — the CLI's timeout must fire.
+        });
+      }
+
       return new Response('Not Found', { status: 404 });
     },
   });
@@ -177,6 +183,18 @@ describe('CLI integration', () => {
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain('DEEPL_AUTH_KEY');
+  });
+
+  test('RSS timeout shows timeout message and exits 1', async () => {
+    const stateFile = tmpStateFile();
+    const { stderr, exitCode } = await run([
+      '--rss-url', `${baseUrl}/rss/hang`,
+      '--state-file', stateFile,
+      '--timeout-ms', '200',
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('timed out');
   });
 
   test('RSS HTTP error shows message and exits 1', async () => {
