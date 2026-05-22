@@ -60,4 +60,11 @@ describe('buildRssUrl', () => {
     const url = buildRssUrl({ q: 'a b "c"', hl: 'en', gl: 'AE', ceid: 'AE:en' });
     expect(url).toContain('q=a%20b%20%22c%22');
   });
+
+  test('object form rejects empty fields', () => {
+    expect(() => buildRssUrl({ q: '', hl: 'en', gl: 'AE', ceid: 'AE:en' })).toThrow(/non-empty/);
+    expect(() => buildRssUrl({ q: 'x', hl: '',   gl: 'AE', ceid: 'AE:en' })).toThrow(/non-empty/);
+    expect(() => buildRssUrl({ q: 'x', hl: 'en', gl: '',   ceid: 'AE:en' })).toThrow(/non-empty/);
+    expect(() => buildRssUrl({ q: 'x', hl: 'en', gl: 'AE', ceid: ''       })).toThrow(/non-empty/);
+  });
 });

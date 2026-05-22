@@ -26,6 +26,11 @@ export function buildRssUrl(regionOrLocale: string | RssLocale): string {
   const locale = typeof regionOrLocale === 'string'
     ? resolveRegion(regionOrLocale)
     : regionOrLocale;
+  if (!locale.q || !locale.hl || !locale.gl || !locale.ceid) {
+    throw new Error(
+      `Invalid RssLocale: q, hl, gl, and ceid must all be non-empty. Got: ${JSON.stringify(regionOrLocale)}`,
+    );
+  }
   const q = encodeURIComponent(locale.q);
   const hl = encodeURIComponent(locale.hl);
   const gl = encodeURIComponent(locale.gl);
@@ -33,7 +38,7 @@ export function buildRssUrl(regionOrLocale: string | RssLocale): string {
   return `https://news.google.com/rss/search?q=${q}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
 }
 
-function resolveRegion(region: string): RssLocale {
+function resolveRegion(region: string): RegionPreset {
   const preset = REGION_PRESETS[region.toLowerCase()];
   if (!preset) {
     const available = Object.keys(REGION_PRESETS).join(', ');
