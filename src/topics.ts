@@ -118,11 +118,15 @@ export type ResolveTopicsConfigOptions = {
 export async function resolveTopicsConfigPath(
   opts: ResolveTopicsConfigOptions,
 ): Promise<string | null> {
-  if (opts.explicit) {
-    if (!(await Bun.file(opts.explicit).exists())) {
+  if (opts.explicit !== undefined) {
+    if (opts.explicit === '' || !(await Bun.file(opts.explicit).exists())) {
       throw new Error(`Topics config not found: ${opts.explicit}`);
     }
     return opts.explicit;
+  }
+
+  if (!opts.cwd) {
+    throw new Error('resolveTopicsConfigPath: cwd is required');
   }
 
   const cwdCandidate = join(opts.cwd, 'digest.config.json');

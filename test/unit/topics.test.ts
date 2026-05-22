@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadTopicsConfig, resolveTopicsConfigPath } from '../../src/topics';
@@ -138,7 +138,7 @@ describe('resolveTopicsConfigPath', () => {
     const xdg = mkdtempSync(join(tmpdir(), 'xdg-'));
     try {
       const subdir = join(xdg, 'uae-news-digest');
-      require('node:fs').mkdirSync(subdir, { recursive: true });
+      mkdirSync(subdir, { recursive: true });
       const path = join(subdir, 'topics.json');
       writeFileSync(path, JSON.stringify({ topics: [{ slug: 'a', name: 'A', query: 'q' }] }));
       const cwdNoConfig = mkdtempSync(join(tmpdir(), 'cwd-empty-'));
@@ -156,6 +156,28 @@ describe('resolveTopicsConfigPath', () => {
     }
   });
 
+  test('falls back to $HOME/.config when XDG_CONFIG_HOME is unset', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'home-'));
+    try {
+      const subdir = join(home, '.config', 'uae-news-digest');
+      mkdirSync(subdir, { recursive: true });
+      const path = join(subdir, 'topics.json');
+      writeFileSync(path, JSON.stringify({ topics: [{ slug: 'a', name: 'A', query: 'q' }] }));
+      const cwdNoConfig = mkdtempSync(join(tmpdir(), 'cwd-empty-'));
+      try {
+        const result = await resolveTopicsConfigPath({
+          cwd: cwdNoConfig,
+          env: { HOME: home },
+        });
+        expect(result).toBe(path);
+      } finally {
+        rmSync(cwdNoConfig, { recursive: true, force: true });
+      }
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   test('returns null when no config found', async () => {
     const emptyCwd = mkdtempSync(join(tmpdir(), 'cwd-none-'));
     try {
@@ -167,5 +189,15 @@ describe('resolveTopicsConfigPath', () => {
     } finally {
       rmSync(emptyCwd, { recursive: true, force: true });
     }
+  });
+
+  test('throws when explicit is provided as empty string', async () => {
+    await expect(resolveTopicsConfigPath({ explicit: '', cwd: dir, env: {} }))
+      .rejects.toThrow(/Topics config not found/);
+  });
+
+  test('throws when cwd is empty and no explicit path is given', async () => {
+    await expect(resolveTopicsConfigPath({ cwd: '', env: {} }))
+      .rejects.toThrow(/cwd is required/);
   });
 });
