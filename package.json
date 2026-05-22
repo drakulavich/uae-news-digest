@@ -2,6 +2,10 @@
   "name": "@drakulavich/uae-news-digest",
   "version": "0.0.4",
   "description": "Daily UAE news digest from Google News RSS with optional DeepL translation",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/drakulavich/uae-news-digest"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
