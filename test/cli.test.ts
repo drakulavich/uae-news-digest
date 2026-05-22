@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
+import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:test';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Server } from 'bun';
@@ -27,12 +27,20 @@ const DEEPL_RESPONSE = JSON.stringify({
 
 let server: Server<undefined>;
 let baseUrl: string;
+type CapturedRequest = {
+  method: string;
+  path: string;
+  body: unknown;
+};
+let requestHistory: CapturedRequest[] = [];
 
 beforeAll(() => {
   server = Bun.serve({
     port: 0,
-    fetch(req) {
+    async fetch(req) {
       const url = new URL(req.url);
+      const body = req.method === 'POST' ? await req.clone().json().catch(() => null) : null;
+      requestHistory.push({ method: req.method, path: url.pathname, body });
 
       if (url.pathname === '/rss') {
         return new Response(RSS_XML, { headers: { 'content-type': 'application/xml' } });
@@ -70,6 +78,10 @@ afterAll(() => {
   server.stop(true);
 });
 
+beforeEach(() => {
+  requestHistory = [];
+});
+
 // ── Helpers ───────────────────────────────────────────────────
 
 const CLI = join(import.meta.dir, '..', 'src', 'index.ts');
@@ -80,6 +92,7 @@ type CliRunResult = {
   stdout: string;
   stderr: string;
   exitCode: number | 'unknown';
+  requests: CapturedRequest[];
 };
 
 const CLI_TIMEOUT_CLEANUP_MS = 1_000;
@@ -90,7 +103,22 @@ function formatRunResult(result: CliRunResult): string {
     `exitCode: ${result.exitCode}`,
     `stdout:\n${result.stdout}`,
     `stderr:\n${result.stderr}`,
+    `requests:\n${formatRequests(result.requests)}`,
   ].join('\n');
+}
+
+function formatRequests(requests: CapturedRequest[]): string {
+  if (requests.length === 0) return '(none)';
+  return requests.map((req) => {
+    const body = req.body === null ? '' : ` body=${JSON.stringify(req.body)}`;
+    return `${req.method} ${req.path}${body}`;
+  }).join('\n');
+}
+
+function expectExitCode(result: CliRunResult, expected: number): void {
+  if (result.exitCode !== expected) {
+    throw new Error(`Expected exit code ${expected}\n${formatRunResult(result)}`);
+  }
 }
 
 async function run(
@@ -124,13 +152,14 @@ async function run(
         stdoutPromise,
         stderrPromise,
         proc.exited,
-      ]).then(([stdout, stderr, exitCode]) => ({ command, stdout, stderr, exitCode })),
+      ]).then(([stdout, stderr, exitCode]) => ({ command, stdout, stderr, exitCode, requests: [...requestHistory] })),
       new Promise<CliRunResult>((resolve) => {
         setTimeout(() => resolve({
           command,
           stdout: '<unavailable: process did not exit after kill>',
           stderr: '<unavailable: process did not exit after kill>',
           exitCode: 'unknown',
+          requests: [...requestHistory],
         }), CLI_TIMEOUT_CLEANUP_MS);
       }),
     ]);
@@ -138,7 +167,7 @@ async function run(
   }
 
   const [stdout, stderr] = await Promise.all([stdoutPromise, stderrPromise]);
-  return { command, stdout, stderr, exitCode: exitOrTimeout };
+  return { command, stdout, stderr, exitCode: exitOrTimeout, requests: [...requestHistory] };
 }
 
 function tmpStateFile(): string {
@@ -148,6 +177,19 @@ function tmpStateFile(): string {
 // ── Tests ─────────────────────────────────────────────────────
 
 describe('CLI integration', () => {
+  test('CLI diagnostics include mock request history', () => {
+    const diagnostic = formatRunResult({
+      command: ['bun', CLI, '--rss-url', `${baseUrl}/rss`],
+      stdout: '',
+      stderr: 'RSS fetch failed',
+      exitCode: 1,
+      requests: [{ method: 'GET', path: '/rss', body: null }],
+    });
+
+    expect(diagnostic).toContain('requests:');
+    expect(diagnostic).toContain('GET /rss');
+  });
+
   test('default text output with items', async () => {
     const stateFile = tmpStateFile();
     const { stdout, exitCode } = await run([
@@ -217,24 +259,26 @@ describe('CLI integration', () => {
 
   test('healthcheck supports deterministic RSS URL', async () => {
     const packageJson = await Bun.file(PACKAGE_JSON).json();
-    const { stdout, exitCode } = await run(['healthcheck', '--rss-url', `${baseUrl}/rss`]);
+    const result = await run(['healthcheck', '--rss-url', `${baseUrl}/rss`]);
 
-    expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
+    expectExitCode(result, 0);
+    const parsed = JSON.parse(result.stdout);
     expect(parsed.ok).toBe(true);
     expect(parsed.version).toBe(packageJson.version);
     expect(typeof parsed.latencyMs).toBe('number');
+    expect(result.requests).toEqual([{ method: 'GET', path: '/rss', body: null }]);
   });
 
   test('healthcheck reports non-200 RSS URL as unhealthy', async () => {
     const packageJson = await Bun.file(PACKAGE_JSON).json();
-    const { stdout, exitCode } = await run(['healthcheck', '--rss-url', `${baseUrl}/rss/error`]);
+    const result = await run(['healthcheck', '--rss-url', `${baseUrl}/rss/error`]);
 
-    expect(exitCode).toBe(1);
-    const parsed = JSON.parse(stdout);
+    expectExitCode(result, 1);
+    const parsed = JSON.parse(result.stdout);
     expect(parsed.ok).toBe(false);
     expect(parsed.version).toBe(packageJson.version);
     expect(typeof parsed.latencyMs).toBe('number');
+    expect(result.requests).toEqual([{ method: 'GET', path: '/rss/error', body: null }]);
   });
 
   test('--dry-run does not write state file', async () => {
@@ -253,7 +297,7 @@ describe('CLI integration', () => {
 
   test('translation via DeepL with --target-lang', async () => {
     const stateFile = tmpStateFile();
-    const { stdout, stderr, exitCode } = await run(
+    const result = await run(
       [
         '--rss-url', `${baseUrl}/rss`,
         '--state-file', stateFile,
@@ -266,10 +310,24 @@ describe('CLI integration', () => {
       },
     );
 
-    expect(exitCode).toBe(0);
-    expect(stderr).toContain('Translating to DE');
-    expect(stdout).toContain('Flughafen Dubai öffnet nach Regen wieder');
-    expect(stdout).toContain('Marktübersicht Abu Dhabi');
+    expectExitCode(result, 0);
+    expect(result.stderr).toContain('Translating to DE');
+    expect(result.stdout).toContain('Flughafen Dubai öffnet nach Regen wieder');
+    expect(result.stdout).toContain('Marktübersicht Abu Dhabi');
+    expect(result.requests).toEqual([
+      { method: 'GET', path: '/rss', body: null },
+      {
+        method: 'POST',
+        path: '/translate',
+        body: {
+          text: [
+            'Dubai airport reopens after rain',
+            'Abu Dhabi market overview',
+          ],
+          target_lang: 'DE',
+        },
+      },
+    ]);
   });
 
   test('translation failure warns and falls back to original titles', async () => {
@@ -342,14 +400,15 @@ describe('CLI integration', () => {
 
   test('RSS timeout shows timeout message and exits 1', async () => {
     const stateFile = tmpStateFile();
-    const { stderr, exitCode } = await run([
+    const result = await run([
       '--rss-url', `${baseUrl}/rss/hang`,
       '--state-file', stateFile,
       '--timeout-ms', '200',
     ]);
 
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain('timed out');
+    expectExitCode(result, 1);
+    expect(result.stderr).toContain('timed out');
+    expect(result.requests).toEqual([{ method: 'GET', path: '/rss/hang', body: null }]);
   });
 
   test('CLI helper times out hung commands with diagnostics', async () => {
@@ -359,7 +418,7 @@ describe('CLI integration', () => {
       '--rss-url', `${baseUrl}/rss/hang`,
       '--state-file', stateFile,
       '--timeout-ms', '5000',
-    ], undefined, { timeoutMs: 100 })).rejects.toThrow(/CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*exitCode:[\s\S]*stdout:[\s\S]*stderr:/);
+    ], undefined, { timeoutMs: 100 })).rejects.toThrow(/CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*exitCode:[\s\S]*stdout:[\s\S]*stderr:[\s\S]*requests:/);
   });
 
   test('RSS network failure shows network message and exits 1', async () => {
@@ -376,13 +435,14 @@ describe('CLI integration', () => {
 
   test('RSS HTTP error shows message and exits 1', async () => {
     const stateFile = tmpStateFile();
-    const { stderr, exitCode } = await run([
+    const result = await run([
       '--rss-url', `${baseUrl}/rss/error`,
       '--state-file', stateFile,
     ]);
 
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain('RSS fetch failed');
+    expectExitCode(result, 1);
+    expect(result.stderr).toContain('RSS fetch failed');
+    expect(result.requests).toEqual([{ method: 'GET', path: '/rss/error', body: null }]);
   });
 
   test('empty RSS feed shows no-news message', async () => {
