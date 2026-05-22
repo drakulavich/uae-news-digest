@@ -4,7 +4,7 @@
 
 **Goal:** Add a tag-triggered release pipeline that publishes `@drakulavich/uae-news-digest` to npm with provenance and creates a GitHub Release from changelog notes.
 
-**Architecture:** The release process is driven by a new GitHub Actions workflow at `.github/workflows/release.yml`. Release notes come from a new `CHANGELOG.md`; the workflow extracts the matching `## [x.y.z]` section for the pushed `vX.Y.Z` tag and fails before publishing if notes are missing.
+**Architecture:** The release process is driven by a new GitHub Actions workflow at `.github/workflows/release.yml`. Release notes come from a new `CHANGELOG.md`; the workflow extracts the matching `## [x.y.z]` section for the pushed `vX.Y.Z` tag, verifies the tag matches `package.json`, creates or updates the GitHub Release, and then publishes to npm.
 
 **Tech Stack:** GitHub Actions, Bun 1.3.14, Node 20, npm provenance, GitHub CLI.
 
@@ -18,8 +18,9 @@
 - Create: `.github/workflows/release.yml`
   - Runs on pushed `v*` tags.
   - Runs install/typecheck/test/build/pack smoke before publishing.
+  - Verifies the pushed tag matches `package.json`.
+  - Creates or updates the GitHub Release from extracted changelog notes before npm publishing.
   - Publishes to npm using `NPM_TOKEN`.
-  - Creates the GitHub Release from extracted changelog notes.
 - Modify: none.
 
 ---
@@ -144,18 +145,34 @@ jobs:
             exit 1
           fi
 
+      - name: Verify tag matches package version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          package_version="$(node -p "require('./package.json').version")"
+
+          if [ "$package_version" != "$version" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${package_version}."
+            exit 1
+          fi
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release edit "${GITHUB_REF_NAME}" \
+              --title "${GITHUB_REF_NAME}" \
+              --notes-file release-notes.md
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "${GITHUB_REF_NAME}" \
+              --notes-file release-notes.md
+          fi
+
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public --provenance
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
-            --notes-file release-notes.md
 ```
 
 - [ ] **Step 2: Validate workflow trigger and permissions by inspection**
@@ -170,6 +187,8 @@ Expected:
 - `on.push.tags` contains `v*`.
 - `permissions.contents` is `write`.
 - `permissions.id-token` is `write`.
+- a version check compares `${GITHUB_REF_NAME#v}` to `package.json`.
+- `Create or update GitHub Release` appears before `Publish to npm`.
 - publish uses `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`.
 
 - [ ] **Step 3: Verify release notes extraction failure path locally**
@@ -233,7 +252,7 @@ Expected:
 Run:
 
 ```bash
-rg -n "NPM_TOKEN|--provenance|release-notes.md|CHANGELOG.md|bun-version: 1.3.14|smoke:pack" .github/workflows/release.yml CHANGELOG.md
+rg -n "NPM_TOKEN|--provenance|release-notes.md|CHANGELOG.md|bun-version: 1.3.14|smoke:pack|package_version|Create or update GitHub Release" .github/workflows/release.yml CHANGELOG.md
 ```
 
 Expected: output shows all release workflow requirements and the changelog path.

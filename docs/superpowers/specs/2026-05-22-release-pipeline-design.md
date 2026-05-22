@@ -34,12 +34,15 @@ The release workflow should:
    - `bun run build`
    - `bun run smoke:pack`
 5. Extract the changelog section for `${GITHUB_REF_NAME#v}` into `release-notes.md`.
-6. Publish to npm with `npm publish --access public --provenance`.
-7. Create the GitHub Release with `gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file release-notes.md`.
+6. Verify that `${GITHUB_REF_NAME#v}` matches `package.json`'s `version`.
+7. Create or update the GitHub Release from `release-notes.md`.
+8. Publish to npm with `npm publish --access public --provenance`.
 
 ## Changelog Rules
 
 The changelog must include a section for every version tag before that tag is pushed. If no matching section is present, the release workflow should fail before npm publishing or GitHub Release creation.
+
+The pushed tag and `package.json` version must match exactly after removing the leading `v` from the tag. If `v0.0.4` is pushed while `package.json` says `0.0.3`, the workflow should fail before creating or updating the GitHub Release and before publishing to npm.
 
 Initial changelog content should include:
 
@@ -60,7 +63,7 @@ If `NPM_TOKEN` is missing or invalid, the workflow should fail at publish time w
 
 The changelog extraction step should validate that extracted notes are non-empty. If the version section is missing or empty, it should exit non-zero with a human-readable message explaining that `CHANGELOG.md` needs a matching `## [x.y.z]` section.
 
-The npm publish and GitHub Release steps can rely on their standard CLI failures. Their commands should remain direct and visible in logs.
+The GitHub Release step should run before npm publish and be idempotent: edit an existing release if one exists, otherwise create it. This keeps reruns recoverable when npm publish fails after the GitHub Release step. The npm publish step can rely on standard npm CLI failures.
 
 ## Testing
 
