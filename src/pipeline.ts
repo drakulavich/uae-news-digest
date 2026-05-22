@@ -15,11 +15,18 @@ export type RunDigestOptions = {
   region?: string;
 };
 
+export type RunDigestResult = {
+  digest: DigestItem[];
+  output: string;
+  nextSeenKeys: Set<string>;
+  warnings: string[];
+};
+
 export function mergeSeenKeys(seenKeys: Set<string>, digest: DigestItem[]): Set<string> {
   return new Set([...seenKeys, ...digest.map((item) => item.key)]);
 }
 
-export async function runDigest(options: RunDigestOptions): Promise<{ digest: DigestItem[]; output: string; nextSeenKeys: Set<string> }> {
+export async function runDigest(options: RunDigestOptions): Promise<RunDigestResult> {
   const items = parseRss(options.xml);
   const digest = buildDigest(items, {
     seenKeys: options.seenKeys,
@@ -29,6 +36,7 @@ export async function runDigest(options: RunDigestOptions): Promise<{ digest: Di
   });
 
   let translations: Map<string, string> | undefined;
+  const warnings: string[] = [];
 
   if (options.targetLang && options.deeplAuthKey && digest.length > 0) {
     const titles = digest.map((d) => d.title);
@@ -38,6 +46,8 @@ export async function runDigest(options: RunDigestOptions): Promise<{ digest: Di
       for (let i = 0; i < titles.length; i++) {
         translations.set(titles[i]!, translated[i]!);
       }
+    } else {
+      warnings.push(`DeepL translation to ${options.targetLang} failed; using original titles.`);
     }
   }
 
@@ -45,5 +55,6 @@ export async function runDigest(options: RunDigestOptions): Promise<{ digest: Di
     digest,
     output: renderDigest(digest, translations, options.now ?? new Date(), options.region ?? 'uae'),
     nextSeenKeys: mergeSeenKeys(options.seenKeys, digest),
+    warnings,
   };
 }

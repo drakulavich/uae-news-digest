@@ -62,6 +62,7 @@ describe('runDigest', () => {
     expect(result.output).toContain('1h ago');
     expect(result.output).toContain('2h ago');
     expect(result.digest).toHaveLength(2);
+    expect(result.warnings).toEqual([]);
   });
 
   test('falls back to English when DeepL fails', async () => {
@@ -81,6 +82,7 @@ describe('runDigest', () => {
     expect(result.output).toContain('Dubai airport reopens after rain');
     expect(result.output).toContain('Reuters, 1h ago');
     expect(result.digest).toHaveLength(2);
+    expect(result.warnings).toEqual(['DeepL translation to RU failed; using original titles.']);
   });
 
   test('skips DeepL when no targetLang', async () => {

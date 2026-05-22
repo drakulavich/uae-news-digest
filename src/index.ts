@@ -125,6 +125,12 @@ program.action(async (options) => {
       region: options.region,
     });
 
+    if (!options.json) {
+      for (const warning of result.warnings) {
+        console.error(warning);
+      }
+    }
+
     if (options.json) {
       const now = new Date();
       process.stdout.write(JSON.stringify({
@@ -132,6 +138,7 @@ program.action(async (options) => {
         version: '0.0.2',
         query: { hours, limit, targetLang: options.targetLang ?? null },
         count: result.digest.length,
+        warnings: result.warnings,
         items: result.digest.map(d => ({
           title: d.title,
           source: d.source,
