@@ -39,6 +39,11 @@ async function main(): Promise<void> {
   const workDir = await mkdtemp(join(tmpdir(), 'uae-news-pack-smoke-'));
 
   try {
+    await run(['npm', '--version'], rootDir).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Package smoke requires npm in PATH so it can run npm pack.\n${message}`);
+    });
+
     const packDir = join(workDir, 'pack');
     const consumerDir = join(workDir, 'consumer');
     await Bun.$`mkdir -p ${packDir} ${consumerDir}`.quiet();
