@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:test';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Server } from 'bun';
@@ -171,6 +172,58 @@ async function run(
   return { command, stdout, stderr, exitCode: exitOrTimeout, requests: [...requestHistory] };
 }
 
+async function runFromCwd(
+  args: string[],
+  opts: { cwd: string; env?: Record<string, string> },
+  options: { timeoutMs?: number } = {},
+): Promise<CliRunResult> {
+  const command = ['bun', CLI, ...args];
+  const timeoutMs = options.timeoutMs ?? 10_000;
+  const proc = Bun.spawn(command, {
+    stdout: 'pipe',
+    stderr: 'pipe',
+    cwd: opts.cwd,
+    env: { ...process.env, ...opts.env },
+  });
+
+  const stdoutPromise = new Response(proc.stdout).text();
+  const stderrPromise = new Response(proc.stderr).text();
+  let timeout: Timer | undefined;
+
+  const timedOut = new Promise<'timeout'>((resolve) => {
+    timeout = setTimeout(() => resolve('timeout'), timeoutMs);
+  });
+
+  const exitOrTimeout = await Promise.race([proc.exited, timedOut]);
+  if (timeout) clearTimeout(timeout);
+
+  if (exitOrTimeout === 'timeout') {
+    proc.kill();
+    const result = await Promise.race<CliRunResult>([
+      Promise.all([stdoutPromise, stderrPromise, proc.exited]).then(([stdout, stderr, exitCode]) => ({
+        command,
+        stdout,
+        stderr,
+        exitCode,
+        requests: [...requestHistory],
+      })),
+      new Promise<CliRunResult>((resolve) => {
+        setTimeout(() => resolve({
+          command,
+          stdout: '<unavailable: process did not exit after kill>',
+          stderr: '<unavailable: process did not exit after kill>',
+          exitCode: 'unknown',
+          requests: [...requestHistory],
+        }), CLI_TIMEOUT_CLEANUP_MS);
+      }),
+    ]);
+    throw new Error(`CLI command timed out after ${timeoutMs}ms\n${formatRunResult(result)}`);
+  }
+
+  const [stdout, stderr] = await Promise.all([stdoutPromise, stderrPromise]);
+  return { command, stdout, stderr, exitCode: exitOrTimeout, requests: [...requestHistory] };
+}
+
 function tmpStateFile(): string {
   return join(tmpdir(), `uae-cli-test-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
 }
@@ -216,7 +269,7 @@ describe('CLI integration', () => {
     expect(exitCode).toBe(0);
     expect(stderr).toContain('dry run');
     const parsed = JSON.parse(stdout);
-    expect(Object.keys(parsed).sort()).toEqual(['count', 'items', 'query', 'tool', 'version', 'warnings']);
+    expect(Object.keys(parsed).sort()).toEqual(['count', 'items', 'mode', 'query', 'tool', 'version', 'warnings']);
     expect(parsed.tool).toBe('uae-news-digest');
     expect(parsed.version).toBe(packageJson.version);
     expect(Object.keys(parsed.query).sort()).toEqual(['hours', 'limit', 'targetLang']);
@@ -467,5 +520,127 @@ describe('CLI integration', () => {
 
     // Cleanup
     await Bun.$`rm -f ${stateFile}`.quiet();
+  });
+});
+
+describe('topics mode', () => {
+  function writeTopicsCwd(): { cwd: string; cleanup: () => void } {
+    const cwd = mkdtempSync(join(tmpdir(), 'cli-topics-'));
+    writeFileSync(
+      join(cwd, 'digest.config.json'),
+      JSON.stringify({
+        topics: [
+          { slug: 'a', name: 'Alpha', emoji: '🅰️', query: 'alpha' },
+          { slug: 'b', name: 'Beta',  emoji: '🅱️', query: 'beta' },
+        ],
+      }),
+    );
+    return { cwd, cleanup: () => rmSync(cwd, { recursive: true, force: true }) };
+  }
+
+  const FIXTURE_PATH = join(import.meta.dir, 'fixtures', 'sample-feed.xml');
+
+  test('auto-detects digest.config.json in cwd and switches to topics mode', async () => {
+    const { cwd, cleanup } = writeTopicsCwd();
+    try {
+      const stateFile = tmpStateFile();
+      const { stdout, exitCode } = await runFromCwd(
+        ['--json', '--hours', '99999', '--state-file', stateFile],
+        {
+          cwd,
+          env: {
+            UAE_NEWS_DIGEST_TOPIC_FIXTURE: FIXTURE_PATH,
+            UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z',
+          },
+        },
+      );
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.mode).toBe('topics');
+      expect(parsed.topics).toEqual([
+        expect.objectContaining({ slug: 'a', name: 'Alpha' }),
+        expect.objectContaining({ slug: 'b', name: 'Beta' }),
+      ]);
+      for (const item of parsed.items) {
+        expect(['a', 'b']).toContain(item.topic);
+      }
+      await Bun.$`rm -f ${stateFile}`.quiet();
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('--no-topics forces legacy mode even with config present', async () => {
+    const { cwd, cleanup } = writeTopicsCwd();
+    try {
+      const stateFile = tmpStateFile();
+      const { stdout, exitCode } = await runFromCwd(
+        [
+          '--json', '--no-topics',
+          '--rss-url', `${baseUrl}/rss`,
+          '--state-file', stateFile,
+        ],
+        { cwd, env: { UAE_NEWS_DIGEST_NOW: TEST_NOW.toISOString() } },
+      );
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.mode).toBe('region');
+      expect(parsed.topics).toBeUndefined();
+      await Bun.$`rm -f ${stateFile}`.quiet();
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('warns when --region is explicitly passed alongside topics config', async () => {
+    const { cwd, cleanup } = writeTopicsCwd();
+    try {
+      const stateFile = tmpStateFile();
+      const { stderr } = await runFromCwd(
+        ['--region', 'us', '--json', '--state-file', stateFile],
+        {
+          cwd,
+          env: {
+            UAE_NEWS_DIGEST_TOPIC_FIXTURE: FIXTURE_PATH,
+            UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z',
+          },
+        },
+      );
+      expect(stderr).toMatch(/--region.*ignored.*topics config/i);
+      await Bun.$`rm -f ${stateFile}`.quiet();
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('--topics-config <path> overrides auto-detect', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'cli-topics-explicit-'));
+    const configPath = join(cwd, 'custom.json');
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        topics: [{ slug: 'x', name: 'Xray', emoji: '❎', query: 'xray' }],
+      }),
+    );
+    try {
+      const stateFile = tmpStateFile();
+      const { stdout, exitCode } = await runFromCwd(
+        ['--json', '--topics-config', configPath, '--hours', '99999', '--state-file', stateFile],
+        {
+          cwd,
+          env: {
+            UAE_NEWS_DIGEST_TOPIC_FIXTURE: FIXTURE_PATH,
+            UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z',
+          },
+        },
+      );
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.mode).toBe('topics');
+      expect(parsed.topics).toEqual([expect.objectContaining({ slug: 'x', name: 'Xray' })]);
+      await Bun.$`rm -f ${stateFile}`.quiet();
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });

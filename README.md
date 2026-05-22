@@ -60,6 +60,8 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # optional DeepL translatio
 | `--rss-url <url>` | | Custom RSS URL (overrides `--region`) |
 | `--state-file <path>` | `./seen_titles.txt` | Seen-items state file |
 | `--timeout-ms <n>` | `15000` | RSS fetch timeout |
+| `--topics-config <path>` | | Path to topics config JSON (overrides auto-detect) |
+| `--no-topics` | | Force legacy region mode even if a topics config is present |
 | `--dry-run` | `false` | Preview without updating state |
 | `--json` | `false` | Output as JSON (agent-friendly envelope) |
 
@@ -81,6 +83,74 @@ And when you need structured output:
 ```bash
 uae-news-digest --json | jq '.items[].title'
 ```
+
+## Topics Mode
+
+For per-topic digests (e.g. economy, real estate, regional politics) instead of one undifferentiated regional feed, create a `digest.config.json` file:
+
+```json
+{
+  "locale": { "hl": "en", "gl": "AE", "ceid": "AE:en" },
+  "topics": [
+    {
+      "slug": "economy",
+      "name": "UAE economy",
+      "emoji": "💰",
+      "query": "(UAE OR Emirates) AND (economy OR GDP OR inflation OR ADNOC OR non-oil)",
+      "limit": 5
+    },
+    {
+      "slug": "realty",
+      "name": "Real estate",
+      "emoji": "🏠",
+      "query": "(Dubai OR \"Abu Dhabi\") AND (\"real estate\" OR property OR Emaar OR Aldar)",
+      "limit": 4
+    },
+    {
+      "slug": "chocolate",
+      "name": "Dubai chocolate",
+      "emoji": "🍫",
+      "query": "\"Dubai chocolate\" OR pistachio OR kunafa",
+      "limit": 3
+    }
+  ]
+}
+```
+
+The CLI looks for the config in this order:
+
+1. `--topics-config <path>` (explicit override)
+2. `./digest.config.json` (current working directory)
+3. `$XDG_CONFIG_HOME/uae-news-digest/topics.json` (falls back to `~/.config/uae-news-digest/topics.json`)
+
+When a config is found, the CLI fetches each topic in parallel and renders one section per topic. Cross-topic dedup is "first topic in config wins" — reorder the array to set priority. To force the legacy region mode while a config is present, pass `--no-topics`.
+
+`--target-lang` translates all section titles in a single DeepL batch. `--limit`, when explicitly set, overrides every topic's per-topic limit for the run.
+
+The example `query` strings above are starting points, not optimal — iterate them against real Google News output.
+
+### Topics-mode JSON output
+
+```json
+{
+  "tool": "uae-news-digest",
+  "version": "...",
+  "mode": "topics",
+  "query": { "hours": 36, "targetLang": null },
+  "topics": [
+    { "slug": "economy", "name": "UAE economy", "count": 5 },
+    { "slug": "realty",  "name": "Real estate", "count": 4 },
+    { "slug": "chocolate", "name": "Dubai chocolate", "count": 1 }
+  ],
+  "count": 10,
+  "warnings": [],
+  "items": [
+    { "topic": "economy", "title": "...", "source": "...", "score": 0, "publishedAt": "...", "hoursAgo": 4 }
+  ]
+}
+```
+
+Items are emitted as a flat list in section order; each carries its `topic` slug so consumers can group. Legacy region mode emits the same envelope with `mode: "region"` and without the `topics` array.
 
 ## Programmatic API
 
