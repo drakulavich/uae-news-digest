@@ -101,4 +101,17 @@ describe('loadTopicsConfig', () => {
   test('rejects nonexistent file with helpful message', async () => {
     await expect(loadTopicsConfig('/nope/missing.json')).rejects.toThrow(/missing\.json/);
   });
+
+  test('trims whitespace from string fields', async () => {
+    const path = writeConfig('whitespace.json', {
+      topics: [{ slug: '  economy ', name: ' Экономика  ', query: '  UAE economy  ', emoji: ' 💰 ' }],
+    });
+    const cfg = await loadTopicsConfig(path);
+    expect(cfg.topics[0]).toMatchObject({
+      slug: 'economy',
+      name: 'Экономика',
+      query: 'UAE economy',
+      emoji: '💰',
+    });
+  });
 });

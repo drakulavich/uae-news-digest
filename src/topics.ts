@@ -101,7 +101,7 @@ function requireString(value: unknown, where: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`${where} must be a non-empty string`);
   }
-  return value;
+  return value.trim();
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
