@@ -19,7 +19,8 @@
     "dev": "bun src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "smoke:pack": "bun scripts/smoke-pack.ts"
   },
   "license": "MIT",
   "dependencies": {
