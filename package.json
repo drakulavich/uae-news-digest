@@ -1,6 +1,6 @@
 {
   "name": "@drakulavich/uae-news-digest",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Daily UAE news digest from Google News RSS with optional DeepL translation",
   "type": "module",
   "exports": {
