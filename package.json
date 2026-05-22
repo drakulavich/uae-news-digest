@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "dev": "bun src/index.ts",
-    "test": "bun test",
+    "test": "bun test --preload ./test/fetch-guard.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "smoke:pack": "bun scripts/smoke-pack.ts"
