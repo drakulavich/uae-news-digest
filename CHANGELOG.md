@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-05-22
+
+### Added
+- Release workflow for tagged GitHub and npm publishes.
+- Codex and agent repository guidance.
+- Deterministic healthcheck RSS URL support for smoke tests.
+- Expanded packed package smoke coverage for the binary and public core export.
+- Hermetic test network guard and richer CLI request diagnostics.
+- CLI text golden fixture for the default digest contract.
+
+### Changed
+- CI and release tests now use the guarded test script.
+
 ## [0.0.3] - 2026-05-22
 
 ### Added
