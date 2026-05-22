@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { emojiFor, renderDigest } from '../../src/render';
+import { emojiFor, renderDigest, renderTopicalDigest } from '../../src/render';
 import { makeKey } from '../../src/normalize';
 import type { DigestItem } from '../../src/digest';
+import type { TopicConfig } from '../../src/topics';
 
 describe('emojiFor', () => {
   test('weather/rain', () => {
@@ -114,5 +115,76 @@ describe('renderDigest', () => {
   test('uses generic header for unknown region', () => {
     const output = renderDigest([sampleItem], undefined, now, 'xx');
     expect(output).toContain('📰 News');
+  });
+});
+
+function makeItem(over: Partial<DigestItem>): DigestItem {
+  return {
+    score: 1,
+    publishedAt: new Date('2026-05-22T08:00:00Z'),
+    title: 'Title',
+    source: 'Reuters',
+    key: 'k',
+    ...over,
+  };
+}
+
+function makeTopic(over: Partial<TopicConfig>): TopicConfig {
+  return {
+    slug: 'topic',
+    name: 'Topic',
+    emoji: '📌',
+    query: 'q',
+    limit: 5,
+    locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
+    ...over,
+  };
+}
+
+describe('renderTopicalDigest', () => {
+  const now = new Date('2026-05-22T10:00:00Z');
+
+  test('renders sections in given order with emoji + name headings', () => {
+    const out = renderTopicalDigest([
+      {
+        topic: makeTopic({ slug: 'economy', name: 'Экономика', emoji: '💰' }),
+        items: [makeItem({ title: 'GDP up', source: 'Reuters', publishedAt: new Date('2026-05-22T09:00:00Z') })],
+      },
+      {
+        topic: makeTopic({ slug: 'realty', name: 'Недвижимость', emoji: '🏠' }),
+        items: [makeItem({ title: 'Emaar launches tower', source: 'Arabian Business', publishedAt: new Date('2026-05-22T08:00:00Z') })],
+      },
+    ], undefined, now);
+
+    const economyIdx = out.indexOf('💰 Экономика');
+    const realtyIdx = out.indexOf('🏠 Недвижимость');
+    expect(economyIdx).toBeGreaterThan(-1);
+    expect(realtyIdx).toBeGreaterThan(economyIdx);
+    expect(out).toContain('GDP up (Reuters, 1h ago)');
+    expect(out).toContain('Emaar launches tower (Arabian Business, 2h ago)');
+  });
+
+  test('falls back to bullet when emoji is missing', () => {
+    const out = renderTopicalDigest([
+      { topic: makeTopic({ name: 'Plain', emoji: undefined }), items: [makeItem({})] },
+    ], undefined, now);
+    expect(out).toContain('• Plain');
+  });
+
+  test('shows placeholder for empty sections', () => {
+    const out = renderTopicalDigest([
+      { topic: makeTopic({ name: 'Quiet', emoji: '🤫' }), items: [] },
+    ], undefined, now);
+    expect(out).toContain('🤫 Quiet');
+    expect(out).toContain('(нет новых материалов)');
+  });
+
+  test('uses translations when provided', () => {
+    const translations = new Map([['GDP up', 'ВВП вырос']]);
+    const out = renderTopicalDigest([
+      { topic: makeTopic({}), items: [makeItem({ title: 'GDP up' })] },
+    ], translations, now);
+    expect(out).toContain('ВВП вырос (Reuters');
+    expect(out).not.toContain('GDP up (');
   });
 });

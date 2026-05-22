@@ -1,5 +1,6 @@
 import { REGION_PRESETS } from './region';
 import type { DigestItem } from './digest';
+import type { TopicConfig } from './topics';
 
 export function emojiFor(title: string): string {
   const t = title.toLowerCase();
@@ -30,5 +31,39 @@ export function renderDigest(items: DigestItem[], translations?: Map<string, str
     const hoursAgo = Math.round((now.getTime() - item.publishedAt.getTime()) / 3_600_000);
     lines.push(`${emojiFor(item.title)} ${title} (${item.source}, ${hoursAgo}h ago)`);
   }
+  return lines.join('\n');
+}
+
+export type RenderedSection = {
+  topic: TopicConfig;
+  items: DigestItem[];
+};
+
+export function renderTopicalDigest(
+  sections: RenderedSection[],
+  translations?: Map<string, string>,
+  now: Date = new Date(),
+): string {
+  const dateLabel = now.toISOString().slice(0, 10);
+  const lines: string[] = [`🇦🇪 UAE digest — ${dateLabel}`, ''];
+
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i]!;
+    const prefix = section.topic.emoji ?? '•';
+    lines.push(`${prefix} ${section.topic.name}`);
+
+    if (section.items.length === 0) {
+      lines.push('  (нет новых материалов)');
+    } else {
+      for (const item of section.items) {
+        const title = translations?.get(item.title) ?? item.title;
+        const hoursAgo = Math.round((now.getTime() - item.publishedAt.getTime()) / 3_600_000);
+        lines.push(`  ${emojiFor(item.title)} ${title} (${item.source}, ${hoursAgo}h ago)`);
+      }
+    }
+
+    if (i < sections.length - 1) lines.push('');
+  }
+
   return lines.join('\n');
 }
