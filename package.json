@@ -10,6 +10,11 @@
   "bin": {
     "uae-news-digest": "./src/index.ts"
   },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "bun src/index.ts",
     "test": "bun test",
