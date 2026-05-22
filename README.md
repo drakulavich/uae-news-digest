@@ -1,23 +1,29 @@
-# 🇦🇪 uae-news-digest
+<h1 align="center">uae-news-digest</h1>
 
-[![CI](https://github.com/drakulavich/uae-news-digest/actions/workflows/ci.yml/badge.svg)](https://github.com/drakulavich/uae-news-digest/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@drakulavich/uae-news-digest)](https://www.npmjs.com/package/@drakulavich/uae-news-digest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Bun](https://img.shields.io/badge/runtime-Bun-f9f1e1?logo=bun)](https://bun.sh)
+<p align="center">
+  <a href="https://github.com/drakulavich/uae-news-digest/actions/workflows/ci.yml"><img src="https://github.com/drakulavich/uae-news-digest/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/@drakulavich/uae-news-digest"><img src="https://img.shields.io/npm/v/@drakulavich/uae-news-digest" alt="npm version"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun-f9f1e1?logo=bun" alt="Bun"></a>
+</p>
 
-Daily news digest from Google News RSS. Deterministic filtering, no ML. Supports multiple regions.
+<p align="center"><b>Wake up to the UAE without opening ten news tabs.</b><br>
+<code>uae-news-digest</code> turns Google News RSS into a ranked, deduplicated terminal briefing with clean JSON for scripts and agents.</p>
 
-- **Multi-region** — UAE (default), US, UK, Germany, Russia — or any custom RSS URL
-- **Source scoring** — Reuters, The National, Gulf News, Khaleej Times ranked higher
-- **Fuzzy dedup** — Jaccard similarity with synonym normalization catches duplicate stories
-- **DeepL translation** — optional, any language via DeepL API
-- **Emoji categories** — 🌧️ weather, 🛡️ defense, 📉 property, ✈️ aviation, ⛴️ shipping, and more
-- **Agent-friendly** — `--json` outputs a structured envelope for automation
+<p align="center">
+  <img src="https://github.com/drakulavich/uae-news-digest/raw/main/assets/demo.gif" alt="uae-news-digest demo: manifest, healthcheck, text digest, and JSON output" width="720">
+</p>
+
+- **Signal first.** Preferred sources and UAE-specific keywords push important stories up.
+- **No repeat sludge.** Exact keys plus fuzzy title matching collapse syndicated duplicates.
+- **Human or machine.** Read the emoji digest in your terminal, or pipe stable JSON into agents, cron, Slack, or your own scripts.
+- **Bring your own feed.** Use UAE by default, switch regions, or pass any RSS URL.
+- **Translate only when you ask.** Optional DeepL support keeps the default path simple and dependency-light.
 
 ## Install
 
 ```bash
-bun install -g @drakulavich/uae-news-digest
+bun add -g @drakulavich/uae-news-digest
 ```
 
 Or run from source:
@@ -32,14 +38,13 @@ bun link
 ## Usage
 
 ```bash
-uae-news-digest                                    # fetch + print UAE news (default)
-uae-news-digest --region us                         # US news
-uae-news-digest --region de                         # Germany news
-uae-news-digest --dry-run                           # preview without updating state
-uae-news-digest --hours 12 --limit 10               # last 12h, max 10 items
-uae-news-digest --json                              # output as JSON for agents/scripts
-uae-news-digest healthcheck                         # live Google News smoke check
-DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # translate to German via DeepL
+uae-news-digest                                      # fetch + print UAE news
+uae-news-digest --hours 12 --limit 10                # tighter briefing window
+uae-news-digest --json                               # stable envelope for automation
+uae-news-digest --region de                          # Germany preset
+uae-news-digest --rss-url http://localhost/feed.xml  # any RSS feed
+uae-news-digest healthcheck                          # JSON liveness probe
+DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # optional DeepL translation
 ```
 
 | Flag | Default | Description |
@@ -54,7 +59,7 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # translate to German via D
 | `--dry-run` | `false` | Preview without updating state |
 | `--json` | `false` | Output as JSON (agent-friendly envelope) |
 
-## Example Output
+## What You Get
 
 ```
 🇦🇪 UAE Latest News Digest
@@ -67,11 +72,19 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # translate to German via D
 🛢️ Oil prices: OPEC+ mulls output increase (CNBC, 6h ago)
 ```
 
+And when you need structured output:
+
+```bash
+uae-news-digest --json | jq '.items[].title'
+```
+
 ## Programmatic API
 
 ```typescript
 import { parseRss, buildDigest, runDigest, renderDigest } from "@drakulavich/uae-news-digest/core";
 ```
+
+Use the core API when you already have RSS XML and want the same filtering, scoring, deduplication, translation fallback, and rendering logic without spawning the CLI.
 
 ## How It Works
 
@@ -93,7 +106,7 @@ uae-news-digest --region us --hours 12 --limit 10
   └── Render ────── region flag + emoji + title + source + hours ago
 ```
 
-State file (`seen_titles.txt`) tracks seen articles to avoid repeats across runs.
+State file (`seen_titles.txt`) tracks seen articles so scheduled runs do not repeat the same briefing forever.
 
 `healthcheck` uses the default live Google News RSS feed. For deterministic smoke tests, pass `healthcheck --rss-url <url>`.
 
