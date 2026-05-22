@@ -262,4 +262,45 @@ describe('runTopicalDigest with DeepL', () => {
     expect(result.output).toContain('Story (Reuters');
     expect(result.warnings.some((w) => /DeepL/.test(w) && /RU/.test(w))).toBe(true);
   });
+
+  test('de-duplicates identical titles before calling DeepL', async () => {
+    deeplHandler = async (req) => {
+      const body = await req.json();
+      deeplRequests.push({ body });
+      const translated = (body as { text: string[] }).text.map((t) => `[ru] ${t}`);
+      return new Response(
+        JSON.stringify({ translations: translated.map((text) => ({ detected_source_language: 'EN', text })) }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    };
+
+    const config: TopicsConfig = {
+      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
+      topics: [
+        topic({ slug: 'a', name: 'A' }),
+        topic({ slug: 'b', name: 'B' }),
+      ],
+    };
+    // Same headline from two different sources → both items survive cross-topic
+    // dedup (different keys), but the title appears twice in the title list.
+    const result = await runTopicalDigest({
+      config,
+      seenKeys: new Set(),
+      hours: 36,
+      fetchTopicRss: async (t) =>
+        rssXml([{
+          title: 'Shared headline',
+          source: t.slug === 'a' ? 'Reuters' : 'Bloomberg',
+          pubDate: 'Fri, 22 May 2026 11:00:00 GMT',
+        }]),
+      now: NOW,
+      deeplAuthKey: 'fake',
+      targetLang: 'RU',
+    });
+
+    expect(deeplRequests).toHaveLength(1);
+    expect((deeplRequests[0]!.body as { text: string[] }).text).toEqual(['Shared headline']);
+    expect(result.output).toContain('[ru] Shared headline (Reuters');
+    expect(result.output).toContain('[ru] Shared headline (Bloomberg');
+  });
 });

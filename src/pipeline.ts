@@ -124,7 +124,7 @@ export async function runTopicalDigest(
 
   let translations: Map<string, string> | undefined;
   if (opts.targetLang && opts.deeplAuthKey) {
-    const titles = sections.flatMap((s) => s.items.map((i) => i.title));
+    const titles = [...new Set(sections.flatMap((s) => s.items.map((i) => i.title)))];
     if (titles.length > 0) {
       const translated = await translateDeepL(titles, opts.deeplAuthKey, opts.targetLang);
       if (translated) {
