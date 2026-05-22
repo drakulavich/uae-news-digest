@@ -215,6 +215,28 @@ describe('CLI integration', () => {
     expect(parsed.bin).toBe('uae-news-digest');
   });
 
+  test('healthcheck supports deterministic RSS URL', async () => {
+    const packageJson = await Bun.file(PACKAGE_JSON).json();
+    const { stdout, exitCode } = await run(['healthcheck', '--rss-url', `${baseUrl}/rss`]);
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.version).toBe(packageJson.version);
+    expect(typeof parsed.latencyMs).toBe('number');
+  });
+
+  test('healthcheck reports non-200 RSS URL as unhealthy', async () => {
+    const packageJson = await Bun.file(PACKAGE_JSON).json();
+    const { stdout, exitCode } = await run(['healthcheck', '--rss-url', `${baseUrl}/rss/error`]);
+
+    expect(exitCode).toBe(1);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.version).toBe(packageJson.version);
+    expect(typeof parsed.latencyMs).toBe('number');
+  });
+
   test('--dry-run does not write state file', async () => {
     const stateFile = tmpStateFile();
     const { stderr, exitCode } = await run([

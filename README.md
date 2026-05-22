@@ -38,6 +38,7 @@ uae-news-digest --region de                         # Germany news
 uae-news-digest --dry-run                           # preview without updating state
 uae-news-digest --hours 12 --limit 10               # last 12h, max 10 items
 uae-news-digest --json                              # output as JSON for agents/scripts
+uae-news-digest healthcheck                         # live Google News smoke check
 DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # translate to German via DeepL
 ```
 
@@ -93,6 +94,8 @@ uae-news-digest --region us --hours 12 --limit 10
 ```
 
 State file (`seen_titles.txt`) tracks seen articles to avoid repeats across runs.
+
+`healthcheck` uses the default live Google News RSS feed. For deterministic smoke tests, pass `healthcheck --rss-url <url>`.
 
 ## Requirements
 

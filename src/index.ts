@@ -75,10 +75,13 @@ program
 program
   .command('healthcheck')
   .description('Run smoke test and report status')
-  .action(async () => {
+  .option('--rss-url <url>', 'RSS URL for deterministic smoke testing')
+  .action(async function (this: Command) {
     const start = performance.now();
     try {
-      const res = await fetch(buildRssUrl('uae'), { signal: AbortSignal.timeout(10000) });
+      const options = this.optsWithGlobals() as { rssUrl?: string };
+      const rssUrl = options.rssUrl ?? buildRssUrl('uae');
+      const res = await fetch(rssUrl, { signal: AbortSignal.timeout(10000) });
       const result = { ok: res.ok, version: VERSION, latencyMs: Math.round(performance.now() - start) };
       console.log(JSON.stringify(result));
       process.exit(result.ok ? 0 : 1);
