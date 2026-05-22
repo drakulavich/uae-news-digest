@@ -5,9 +5,9 @@ import type { Server } from 'bun';
 
 // ── Canned responses ──────────────────────────────────────────
 
-const now = new Date();
-const oneHourAgo = new Date(now.getTime() - 3_600_000).toUTCString();
-const twoHoursAgo = new Date(now.getTime() - 7_200_000).toUTCString();
+const TEST_NOW = new Date('2026-03-22T08:00:00Z');
+const oneHourAgo = new Date(TEST_NOW.getTime() - 3_600_000).toUTCString();
+const twoHoursAgo = new Date(TEST_NOW.getTime() - 7_200_000).toUTCString();
 
 const RSS_XML = `<?xml version="1.0"?><rss><channel>
   <item><title>Dubai airport reopens after rain</title><pubDate>${oneHourAgo}</pubDate><source url="https://example.com">Reuters</source></item>
@@ -82,7 +82,7 @@ async function run(
   const proc = Bun.spawn(['bun', CLI, ...args], {
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { ...process.env, ...env },
+    env: { ...process.env, UAE_NEWS_DIGEST_NOW: TEST_NOW.toISOString(), ...env },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -112,7 +112,8 @@ describe('CLI integration', () => {
     expect(stdout).toContain('Dubai airport reopens after rain');
     expect(stdout).toContain('Abu Dhabi market overview');
     expect(stdout).toContain('Reuters');
-    expect(stdout).toContain('h ago');
+    expect(stdout).toContain('1h ago');
+    expect(stdout).toContain('2h ago');
   });
 
   test('--json produces agent-friendly envelope', async () => {
@@ -135,11 +136,14 @@ describe('CLI integration', () => {
     expect(parsed.count).toBe(2);
     expect(parsed.warnings).toEqual([]);
     expect(parsed.items).toHaveLength(2);
-    expect(parsed.items[0]).toHaveProperty('title');
-    expect(parsed.items[0]).toHaveProperty('source');
-    expect(parsed.items[0]).toHaveProperty('score');
-    expect(parsed.items[0]).toHaveProperty('publishedAt');
-    expect(parsed.items[0]).toHaveProperty('hoursAgo');
+    expect(parsed.items[0].title).toBe('Dubai airport reopens after rain');
+    expect(parsed.items[0].source).toBe('Reuters');
+    expect(parsed.items[0].publishedAt).toBe('2026-03-22T07:00:00.000Z');
+    expect(parsed.items[0].hoursAgo).toBe(1);
+    expect(parsed.items[1].title).toBe('Abu Dhabi market overview');
+    expect(parsed.items[1].source).toBe('Gulf News');
+    expect(parsed.items[1].publishedAt).toBe('2026-03-22T06:00:00.000Z');
+    expect(parsed.items[1].hoursAgo).toBe(2);
   });
 
   test('manifest reports package version and bin name', async () => {
@@ -242,6 +246,18 @@ describe('CLI integration', () => {
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain('DEEPL_AUTH_KEY');
+  });
+
+  test('invalid test clock exits with error', async () => {
+    const stateFile = tmpStateFile();
+    const { stderr, exitCode } = await run([
+      '--rss-url', `${baseUrl}/rss`,
+      '--state-file', stateFile,
+      '--dry-run',
+    ], { UAE_NEWS_DIGEST_NOW: 'not-a-date' });
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Invalid UAE_NEWS_DIGEST_NOW');
   });
 
   test('RSS timeout shows timeout message and exits 1', async () => {
