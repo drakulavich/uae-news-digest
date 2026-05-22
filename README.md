@@ -49,7 +49,7 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # optional DeepL translatio
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--region <code>` | `uae` | News region preset (`uae`, `us`, `uk`, `de`, `ru`) |
+| `--region <code>` | `uae` | News region preset (`uae`, `us`, `uk`, `de`) |
 | `--hours <n>` | `36` | Lookback window in hours |
 | `--limit <n>` | `6` | Max items in digest |
 | `--target-lang <code>` | | DeepL target language (e.g. `DE`, `FR`, `JA`). Requires `DEEPL_AUTH_KEY` |
