@@ -2,7 +2,7 @@ import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadTopicsConfig } from '../../src/topics';
+import { loadTopicsConfig, resolveTopicsConfigPath } from '../../src/topics';
 
 let dir: string;
 
@@ -113,5 +113,59 @@ describe('loadTopicsConfig', () => {
       query: 'UAE economy',
       emoji: '💰',
     });
+  });
+});
+
+describe('resolveTopicsConfigPath', () => {
+  test('returns explicit path when provided and file exists', async () => {
+    const path = writeConfig('explicit.json', { topics: [{ slug: 'a', name: 'A', query: 'q' }] });
+    const result = await resolveTopicsConfigPath({ explicit: path, cwd: dir, env: {} });
+    expect(result).toBe(path);
+  });
+
+  test('throws when explicit path is missing', async () => {
+    await expect(resolveTopicsConfigPath({ explicit: '/nope.json', cwd: dir, env: {} }))
+      .rejects.toThrow(/nope\.json/);
+  });
+
+  test('finds digest.config.json in cwd', async () => {
+    const path = writeConfig('digest.config.json', { topics: [{ slug: 'a', name: 'A', query: 'q' }] });
+    const result = await resolveTopicsConfigPath({ cwd: dir, env: {} });
+    expect(result).toBe(path);
+  });
+
+  test('falls back to XDG_CONFIG_HOME location', async () => {
+    const xdg = mkdtempSync(join(tmpdir(), 'xdg-'));
+    try {
+      const subdir = join(xdg, 'uae-news-digest');
+      require('node:fs').mkdirSync(subdir, { recursive: true });
+      const path = join(subdir, 'topics.json');
+      writeFileSync(path, JSON.stringify({ topics: [{ slug: 'a', name: 'A', query: 'q' }] }));
+      const cwdNoConfig = mkdtempSync(join(tmpdir(), 'cwd-empty-'));
+      try {
+        const result = await resolveTopicsConfigPath({
+          cwd: cwdNoConfig,
+          env: { XDG_CONFIG_HOME: xdg },
+        });
+        expect(result).toBe(path);
+      } finally {
+        rmSync(cwdNoConfig, { recursive: true, force: true });
+      }
+    } finally {
+      rmSync(xdg, { recursive: true, force: true });
+    }
+  });
+
+  test('returns null when no config found', async () => {
+    const emptyCwd = mkdtempSync(join(tmpdir(), 'cwd-none-'));
+    try {
+      const result = await resolveTopicsConfigPath({
+        cwd: emptyCwd,
+        env: { HOME: emptyCwd },
+      });
+      expect(result).toBeNull();
+    } finally {
+      rmSync(emptyCwd, { recursive: true, force: true });
+    }
   });
 });

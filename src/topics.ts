@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import type { RssLocale } from './region';
 
 const DEFAULT_LOCALE: Omit<RssLocale, 'q'> = { hl: 'en', gl: 'AE', ceid: 'AE:en' };
@@ -106,4 +107,33 @@ function requireString(value: unknown, where: string): string {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export type ResolveTopicsConfigOptions = {
+  explicit?: string;
+  cwd: string;
+  env: Record<string, string | undefined>;
+};
+
+export async function resolveTopicsConfigPath(
+  opts: ResolveTopicsConfigOptions,
+): Promise<string | null> {
+  if (opts.explicit) {
+    if (!(await Bun.file(opts.explicit).exists())) {
+      throw new Error(`Topics config not found: ${opts.explicit}`);
+    }
+    return opts.explicit;
+  }
+
+  const cwdCandidate = join(opts.cwd, 'digest.config.json');
+  if (await Bun.file(cwdCandidate).exists()) return cwdCandidate;
+
+  const xdg = opts.env.XDG_CONFIG_HOME
+    ?? (opts.env.HOME ? join(opts.env.HOME, '.config') : null);
+  if (xdg) {
+    const xdgCandidate = join(xdg, 'uae-news-digest', 'topics.json');
+    if (await Bun.file(xdgCandidate).exists()) return xdgCandidate;
+  }
+
+  return null;
 }
