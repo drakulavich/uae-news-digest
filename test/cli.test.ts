@@ -157,18 +157,19 @@ describe('CLI integration', () => {
     ]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('🇦🇪 UAE Latest News Digest');
-    expect(stdout).toContain('Dubai airport reopens after rain');
-    expect(stdout).toContain('Abu Dhabi market overview');
-    expect(stdout).toContain('Reuters');
-    expect(stdout).toContain('1h ago');
-    expect(stdout).toContain('2h ago');
+    expect(stdout).toBe([
+      '🇦🇪 UAE Latest News Digest',
+      '',
+      '🌧️ Dubai airport reopens after rain (Reuters, 1h ago)',
+      '📉 Abu Dhabi market overview (Gulf News, 2h ago)',
+      '',
+    ].join('\n'));
   });
 
   test('--json produces agent-friendly envelope', async () => {
     const stateFile = tmpStateFile();
     const packageJson = await Bun.file(PACKAGE_JSON).json();
-    const { stdout, exitCode } = await run([
+    const { stdout, stderr, exitCode } = await run([
       '--json',
       '--rss-url', `${baseUrl}/rss`,
       '--state-file', stateFile,
@@ -176,23 +177,31 @@ describe('CLI integration', () => {
     ]);
 
     expect(exitCode).toBe(0);
+    expect(stderr).toContain('dry run');
     const parsed = JSON.parse(stdout);
+    expect(Object.keys(parsed).sort()).toEqual(['count', 'items', 'query', 'tool', 'version', 'warnings']);
     expect(parsed.tool).toBe('uae-news-digest');
     expect(parsed.version).toBe(packageJson.version);
-    expect(parsed.query).toHaveProperty('hours');
-    expect(parsed.query).toHaveProperty('limit');
-    expect(parsed.query).toHaveProperty('targetLang');
+    expect(Object.keys(parsed.query).sort()).toEqual(['hours', 'limit', 'targetLang']);
+    expect(parsed.query).toEqual({ hours: 36, limit: 6, targetLang: null });
     expect(parsed.count).toBe(2);
     expect(parsed.warnings).toEqual([]);
     expect(parsed.items).toHaveLength(2);
-    expect(parsed.items[0].title).toBe('Dubai airport reopens after rain');
-    expect(parsed.items[0].source).toBe('Reuters');
-    expect(parsed.items[0].publishedAt).toBe('2026-03-22T07:00:00.000Z');
-    expect(parsed.items[0].hoursAgo).toBe(1);
-    expect(parsed.items[1].title).toBe('Abu Dhabi market overview');
-    expect(parsed.items[1].source).toBe('Gulf News');
-    expect(parsed.items[1].publishedAt).toBe('2026-03-22T06:00:00.000Z');
-    expect(parsed.items[1].hoursAgo).toBe(2);
+    expect(Object.keys(parsed.items[0]).sort()).toEqual(['hoursAgo', 'publishedAt', 'score', 'source', 'title']);
+    expect(parsed.items[0]).toEqual({
+      title: 'Dubai airport reopens after rain',
+      source: 'Reuters',
+      score: 8,
+      publishedAt: new Date(oneHourAgo).toISOString(),
+      hoursAgo: 1,
+    });
+    expect(parsed.items[1]).toEqual({
+      title: 'Abu Dhabi market overview',
+      source: 'Gulf News',
+      score: 6,
+      publishedAt: new Date(twoHoursAgo).toISOString(),
+      hoursAgo: 2,
+    });
   });
 
   test('manifest reports package version and bin name', async () => {
