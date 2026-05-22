@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
+import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:test';
 import type { Server } from 'bun';
 import { translateDeepL } from '../../src/translate';
 
@@ -20,6 +20,11 @@ beforeAll(() => {
 afterAll(() => {
   deeplServer.stop(true);
   delete process.env.DEEPL_API_URL;
+});
+
+beforeEach(() => {
+  deeplHandler = () => new Response('Not configured', { status: 500 });
+  restoreDeepLUrl();
 });
 
 function setupDeepLSuccess(translations: string[]): void {
@@ -77,12 +82,8 @@ describe('translateDeepL', () => {
 
   test('returns null on network error', async () => {
     setupDeepLNetworkError();
-    try {
-      const result = await translateDeepL(['test'], 'fake-key', 'RU');
-      expect(result).toBeNull();
-    } finally {
-      restoreDeepLUrl();
-    }
+    const result = await translateDeepL(['test'], 'fake-key', 'RU');
+    expect(result).toBeNull();
   });
 
   test('returns null if response count mismatches', async () => {

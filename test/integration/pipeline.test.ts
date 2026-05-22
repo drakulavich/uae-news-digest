@@ -1,13 +1,18 @@
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
+import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Server } from 'bun';
 import { runDigest } from '../../src/pipeline';
 
 type DeepLHandler = (req: Request) => Response | Promise<Response>;
+type CapturedDeepLRequest = {
+  method: string;
+  body: unknown;
+};
 
 let deeplHandler: DeepLHandler = () => new Response('Not configured', { status: 500 });
 let deeplServer: Server<undefined>;
+let deeplRequests: CapturedDeepLRequest[] = [];
 
 beforeAll(() => {
   deeplServer = Bun.serve({
@@ -24,11 +29,22 @@ afterAll(() => {
   delete process.env.DEEPL_API_URL;
 });
 
+beforeEach(() => {
+  deeplRequests = [];
+  deeplHandler = () => new Response('Not configured', { status: 500 });
+});
+
 function setupDeepLSuccess(translations: string[]): void {
-  deeplHandler = async () => new Response(
-    JSON.stringify({ translations: translations.map((text) => ({ detected_source_language: 'EN', text })) }),
-    { status: 200, headers: { 'content-type': 'application/json' } },
-  );
+  deeplHandler = async (req) => {
+    deeplRequests.push({
+      method: req.method,
+      body: await req.json(),
+    });
+    return new Response(
+      JSON.stringify({ translations: translations.map((text) => ({ detected_source_language: 'EN', text })) }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
 }
 
 function setupDeepLStatus(status: number): void {
@@ -63,6 +79,18 @@ describe('runDigest', () => {
     expect(result.output).toContain('2h ago');
     expect(result.digest).toHaveLength(2);
     expect(result.warnings).toEqual([]);
+    expect(deeplRequests).toEqual([
+      {
+        method: 'POST',
+        body: {
+          text: [
+            'Dubai airport reopens after rain',
+            'Abu Dhabi market overview',
+          ],
+          target_lang: 'RU',
+        },
+      },
+    ]);
   });
 
   test('falls back to English when DeepL fails', async () => {
