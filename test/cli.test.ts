@@ -418,7 +418,7 @@ describe('CLI integration', () => {
       '--rss-url', `${baseUrl}/rss/hang`,
       '--state-file', stateFile,
       '--timeout-ms', '5000',
-    ], undefined, { timeoutMs: 100 })).rejects.toThrow(/CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*exitCode:[\s\S]*stdout:[\s\S]*stderr:/);
+    ], undefined, { timeoutMs: 100 })).rejects.toThrow(/CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*exitCode:[\s\S]*stdout:[\s\S]*stderr:[\s\S]*requests:/);
   });
 
   test('RSS network failure shows network message and exits 1', async () => {
