@@ -1,3 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { rename, unlink } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
+
 export const DEFAULT_STATE_FILE = './seen_titles.txt';
 
 export async function readSeenKeys(stateFile: string): Promise<Set<string>> {
@@ -8,5 +12,17 @@ export async function readSeenKeys(stateFile: string): Promise<Set<string>> {
 }
 
 export async function writeSeenKeys(stateFile: string, seenKeys: Set<string>): Promise<void> {
-  await Bun.write(stateFile, `${[...seenKeys].sort().join('\n')}\n`);
+  const dir = dirname(stateFile);
+  const tmpFile = join(dir, `.${basename(stateFile)}.${process.pid}.${randomUUID()}.tmp`);
+
+  try {
+    await Bun.write(tmpFile, `${[...seenKeys].sort().join('\n')}\n`);
+    await rename(tmpFile, stateFile);
+  } catch (error) {
+    await unlink(tmpFile).catch((cleanupError: unknown) => {
+      const message = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+      console.error(`Failed to remove temporary state file ${tmpFile}: ${message}`);
+    });
+    throw error;
+  }
 }

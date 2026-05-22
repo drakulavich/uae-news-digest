@@ -1,6 +1,7 @@
 import { describe, expect, test, afterAll } from 'bun:test';
+import { readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { readSeenKeys, writeSeenKeys } from '../../src/state';
 
 describe('readSeenKeys / writeSeenKeys', () => {
@@ -28,5 +29,14 @@ describe('readSeenKeys / writeSeenKeys', () => {
     const raw = await Bun.file(testFile).text();
     const lines = raw.trim().split('\n');
     expect(lines).toEqual(['alpha || a', 'middle || m', 'zebra || z']);
+  });
+
+  test('successful writes do not leave temporary state files', async () => {
+    const keys = new Set(['atomic || source']);
+    await writeSeenKeys(testFile, keys);
+
+    const files = await readdir(dirname(testFile));
+    const tempPrefix = `.${basename(testFile)}.`;
+    expect(files.filter((file) => file.startsWith(tempPrefix) && file.endsWith('.tmp'))).toEqual([]);
   });
 });
