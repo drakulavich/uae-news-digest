@@ -86,6 +86,7 @@ beforeEach(() => {
 
 const CLI = join(import.meta.dir, '..', 'src', 'index.ts');
 const PACKAGE_JSON = join(import.meta.dir, '..', 'package.json');
+const TEXT_GOLDEN = join(import.meta.dir, 'fixtures', 'cli-default-output.txt');
 
 type CliRunResult = {
   command: string[];
@@ -199,13 +200,7 @@ describe('CLI integration', () => {
     ]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toBe([
-      '🇦🇪 UAE Latest News Digest',
-      '',
-      '🌧️ Dubai airport reopens after rain (Reuters, 1h ago)',
-      '📉 Abu Dhabi market overview (Gulf News, 2h ago)',
-      '',
-    ].join('\n'));
+    expect(stdout).toBe(await Bun.file(TEXT_GOLDEN).text());
   });
 
   test('--json produces agent-friendly envelope', async () => {
