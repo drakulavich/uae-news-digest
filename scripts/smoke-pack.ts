@@ -14,6 +14,8 @@ const RSS_XML = `<?xml version="1.0"?><rss><channel>
   <item><title>Dubai airport reopens after rain</title><pubDate>Sun, 22 Mar 2026 07:00:00 GMT</pubDate><source url="https://example.com">Reuters</source></item>
 </channel></rss>`;
 
+// NOTE: RSS_XML above and the inline xml literal in the core-smoke template below must stay in sync.
+
 async function run(command: string[], cwd: string, env?: Record<string, string>): Promise<string> {
   const proc = Bun.spawn(command, {
     cwd,
