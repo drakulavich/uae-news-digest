@@ -18,6 +18,15 @@ function validatePositiveNumber(name: string, raw: string | number): number {
   return value;
 }
 
+function resolveNow(raw: string | undefined): Date {
+  if (!raw) return new Date();
+  const now = new Date(raw);
+  if (Number.isNaN(now.getTime())) {
+    throw new Error(`Invalid UAE_NEWS_DIGEST_NOW: ${raw}`);
+  }
+  return now;
+}
+
 const program = new Command();
 
 program
@@ -89,6 +98,7 @@ program.action(async (options) => {
     const limit = validatePositiveNumber('limit', options.limit);
     const timeoutMs = validatePositiveNumber('timeout-ms', options.timeoutMs);
     const deeplAuthKey = process.env.DEEPL_AUTH_KEY;
+    const now = resolveNow(process.env.UAE_NEWS_DIGEST_NOW);
 
     if (options.targetLang && !deeplAuthKey) {
       console.error(`--target-lang requires DEEPL_AUTH_KEY to be set.`);
@@ -124,6 +134,7 @@ program.action(async (options) => {
       deeplAuthKey,
       targetLang: options.targetLang,
       region: options.region,
+      now,
     });
 
     if (!options.json) {
@@ -133,7 +144,6 @@ program.action(async (options) => {
     }
 
     if (options.json) {
-      const now = new Date();
       process.stdout.write(JSON.stringify({
         tool: TOOL_ID,
         version: VERSION,
