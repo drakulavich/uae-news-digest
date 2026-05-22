@@ -1,9 +1,9 @@
 import { parseRss } from './rss';
 import { buildDigest } from './digest';
-import { renderDigest } from './render';
+import { renderDigest, renderTopicalDigest } from './render';
 import { translateDeepL } from './translate';
 import type { DigestItem } from './digest';
-import type { TopicConfig } from './topics';
+import type { TopicConfig, TopicsConfig } from './topics';
 
 export type TopicSection = {
   topic: TopicConfig;
@@ -61,6 +61,69 @@ export async function runDigest(options: RunDigestOptions): Promise<RunDigestRes
     digest,
     output: renderDigest(digest, translations, options.now ?? new Date(), options.region ?? 'uae'),
     nextSeenKeys: mergeSeenKeys(options.seenKeys, digest),
+    warnings,
+  };
+}
+
+export type TopicFetcher = (topic: TopicConfig) => Promise<string>;
+
+export type RunTopicalDigestOptions = {
+  config: TopicsConfig;
+  seenKeys: Set<string>;
+  hours: number;
+  limitOverride?: number;
+  fetchTopicRss: TopicFetcher;
+  now?: Date;
+};
+
+export type RunTopicalDigestResult = {
+  sections: TopicSection[];
+  output: string;
+  nextSeenKeys: Set<string>;
+  warnings: string[];
+};
+
+export async function runTopicalDigest(
+  opts: RunTopicalDigestOptions,
+): Promise<RunTopicalDigestResult> {
+  const now = opts.now ?? new Date();
+  const fetched = await Promise.allSettled(
+    opts.config.topics.map((t) => opts.fetchTopicRss(t)),
+  );
+
+  const seen = new Set(opts.seenKeys);
+  const sections: TopicSection[] = [];
+  const warnings: string[] = [];
+
+  for (let i = 0; i < opts.config.topics.length; i++) {
+    const topic = opts.config.topics[i]!;
+    const result = fetched[i]!;
+    if (result.status === 'rejected') {
+      const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      warnings.push(`Topic "${topic.slug}" failed: ${msg}`);
+      sections.push({ topic, items: [] });
+      continue;
+    }
+
+    const items = buildDigest(parseRss(result.value), {
+      seenKeys: seen,
+      hours: opts.hours,
+      limit: opts.limitOverride ?? topic.limit,
+      now,
+    });
+
+    if (items.length === 0) {
+      warnings.push(`Topic "${topic.slug}" returned 0 items — check the query syntax`);
+    }
+
+    for (const it of items) seen.add(it.key);
+    sections.push({ topic, items });
+  }
+
+  return {
+    sections,
+    output: renderTopicalDigest(sections, undefined, now),
+    nextSeenKeys: seen,
     warnings,
   };
 }
