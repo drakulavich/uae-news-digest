@@ -79,8 +79,10 @@ type CliRunResult = {
   command: string[];
   stdout: string;
   stderr: string;
-  exitCode: number;
+  exitCode: number | 'unknown';
 };
+
+const CLI_TIMEOUT_CLEANUP_MS = 1_000;
 
 function formatRunResult(result: CliRunResult): string {
   return [
@@ -117,12 +119,21 @@ async function run(
 
   if (exitOrTimeout === 'timeout') {
     proc.kill();
-    const [stdout, stderr, exitCode] = await Promise.all([
-      stdoutPromise,
-      stderrPromise,
-      proc.exited,
+    const result = await Promise.race<CliRunResult>([
+      Promise.all([
+        stdoutPromise,
+        stderrPromise,
+        proc.exited,
+      ]).then(([stdout, stderr, exitCode]) => ({ command, stdout, stderr, exitCode })),
+      new Promise<CliRunResult>((resolve) => {
+        setTimeout(() => resolve({
+          command,
+          stdout: '<unavailable: process did not exit after kill>',
+          stderr: '<unavailable: process did not exit after kill>',
+          exitCode: 'unknown',
+        }), CLI_TIMEOUT_CLEANUP_MS);
+      }),
     ]);
-    const result = { command, stdout, stderr, exitCode };
     throw new Error(`CLI command timed out after ${timeoutMs}ms\n${formatRunResult(result)}`);
   }
 
@@ -301,7 +312,7 @@ describe('CLI integration', () => {
       '--rss-url', `${baseUrl}/rss/hang`,
       '--state-file', stateFile,
       '--timeout-ms', '5000',
-    ], undefined, { timeoutMs: 100 })).rejects.toThrow(/CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*stdout:[\s\S]*stderr:/);
+    ], undefined, { timeoutMs: 100 })).rejects.toThrow(/CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*exitCode:[\s\S]*stdout:[\s\S]*stderr:/);
   });
 
   test('RSS network failure shows network message and exits 1', async () => {
