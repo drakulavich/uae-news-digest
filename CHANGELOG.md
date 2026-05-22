@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-22
+
+### Added
+- Topics mode: a JSON config file (`digest.config.json` in cwd, or `$XDG_CONFIG_HOME/uae-news-digest/topics.json`) drives a per-topic digest, fetched in parallel and rendered as labelled sections in one run.
+- `--topics-config <path>` flag explicitly selects a config file.
+- `--no-topics` flag forces the legacy region mode even when a topics config is present.
+- `mode` field in JSON output (`"topics"` or `"region"`) plus a `topics` array and per-item `topic` slug when in topics mode.
+- `buildRssUrl` accepts an object form (`{q, hl, gl, ceid}`) for ad-hoc locales used by topics.
+- `localeContextFor(gl)` derives flag, name, and IANA timezone from a country code; `renderTopicalDigest` uses it for DST-safe per-locale date labels.
+- New public API exports: `loadTopicsConfig`, `resolveTopicsConfigPath`, `runTopicalDigest`, `renderTopicalDigest`, plus types `TopicConfig`, `TopicsConfig`, `TopicSection`, `LocaleContext`, `RssLocale`.
+
+### Changed
+- Cross-topic dedup is "first topic in config wins" — reorder the config to set priority.
+- DeepL translation in topics mode batches every title across every section into a single request and de-duplicates identical titles before sending.
+
+### Removed
+- `ru` region preset (and its `Europe/Moscow` timezone entry) is no longer bundled. `RU` remains valid as a DeepL `--target-lang` value.
+
 ## [0.0.4] - 2026-05-22
 
 ### Added
