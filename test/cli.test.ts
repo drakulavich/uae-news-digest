@@ -69,6 +69,7 @@ afterAll(() => {
 // ── Helpers ───────────────────────────────────────────────────
 
 const CLI = join(import.meta.dir, '..', 'src', 'index.ts');
+const PACKAGE_JSON = join(import.meta.dir, '..', 'package.json');
 
 async function run(
   args: string[],
@@ -112,6 +113,7 @@ describe('CLI integration', () => {
 
   test('--json produces agent-friendly envelope', async () => {
     const stateFile = tmpStateFile();
+    const packageJson = await Bun.file(PACKAGE_JSON).json();
     const { stdout, exitCode } = await run([
       '--json',
       '--rss-url', `${baseUrl}/rss`,
@@ -122,7 +124,7 @@ describe('CLI integration', () => {
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
     expect(parsed.tool).toBe('uae-news-digest');
-    expect(parsed.version).toBe('0.0.2');
+    expect(parsed.version).toBe(packageJson.version);
     expect(parsed.query).toHaveProperty('hours');
     expect(parsed.query).toHaveProperty('limit');
     expect(parsed.query).toHaveProperty('targetLang');
@@ -133,6 +135,17 @@ describe('CLI integration', () => {
     expect(parsed.items[0]).toHaveProperty('score');
     expect(parsed.items[0]).toHaveProperty('publishedAt');
     expect(parsed.items[0]).toHaveProperty('hoursAgo');
+  });
+
+  test('manifest reports package version and bin name', async () => {
+    const packageJson = await Bun.file(PACKAGE_JSON).json();
+    const { stdout, exitCode } = await run(['manifest']);
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.id).toBe('uae-news-digest');
+    expect(parsed.version).toBe(packageJson.version);
+    expect(parsed.bin).toBe('uae-news-digest');
   });
 
   test('--dry-run does not write state file', async () => {

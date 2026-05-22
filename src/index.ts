@@ -8,6 +8,7 @@ import {
   runDigest,
   writeSeenKeys,
 } from './lib';
+import { BIN_NAME, TOOL_ID, VERSION } from './meta';
 
 function validatePositiveNumber(name: string, raw: string | number): number {
   const value = typeof raw === 'number' ? raw : Number(raw);
@@ -20,7 +21,7 @@ function validatePositiveNumber(name: string, raw: string | number): number {
 const program = new Command();
 
 program
-  .name('uae-news-digest')
+  .name(TOOL_ID)
   .description('Daily UAE news digest from Google News RSS with optional DeepL translation')
   .option('--json', 'output as JSON', false)
   .option('--region <code>', 'news region preset (uae, us, uk, de, ru)', 'uae')
@@ -45,10 +46,10 @@ program
   .description('Print tool manifest as JSON')
   .action(() => {
     console.log(JSON.stringify({
-      id: 'uae-news-digest',
-      version: '0.0.2',
+      id: TOOL_ID,
+      version: VERSION,
       runtime: 'bun',
-      bin: null,
+      bin: BIN_NAME,
       description: 'Daily UAE news digest from Google News RSS with optional DeepL translation',
       commands: [
         {
@@ -69,12 +70,12 @@ program
     const start = performance.now();
     try {
       const res = await fetch(buildRssUrl('uae'), { signal: AbortSignal.timeout(10000) });
-      const result = { ok: res.ok, version: '0.0.2', latencyMs: Math.round(performance.now() - start) };
+      const result = { ok: res.ok, version: VERSION, latencyMs: Math.round(performance.now() - start) };
       console.log(JSON.stringify(result));
       process.exit(result.ok ? 0 : 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      const result = { ok: false, version: '0.0.2', latencyMs: Math.round(performance.now() - start), error: message };
+      const result = { ok: false, version: VERSION, latencyMs: Math.round(performance.now() - start), error: message };
       console.log(JSON.stringify(result));
       process.exit(1);
     }
@@ -128,8 +129,8 @@ program.action(async (options) => {
     if (options.json) {
       const now = new Date();
       process.stdout.write(JSON.stringify({
-        tool: 'uae-news-digest',
-        version: '0.0.2',
+        tool: TOOL_ID,
+        version: VERSION,
         query: { hours, limit, targetLang: options.targetLang ?? null },
         count: result.digest.length,
         items: result.digest.map(d => ({
