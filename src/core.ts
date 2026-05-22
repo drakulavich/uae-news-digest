@@ -8,7 +8,7 @@ export type { RssItem } from './rss';
 export { buildDigest, parsePubDate } from './digest';
 export type { DigestItem, BuildDigestOptions } from './digest';
 export { runDigest, mergeSeenKeys } from './pipeline';
-export type { RunDigestOptions } from './pipeline';
+export type { RunDigestOptions, RunDigestResult } from './pipeline';
 export { renderDigest, emojiFor } from './render';
 export { scoreItem, titleSimilarity } from './scoring';
 export { normalizeTitle, normalizeSource, makeKey } from './normalize';

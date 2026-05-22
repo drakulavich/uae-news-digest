@@ -50,6 +50,10 @@ beforeAll(() => {
         return new Response(DEEPL_RESPONSE, { headers: { 'content-type': 'application/json' } });
       }
 
+      if (url.pathname === '/translate/error' && req.method === 'POST') {
+        return new Response('DeepL unavailable', { status: 500 });
+      }
+
       if (url.pathname === '/rss/hang') {
         return new Promise<Response>(() => {
           // Intentionally never resolves — the CLI's timeout must fire.
@@ -129,6 +133,7 @@ describe('CLI integration', () => {
     expect(parsed.query).toHaveProperty('limit');
     expect(parsed.query).toHaveProperty('targetLang');
     expect(parsed.count).toBe(2);
+    expect(parsed.warnings).toEqual([]);
     expect(parsed.items).toHaveLength(2);
     expect(parsed.items[0]).toHaveProperty('title');
     expect(parsed.items[0]).toHaveProperty('source');
@@ -181,6 +186,47 @@ describe('CLI integration', () => {
     expect(stderr).toContain('Translating to DE');
     expect(stdout).toContain('Flughafen Dubai öffnet nach Regen wieder');
     expect(stdout).toContain('Marktübersicht Abu Dhabi');
+  });
+
+  test('translation failure warns and falls back to original titles', async () => {
+    const stateFile = tmpStateFile();
+    const { stdout, stderr, exitCode } = await run(
+      [
+        '--rss-url', `${baseUrl}/rss`,
+        '--state-file', stateFile,
+        '--target-lang', 'DE',
+        '--dry-run',
+      ],
+      {
+        DEEPL_AUTH_KEY: 'fake-key',
+        DEEPL_API_URL: `${baseUrl}/translate/error`,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toContain('DeepL translation to DE failed; using original titles.');
+    expect(stdout).toContain('Dubai airport reopens after rain');
+  });
+
+  test('--json includes warnings when translation falls back', async () => {
+    const stateFile = tmpStateFile();
+    const { stdout, exitCode } = await run(
+      [
+        '--json',
+        '--rss-url', `${baseUrl}/rss`,
+        '--state-file', stateFile,
+        '--target-lang', 'DE',
+        '--dry-run',
+      ],
+      {
+        DEEPL_AUTH_KEY: 'fake-key',
+        DEEPL_API_URL: `${baseUrl}/translate/error`,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.warnings).toEqual(['DeepL translation to DE failed; using original titles.']);
   });
 
   test('--target-lang without DEEPL_AUTH_KEY exits with error', async () => {

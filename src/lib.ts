@@ -12,4 +12,4 @@ export { translateDeepL, DEEPL_API_URL } from './translate';
 export type { DeepLTranslation, DeepLResponse } from './translate';
 export { readSeenKeys, writeSeenKeys, DEFAULT_STATE_FILE } from './state';
 export { runDigest, mergeSeenKeys } from './pipeline';
-export type { RunDigestOptions } from './pipeline';
+export type { RunDigestOptions, RunDigestResult } from './pipeline';
