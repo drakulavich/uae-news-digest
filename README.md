@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/drakulavich/uae-news-digest/main/docs/logo.png" alt="uae-news-digest logo" width="200" />
+</p>
+
 <h1 align="center">uae-news-digest</h1>
 
 <p align="center">
