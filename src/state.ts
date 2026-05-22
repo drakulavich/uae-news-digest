@@ -19,7 +19,10 @@ export async function writeSeenKeys(stateFile: string, seenKeys: Set<string>): P
     await Bun.write(tmpFile, `${[...seenKeys].sort().join('\n')}\n`);
     await rename(tmpFile, stateFile);
   } catch (error) {
-    await unlink(tmpFile).catch(() => {});
+    await unlink(tmpFile).catch((cleanupError: unknown) => {
+      const message = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+      console.error(`Failed to remove temporary state file ${tmpFile}: ${message}`);
+    });
     throw error;
   }
 }
