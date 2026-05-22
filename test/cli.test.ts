@@ -75,21 +75,59 @@ afterAll(() => {
 const CLI = join(import.meta.dir, '..', 'src', 'index.ts');
 const PACKAGE_JSON = join(import.meta.dir, '..', 'package.json');
 
+type CliRunResult = {
+  command: string[];
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+};
+
+function formatRunResult(result: CliRunResult): string {
+  return [
+    `command: ${result.command.join(' ')}`,
+    `exitCode: ${result.exitCode}`,
+    `stdout:\n${result.stdout}`,
+    `stderr:\n${result.stderr}`,
+  ].join('\n');
+}
+
 async function run(
   args: string[],
   env?: Record<string, string>,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const proc = Bun.spawn(['bun', CLI, ...args], {
+  options: { timeoutMs?: number } = {},
+): Promise<CliRunResult> {
+  const command = ['bun', CLI, ...args];
+  const timeoutMs = options.timeoutMs ?? 5_000;
+  const proc = Bun.spawn(command, {
     stdout: 'pipe',
     stderr: 'pipe',
     env: { ...process.env, ...env },
   });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const exitCode = await proc.exited;
-  return { stdout, stderr, exitCode };
+
+  const stdoutPromise = new Response(proc.stdout).text();
+  const stderrPromise = new Response(proc.stderr).text();
+  let timeout: Timer | undefined;
+
+  const timedOut = new Promise<'timeout'>((resolve) => {
+    timeout = setTimeout(() => resolve('timeout'), timeoutMs);
+  });
+
+  const exitOrTimeout = await Promise.race([proc.exited, timedOut]);
+  if (timeout) clearTimeout(timeout);
+
+  if (exitOrTimeout === 'timeout') {
+    proc.kill();
+    const [stdout, stderr, exitCode] = await Promise.all([
+      stdoutPromise,
+      stderrPromise,
+      proc.exited,
+    ]);
+    const result = { command, stdout, stderr, exitCode };
+    throw new Error(`CLI command timed out after ${timeoutMs}ms\n${formatRunResult(result)}`);
+  }
+
+  const [stdout, stderr] = await Promise.all([stdoutPromise, stderrPromise]);
+  return { command, stdout, stderr, exitCode: exitOrTimeout };
 }
 
 function tmpStateFile(): string {
@@ -254,6 +292,16 @@ describe('CLI integration', () => {
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain('timed out');
+  });
+
+  test('CLI helper times out hung commands with diagnostics', async () => {
+    const stateFile = tmpStateFile();
+
+    await expect(run([
+      '--rss-url', `${baseUrl}/rss/hang`,
+      '--state-file', stateFile,
+      '--timeout-ms', '5000',
+    ], undefined, { timeoutMs: 100 })).rejects.toThrow(/CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*stdout:[\s\S]*stderr:/);
   });
 
   test('RSS network failure shows network message and exits 1', async () => {
