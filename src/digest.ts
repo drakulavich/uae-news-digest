@@ -21,10 +21,10 @@ export type BuildDigestOptions = {
   skipRe?: RegExp;
 };
 
-export function parsePubDate(pubDate: string | undefined, now = new Date()): Date {
-  if (!pubDate) return now;
+export function parsePubDate(pubDate: string | undefined): Date | null {
+  if (!pubDate) return null;
   const parsed = new Date(pubDate);
-  return Number.isNaN(parsed.getTime()) ? now : parsed;
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 export function buildDigest(items: RssItem[], options: BuildDigestOptions): DigestItem[] {
@@ -38,7 +38,8 @@ export function buildDigest(items: RssItem[], options: BuildDigestOptions): Dige
     if (!title) continue;
     if (skipRe.test(title) || skipRe.test(source)) continue;
 
-    const publishedAt = parsePubDate(item.pubDate, now);
+    const publishedAt = parsePubDate(item.pubDate);
+    if (!publishedAt) continue;
     if (publishedAt < cutoff) continue;
 
     const key = makeKey(title, source);
