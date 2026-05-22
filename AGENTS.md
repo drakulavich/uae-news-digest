@@ -58,7 +58,9 @@ uae-news-digest/
 │   ├── index.ts              # CLI entry point (Commander-based)
 │   ├── core.ts               # Public API re-exports
 │   ├── pipeline.ts           # End-to-end digest orchestration
-│   ├── digest.ts             # Filtering, scoring, dedup, and limiting
+│   ├── digest.ts             # Filtering, dedup, and limiting
+│   ├── scoring.ts            # Item scoring and title similarity
+│   ├── normalize.ts          # Whitespace/title/source normalization
 │   ├── rss.ts                # RSS parsing
 │   ├── render.ts             # Text output rendering
 │   ├── translate.ts          # DeepL translation

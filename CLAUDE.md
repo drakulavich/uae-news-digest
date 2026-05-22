@@ -43,6 +43,9 @@ Two interfaces: a CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/
 ```bash
 bun install                    # Install dependencies
 bun test                       # Run all tests
+bun run typecheck              # Run TypeScript type checking
+bun run build                  # Emit declaration/build output
+bun run smoke:pack             # Smoke-test the packed npm package
 bun run dev                    # Run CLI in development
 bun link                       # Link binary globally
 ```
@@ -53,10 +56,24 @@ bun link                       # Link binary globally
 uae-news-digest/
 ├── src/
 │   ├── index.ts              # CLI entry point (Commander-based)
-│   ├── lib.ts                # Core logic: RSS parsing, scoring, dedup, translation, rendering
-│   └── core.ts               # Public API re-exports
+│   ├── core.ts               # Public API re-exports
+│   ├── pipeline.ts           # End-to-end digest orchestration
+│   ├── digest.ts             # Filtering, dedup, and limiting
+│   ├── scoring.ts            # Item scoring and title similarity
+│   ├── normalize.ts          # Whitespace/title/source normalization
+│   ├── rss.ts                # RSS parsing
+│   ├── render.ts             # Text output rendering
+│   ├── translate.ts          # DeepL translation
+│   ├── region.ts             # Region preset handling
+│   ├── state.ts              # Seen-item state file I/O
+│   └── meta.ts               # Package metadata helpers
 ├── test/
-│   └── lib.test.ts           # Unit tests
+│   ├── cli.test.ts           # CLI integration tests
+│   ├── integration/          # Pipeline and digest integration tests
+│   ├── unit/                 # Focused module tests
+│   └── fixtures/             # Shared test fixtures/helpers
+├── scripts/
+│   └── smoke-pack.ts         # npm pack consumer smoke test
 ├── .github/
 │   └── workflows/            # CI
 └── package.json
@@ -66,10 +83,10 @@ uae-news-digest/
 
 ```
 RSS feed (Google News)
-  → [lib.ts] parseRss → RssItem[]
-  → [lib.ts] buildDigest → scored, deduped DigestItem[]
-  → [lib.ts] translateDeepL (optional, when --target-lang set + DEEPL_AUTH_KEY)
-  → [lib.ts] renderDigest → formatted text output
+  → [rss.ts] parseRss → RssItem[]
+  → [digest.ts] buildDigest → scored, deduped DigestItem[]
+  → [translate.ts] translateDeepL (optional, when --target-lang set + DEEPL_AUTH_KEY)
+  → [render.ts] renderDigest → formatted text output
 ```
 
 ### Translation
