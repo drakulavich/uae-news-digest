@@ -74,6 +74,8 @@ export type RunTopicalDigestOptions = {
   limitOverride?: number;
   fetchTopicRss: TopicFetcher;
   now?: Date;
+  deeplAuthKey?: string;
+  targetLang?: string;
 };
 
 export type RunTopicalDigestResult = {
@@ -120,9 +122,25 @@ export async function runTopicalDigest(
     sections.push({ topic, items });
   }
 
+  let translations: Map<string, string> | undefined;
+  if (opts.targetLang && opts.deeplAuthKey) {
+    const titles = sections.flatMap((s) => s.items.map((i) => i.title));
+    if (titles.length > 0) {
+      const translated = await translateDeepL(titles, opts.deeplAuthKey, opts.targetLang);
+      if (translated) {
+        translations = new Map();
+        for (let i = 0; i < titles.length; i++) {
+          translations.set(titles[i]!, translated[i]!);
+        }
+      } else {
+        warnings.push(`DeepL translation to ${opts.targetLang} failed; using original titles.`);
+      }
+    }
+  }
+
   return {
     sections,
-    output: renderTopicalDigest(sections, undefined, now),
+    output: renderTopicalDigest(sections, translations, now),
     nextSeenKeys: seen,
     warnings,
   };

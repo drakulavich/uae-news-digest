@@ -1,6 +1,25 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:test';
+import type { Server } from 'bun';
 import { runTopicalDigest } from '../../src/pipeline';
 import type { TopicConfig, TopicsConfig } from '../../src/topics';
+
+type DeepLHandler = (req: Request) => Response | Promise<Response>;
+let deeplHandler: DeepLHandler = () => new Response('Not configured', { status: 500 });
+let deeplServer: Server<undefined>;
+const deeplRequests: { body: unknown }[] = [];
+
+beforeAll(() => {
+  deeplServer = Bun.serve({ port: 0, fetch: (req) => deeplHandler(req) });
+  process.env.DEEPL_API_URL = `http://localhost:${deeplServer.port}/translate`;
+});
+afterAll(() => {
+  deeplServer.stop(true);
+  delete process.env.DEEPL_API_URL;
+});
+beforeEach(() => {
+  deeplRequests.length = 0;
+  deeplHandler = () => new Response('Not configured', { status: 500 });
+});
 
 function topic(over: Partial<TopicConfig>): TopicConfig {
   return {
@@ -183,5 +202,64 @@ describe('runTopicalDigest', () => {
     for (const item of result.sections[0]!.items) {
       expect(result.nextSeenKeys.has(item.key)).toBe(true);
     }
+  });
+});
+
+describe('runTopicalDigest with DeepL', () => {
+  test('translates all titles across topics in a single batch', async () => {
+    deeplHandler = async (req) => {
+      const body = await req.json();
+      deeplRequests.push({ body });
+      const translated = (body as { text: string[] }).text.map((t) => `[ru] ${t}`);
+      return new Response(
+        JSON.stringify({ translations: translated.map((text) => ({ detected_source_language: 'EN', text })) }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    };
+
+    const config: TopicsConfig = {
+      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
+      topics: [
+        topic({ slug: 'a', name: 'A', emoji: '🅰️' }),
+        topic({ slug: 'b', name: 'B', emoji: '🅱️' }),
+      ],
+    };
+    const result = await runTopicalDigest({
+      config,
+      seenKeys: new Set(),
+      hours: 36,
+      fetchTopicRss: async (t) =>
+        rssXml([{ title: `Story for ${t.slug}`, source: 'Reuters', pubDate: 'Fri, 22 May 2026 11:00:00 GMT' }]),
+      now: NOW,
+      deeplAuthKey: 'fake',
+      targetLang: 'RU',
+    });
+
+    expect(deeplRequests).toHaveLength(1);
+    expect((deeplRequests[0]!.body as { text: string[] }).text.sort()).toEqual(
+      ['Story for a', 'Story for b'],
+    );
+    expect(result.output).toContain('[ru] Story for a');
+    expect(result.output).toContain('[ru] Story for b');
+  });
+
+  test('falls back gracefully when DeepL fails', async () => {
+    deeplHandler = async () => new Response('boom', { status: 500 });
+    const config: TopicsConfig = {
+      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
+      topics: [topic({ slug: 'a', name: 'A' })],
+    };
+    const result = await runTopicalDigest({
+      config,
+      seenKeys: new Set(),
+      hours: 36,
+      fetchTopicRss: async () =>
+        rssXml([{ title: 'Story', source: 'Reuters', pubDate: 'Fri, 22 May 2026 11:00:00 GMT' }]),
+      now: NOW,
+      deeplAuthKey: 'fake',
+      targetLang: 'RU',
+    });
+    expect(result.output).toContain('Story (Reuters');
+    expect(result.warnings.some((w) => /DeepL/.test(w) && /RU/.test(w))).toBe(true);
   });
 });
