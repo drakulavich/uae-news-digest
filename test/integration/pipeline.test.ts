@@ -7,7 +7,7 @@ import { runDigest } from '../../src/pipeline';
 type DeepLHandler = (req: Request) => Response | Promise<Response>;
 
 let deeplHandler: DeepLHandler = () => new Response('Not configured', { status: 500 });
-let deeplServer: Server;
+let deeplServer: Server<undefined>;
 
 beforeAll(() => {
   deeplServer = Bun.serve({

@@ -25,7 +25,7 @@ const DEEPL_RESPONSE = JSON.stringify({
 
 // ── Test server ───────────────────────────────────────────────
 
-let server: Server;
+let server: Server<undefined>;
 let baseUrl: string;
 
 beforeAll(() => {
