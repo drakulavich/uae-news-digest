@@ -11,7 +11,7 @@
 <code>uae-news-digest</code> turns Google News RSS into a ranked, deduplicated terminal briefing with clean JSON for scripts and agents.</p>
 
 <p align="center">
-  <img src="https://github.com/drakulavich/uae-news-digest/raw/main/assets/demo.gif" alt="uae-news-digest demo: manifest, healthcheck, text digest, and JSON output" width="720">
+  <img src="https://github.com/drakulavich/uae-news-digest/raw/main/assets/demo.gif" alt="uae-news-digest demo: healthcheck, text digest, and JSON output" width="720">
 </p>
 
 - **Signal first.** Preferred sources and UAE-specific keywords push important stories up.
