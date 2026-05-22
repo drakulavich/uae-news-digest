@@ -1,6 +1,6 @@
 import { REGION_PRESETS } from './region';
 import type { DigestItem } from './digest';
-import type { TopicConfig } from './topics';
+import type { TopicSection } from './pipeline';
 
 export function emojiFor(title: string): string {
   const t = title.toLowerCase();
@@ -34,17 +34,14 @@ export function renderDigest(items: DigestItem[], translations?: Map<string, str
   return lines.join('\n');
 }
 
-export type RenderedSection = {
-  topic: TopicConfig;
-  items: DigestItem[];
-};
-
 export function renderTopicalDigest(
-  sections: RenderedSection[],
+  sections: TopicSection[],
   translations?: Map<string, string>,
   now: Date = new Date(),
 ): string {
-  const dateLabel = now.toISOString().slice(0, 10);
+  const dateLabel = new Date(now.getTime() + 4 * 3_600_000)
+    .toISOString()
+    .slice(0, 10);
   const lines: string[] = [`🇦🇪 UAE digest — ${dateLabel}`, ''];
 
   for (let i = 0; i < sections.length; i++) {

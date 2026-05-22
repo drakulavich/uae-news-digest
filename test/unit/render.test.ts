@@ -187,4 +187,15 @@ describe('renderTopicalDigest', () => {
     expect(out).toContain('ВВП вырос (Reuters');
     expect(out).not.toContain('GDP up (');
   });
+
+  test('uses UAE local date in header', () => {
+    // 21:30 UTC = 01:30 next-day UAE (UTC+4)
+    const lateUtc = new Date('2026-05-22T21:30:00Z');
+    const out = renderTopicalDigest(
+      [{ topic: makeTopic({}), items: [] }],
+      undefined,
+      lateUtc,
+    );
+    expect(out).toMatch(/^🇦🇪 UAE digest — 2026-05-23\n/);
+  });
 });

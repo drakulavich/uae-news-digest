@@ -3,6 +3,12 @@ import { buildDigest } from './digest';
 import { renderDigest } from './render';
 import { translateDeepL } from './translate';
 import type { DigestItem } from './digest';
+import type { TopicConfig } from './topics';
+
+export type TopicSection = {
+  topic: TopicConfig;
+  items: DigestItem[];
+};
 
 export type RunDigestOptions = {
   xml: string;
