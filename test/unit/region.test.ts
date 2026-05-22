@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildRssUrl } from '../../src/region';
+import { buildRssUrl, localeContextFor } from '../../src/region';
 
 describe('buildRssUrl', () => {
   test('returns Google News RSS URL for known region', () => {
@@ -24,12 +24,6 @@ describe('buildRssUrl', () => {
     const url = buildRssUrl('de');
     expect(url).toContain('gl=DE');
     expect(url).toContain('hl=de');
-  });
-
-  test('supports ru region', () => {
-    const url = buildRssUrl('ru');
-    expect(url).toContain('gl=RU');
-    expect(url).toContain('hl=ru');
   });
 
   test('is case-insensitive', () => {
@@ -66,5 +60,32 @@ describe('buildRssUrl', () => {
     expect(() => buildRssUrl({ q: 'x', hl: '',   gl: 'AE', ceid: 'AE:en' })).toThrow(/non-empty/);
     expect(() => buildRssUrl({ q: 'x', hl: 'en', gl: '',   ceid: 'AE:en' })).toThrow(/non-empty/);
     expect(() => buildRssUrl({ q: 'x', hl: 'en', gl: 'AE', ceid: ''       })).toThrow(/non-empty/);
+  });
+
+  test('object form rejects whitespace-only fields', () => {
+    expect(() => buildRssUrl({ q: '   ', hl: 'en', gl: 'AE', ceid: 'AE:en' })).toThrow(/non-empty/);
+    expect(() => buildRssUrl({ q: 'x', hl: '\t', gl: 'AE', ceid: 'AE:en' })).toThrow(/non-empty/);
+    expect(() => buildRssUrl({ q: 'x', hl: 'en', gl: ' ', ceid: 'AE:en' })).toThrow(/non-empty/);
+    expect(() => buildRssUrl({ q: 'x', hl: 'en', gl: 'AE', ceid: '\n' })).toThrow(/non-empty/);
+  });
+});
+
+describe('localeContextFor', () => {
+  test('returns UAE context for AE', () => {
+    expect(localeContextFor('AE')).toEqual({ flag: '🇦🇪', name: 'UAE', timezone: 'Asia/Dubai' });
+  });
+
+  test('is case-insensitive on gl', () => {
+    expect(localeContextFor('ae').name).toBe('UAE');
+  });
+
+  test('returns matching context for known regions', () => {
+    expect(localeContextFor('US')).toEqual({ flag: '🇺🇸', name: 'US', timezone: 'America/New_York' });
+    expect(localeContextFor('DE')).toEqual({ flag: '🇩🇪', name: 'Germany', timezone: 'Europe/Berlin' });
+    expect(localeContextFor('GB')).toEqual({ flag: '🇬🇧', name: 'UK', timezone: 'Europe/London' });
+  });
+
+  test('falls back to globe + UTC for unknown gl', () => {
+    expect(localeContextFor('ZZ')).toEqual({ flag: '🌐', name: 'News', timezone: 'UTC' });
   });
 });

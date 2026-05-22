@@ -198,4 +198,15 @@ describe('renderTopicalDigest', () => {
     );
     expect(out).toMatch(/^🇦🇪 UAE digest — 2026-05-23\n/);
   });
+
+  test('renders flag, name, and timezone from passed locale context', () => {
+    // 02:30 UTC on 2026-05-23 = 21:30 NY (UTC-4 in May) on 2026-05-22
+    const out = renderTopicalDigest(
+      [{ topic: makeTopic({}), items: [] }],
+      undefined,
+      new Date('2026-05-23T02:30:00Z'),
+      { flag: '🇺🇸', name: 'US', timezone: 'America/New_York' },
+    );
+    expect(out).toMatch(/^🇺🇸 US digest — 2026-05-22\n/);
+  });
 });

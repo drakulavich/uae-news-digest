@@ -1,5 +1,5 @@
-export { REGION_PRESETS, buildRssUrl } from './region';
-export type { RegionPreset, RssLocale } from './region';
+export { REGION_PRESETS, buildRssUrl, localeContextFor } from './region';
+export type { RegionPreset, RssLocale, LocaleContext } from './region';
 export { DEFAULT_STATE_FILE, readSeenKeys, writeSeenKeys } from './state';
 export { DEEPL_API_URL, translateDeepL } from './translate';
 export type { DeepLTranslation, DeepLResponse } from './translate';

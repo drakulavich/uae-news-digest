@@ -2,6 +2,7 @@ import { parseRss } from './rss';
 import { buildDigest } from './digest';
 import { renderDigest, renderTopicalDigest } from './render';
 import { translateDeepL } from './translate';
+import { localeContextFor } from './region';
 import type { DigestItem } from './digest';
 import type { TopicConfig, TopicsConfig } from './topics';
 
@@ -140,7 +141,7 @@ export async function runTopicalDigest(
 
   return {
     sections,
-    output: renderTopicalDigest(sections, translations, now),
+    output: renderTopicalDigest(sections, translations, now, localeContextFor(opts.config.locale.gl)),
     nextSeenKeys: seen,
     warnings,
   };

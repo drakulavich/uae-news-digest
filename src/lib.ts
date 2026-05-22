@@ -1,6 +1,6 @@
 // Barrel re-export — preserves existing import paths
-export { REGION_PRESETS, buildRssUrl } from './region';
-export type { RegionPreset, RssLocale } from './region';
+export { REGION_PRESETS, buildRssUrl, localeContextFor } from './region';
+export type { RegionPreset, RssLocale, LocaleContext } from './region';
 export { normalizeWhitespace, normalizeTitle, normalizeSource, makeKey } from './normalize';
 export { parseRss } from './rss';
 export type { RssItem } from './rss';

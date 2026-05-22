@@ -50,11 +50,11 @@ describe('loadTopicsConfig', () => {
     const path = writeConfig('per-topic-locale.json', {
       locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
       topics: [
-        { slug: 'ru', name: 'RU', query: 'x', locale: { hl: 'ru', gl: 'RU', ceid: 'RU:ru' } },
+        { slug: 'de', name: 'DE', query: 'x', locale: { hl: 'de', gl: 'DE', ceid: 'DE:de' } },
       ],
     });
     const cfg = await loadTopicsConfig(path);
-    expect(cfg.topics[0]?.locale).toEqual({ hl: 'ru', gl: 'RU', ceid: 'RU:ru' });
+    expect(cfg.topics[0]?.locale).toEqual({ hl: 'de', gl: 'DE', ceid: 'DE:de' });
   });
 
   test('rejects malformed JSON with file path in message', async () => {

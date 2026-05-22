@@ -14,19 +14,41 @@ export type RssLocale = {
   ceid: string;
 };
 
+export type LocaleContext = {
+  flag: string;
+  name: string;
+  timezone: string;
+};
+
 export const REGION_PRESETS: Record<string, RegionPreset> = {
   uae: { q: 'UAE OR "Abu Dhabi" OR Dubai', hl: 'en', gl: 'AE', ceid: 'AE:en', flag: '🇦🇪', name: 'UAE' },
   us:  { q: 'USA OR "United States"', hl: 'en', gl: 'US', ceid: 'US:en', flag: '🇺🇸', name: 'US' },
   uk:  { q: 'UK OR "United Kingdom" OR London', hl: 'en', gl: 'GB', ceid: 'GB:en', flag: '🇬🇧', name: 'UK' },
   de:  { q: 'Deutschland OR Berlin OR München', hl: 'de', gl: 'DE', ceid: 'DE:de', flag: '🇩🇪', name: 'Germany' },
-  ru:  { q: 'Россия OR Москва', hl: 'ru', gl: 'RU', ceid: 'RU:ru', flag: '🇷🇺', name: 'Russia' },
 };
+
+const COUNTRY_TIMEZONES: Record<string, string> = {
+  AE: 'Asia/Dubai',
+  US: 'America/New_York',
+  GB: 'Europe/London',
+  DE: 'Europe/Berlin',
+};
+
+export function localeContextFor(gl: string): LocaleContext {
+  const upper = gl.toUpperCase();
+  const preset = Object.values(REGION_PRESETS).find((p) => p.gl.toUpperCase() === upper);
+  return {
+    flag: preset?.flag ?? '🌐',
+    name: preset?.name ?? 'News',
+    timezone: COUNTRY_TIMEZONES[upper] ?? 'UTC',
+  };
+}
 
 export function buildRssUrl(regionOrLocale: string | RssLocale): string {
   const locale = typeof regionOrLocale === 'string'
     ? resolveRegion(regionOrLocale)
     : regionOrLocale;
-  if (!locale.q || !locale.hl || !locale.gl || !locale.ceid) {
+  if (!locale.q.trim() || !locale.hl.trim() || !locale.gl.trim() || !locale.ceid.trim()) {
     throw new Error(
       `Invalid RssLocale: q, hl, gl, and ceid must all be non-empty. Got: ${JSON.stringify(regionOrLocale)}`,
     );

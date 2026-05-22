@@ -37,7 +37,7 @@ program
   .name(TOOL_ID)
   .description('Daily UAE news digest from Google News RSS with optional DeepL translation')
   .option('--json', 'output as JSON', false)
-  .option('--region <code>', 'news region preset (uae, us, uk, de, ru)', 'uae')
+  .option('--region <code>', 'news region preset (uae, us, uk, de)', 'uae')
   .option('--rss-url <url>', 'RSS URL (overrides --region)')
   .option('--state-file <path>', 'path to seen-items state file', DEFAULT_STATE_FILE)
   .option('--hours <number>', 'lookback window in hours', '36')

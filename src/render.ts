@@ -1,6 +1,13 @@
 import { REGION_PRESETS } from './region';
 import type { DigestItem } from './digest';
 import type { TopicSection } from './pipeline';
+import type { LocaleContext } from './region';
+
+const DEFAULT_LOCALE_CONTEXT: LocaleContext = {
+  flag: '🇦🇪',
+  name: 'UAE',
+  timezone: 'Asia/Dubai',
+};
 
 export function emojiFor(title: string): string {
   const t = title.toLowerCase();
@@ -38,11 +45,15 @@ export function renderTopicalDigest(
   sections: TopicSection[],
   translations?: Map<string, string>,
   now: Date = new Date(),
+  locale: LocaleContext = DEFAULT_LOCALE_CONTEXT,
 ): string {
-  const dateLabel = new Date(now.getTime() + 4 * 3_600_000)
-    .toISOString()
-    .slice(0, 10);
-  const lines: string[] = [`🇦🇪 UAE digest — ${dateLabel}`, ''];
+  const dateLabel = new Intl.DateTimeFormat('en-CA', {
+    timeZone: locale.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+  const lines: string[] = [`${locale.flag} ${locale.name} digest — ${dateLabel}`, ''];
 
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i]!;
