@@ -118,7 +118,12 @@ async function main(): Promise<void> {
         '--state-file',
         stateFile,
         '--dry-run',
-      ], consumerDir, { UAE_NEWS_DIGEST_NOW: '2026-03-22T08:00:00Z' }));
+      ], consumerDir, {
+        UAE_NEWS_DIGEST_NOW: '2026-03-22T08:00:00Z',
+        // Neutralize XDG/HOME so a user's real topics config can't bleed in.
+        HOME: workDir,
+        XDG_CONFIG_HOME: workDir,
+      }));
       if (digest.tool !== 'uae-news-digest' || digest.count !== 1 || digest.items[0]?.title !== 'Dubai airport reopens after rain') {
         throw new Error(`Unexpected digest from packed binary: ${JSON.stringify(digest)}`);
       }

@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-05-23
+
+### Added
+- `--version` / `-V` flag prints the installed version and exits.
+
+### Changed
+- Tier-1 source bonus bumped from +4 to +5 in `scoreItem`, so Reuters/BBC/AP/NYT/Bloomberg/FT/WSJ/Guardian/Economist/Washington Post outrank tier-3 stories even when the latter pile UAE + priority bonuses on top.
+- `manifest` subcommand now reports the full current flag surface, including `--topics-config`, `--no-topics`, and `--timeout-ms`.
+
 ## [0.1.0] - 2026-05-22
 
 ### Added
