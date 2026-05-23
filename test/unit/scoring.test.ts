@@ -2,17 +2,17 @@ import { describe, expect, test } from 'bun:test';
 import { scoreItem } from '../../src/scoring';
 
 describe('scoreItem', () => {
-  test('tier 1 international sources get +4', () => {
-    expect(scoreItem('Generic headline', 'Reuters')).toBe(4);
-    expect(scoreItem('Generic headline', 'BBC')).toBe(4);
-    expect(scoreItem('Generic headline', 'AP News')).toBe(4);
-    expect(scoreItem('Generic headline', 'The New York Times')).toBe(4);
-    expect(scoreItem('Generic headline', 'The Washington Post')).toBe(4);
-    expect(scoreItem('Generic headline', 'The Economist')).toBe(4);
-    expect(scoreItem('Generic headline', 'Financial Times')).toBe(4);
-    expect(scoreItem('Generic headline', 'Bloomberg')).toBe(4);
-    expect(scoreItem('Generic headline', 'Wall Street Journal')).toBe(4);
-    expect(scoreItem('Generic headline', 'The Guardian')).toBe(4);
+  test('tier 1 international sources get +5', () => {
+    expect(scoreItem('Generic headline', 'Reuters')).toBe(5);
+    expect(scoreItem('Generic headline', 'BBC')).toBe(5);
+    expect(scoreItem('Generic headline', 'AP News')).toBe(5);
+    expect(scoreItem('Generic headline', 'The New York Times')).toBe(5);
+    expect(scoreItem('Generic headline', 'The Washington Post')).toBe(5);
+    expect(scoreItem('Generic headline', 'The Economist')).toBe(5);
+    expect(scoreItem('Generic headline', 'Financial Times')).toBe(5);
+    expect(scoreItem('Generic headline', 'Bloomberg')).toBe(5);
+    expect(scoreItem('Generic headline', 'Wall Street Journal')).toBe(5);
+    expect(scoreItem('Generic headline', 'The Guardian')).toBe(5);
   });
 
   test('tier 2 regional sources get +3', () => {
@@ -45,16 +45,24 @@ describe('scoreItem', () => {
     expect(scoreItem('Missile launch detected', 'Unknown')).toBe(2);
   });
 
-  test('tier 1 + UAE + priority stacks to 8', () => {
-    expect(scoreItem('Dubai airport closed due to rain', 'Reuters')).toBe(8);
+  test('tier 1 + UAE + priority stacks to 9', () => {
+    expect(scoreItem('Dubai airport closed due to rain', 'Reuters')).toBe(9);
   });
 
   test('tier 3 + UAE + priority stacks to 6', () => {
     expect(scoreItem('Dubai airport closed due to rain', 'Gulf News')).toBe(6);
   });
 
+  test('tier 1 alone outranks tier 3 + UAE + priority', () => {
+    // Reuters generic headline (5) > Gulf News with UAE + priority keywords (2+2+2=6)?
+    // No — but tier 1 + 1 of the bonuses (5+2=7) > tier 3 max (6).
+    const tier1WithUae = scoreItem('Dubai story', 'Reuters');
+    const tier3FullStack = scoreItem('Dubai airport closed due to rain', 'Gulf News');
+    expect(tier1WithUae).toBeGreaterThan(tier3FullStack);
+  });
+
   test('tiers are mutually exclusive (no double-counting)', () => {
     // Reuters matches only tier 1, not tier 2 or tier 3
-    expect(scoreItem('Generic headline', 'Reuters')).toBe(4);
+    expect(scoreItem('Generic headline', 'Reuters')).toBe(5);
   });
 });

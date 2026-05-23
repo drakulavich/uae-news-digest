@@ -36,6 +36,7 @@ const program = new Command();
 program
   .name(TOOL_ID)
   .description('Daily UAE news digest from Google News RSS with optional DeepL translation')
+  .version(VERSION)
   .option('--json', 'output as JSON', false)
   .option('--region <code>', 'news region preset (uae, us, uk, de)', 'uae')
   .option('--rss-url <url>', 'RSS URL (overrides --region)')
@@ -70,7 +71,19 @@ program
         {
           name: '(default)',
           description: 'Fetch and print news digest',
-          flags: ['--region <code>', '--rss-url <url>', '--hours <n>', '--limit <n>', '--state-file <path>', '--target-lang <code>', '--dry-run', '--json'],
+          flags: [
+            '--region <code>',
+            '--rss-url <url>',
+            '--hours <n>',
+            '--limit <n>',
+            '--state-file <path>',
+            '--timeout-ms <n>',
+            '--target-lang <code>',
+            '--topics-config <path>',
+            '--no-topics',
+            '--dry-run',
+            '--json',
+          ],
           examples: ['uae-news-digest --hours 12 --limit 10'],
         },
       ],

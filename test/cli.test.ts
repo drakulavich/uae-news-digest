@@ -130,10 +130,18 @@ async function run(
 ): Promise<CliRunResult> {
   const command = ['bun', CLI, ...args];
   const timeoutMs = options.timeoutMs ?? 5_000;
+  // Neutralize HOME/XDG so the user's real ~/.config/uae-news-digest/topics.json
+  // can't bleed into legacy-mode CLI tests via auto-detect.
   const proc = Bun.spawn(command, {
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { ...process.env, UAE_NEWS_DIGEST_NOW: TEST_NOW.toISOString(), ...env },
+    env: {
+      ...process.env,
+      HOME: '/nonexistent',
+      XDG_CONFIG_HOME: '/nonexistent',
+      UAE_NEWS_DIGEST_NOW: TEST_NOW.toISOString(),
+      ...env,
+    },
   });
 
   const stdoutPromise = new Response(proc.stdout).text();
@@ -244,6 +252,13 @@ describe('CLI integration', () => {
     expect(diagnostic).toContain('GET /rss');
   });
 
+  test('--version prints version string and exits 0', async () => {
+    const { stdout, exitCode } = await run(['--version']);
+    const packageJson = await Bun.file(PACKAGE_JSON).json();
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe(packageJson.version);
+  });
+
   test('default text output with items', async () => {
     const stateFile = tmpStateFile();
     const { stdout, exitCode } = await run([
@@ -281,7 +296,7 @@ describe('CLI integration', () => {
     expect(parsed.items[0]).toEqual({
       title: 'Dubai airport reopens after rain',
       source: 'Reuters',
-      score: 8,
+      score: 9,
       publishedAt: new Date(oneHourAgo).toISOString(),
       hoursAgo: 1,
     });

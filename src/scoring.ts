@@ -43,7 +43,7 @@ export { TIER_1_RE, TIER_2_RE, TIER_3_RE };
 
 export function scoreItem(title: string, source: string): number {
   let score = 0;
-  if (TIER_1_RE.test(source)) score += 4;
+  if (TIER_1_RE.test(source)) score += 5;
   else if (TIER_2_RE.test(source)) score += 3;
   else if (TIER_3_RE.test(source)) score += 2;
   if (UAE_RE.test(title)) score += 2;
