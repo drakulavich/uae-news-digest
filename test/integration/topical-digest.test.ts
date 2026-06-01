@@ -285,6 +285,37 @@ describe('runTopicalDigest with DeepL', () => {
     expect(result.warnings.some((w) => /DeepL/.test(w) && /RU/.test(w))).toBe(true);
   });
 
+  test('gathers important items across topics into one top block', async () => {
+    const now = new Date('2026-03-22T08:00:00Z');
+    const realEstateXml = `<?xml version="1.0"?><rss><channel>
+      <item><title>Missile intercepted over Abu Dhabi airspace</title><pubDate>Sun, 22 Mar 2026 07:00:00 GMT</pubDate><source>Reuters</source></item>
+    </channel></rss>`;
+    const calmXml = `<?xml version="1.0"?><rss><channel>
+      <item><title>Routine community newsletter published</title><pubDate>Sun, 22 Mar 2026 07:00:00 GMT</pubDate><source>Gulf News</source></item>
+    </channel></rss>`;
+
+    const result = await runTopicalDigest({
+      config: {
+        locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
+        topics: [
+          { slug: 'realestate', name: 'Real Estate', query: 'property', limit: 5, locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' } },
+          { slug: 'community', name: 'Community', query: 'community', limit: 5, locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' } },
+        ],
+      },
+      seenKeys: new Set(),
+      hours: 36,
+      fetchTopicRss: async (t) => (t.slug === 'realestate' ? realEstateXml : calmXml),
+      now,
+    });
+
+    const importantIdx = result.output.indexOf('🚨 Important');
+    const realEstateIdx = result.output.indexOf('Real Estate');
+    expect(importantIdx).toBeGreaterThanOrEqual(0);
+    expect(realEstateIdx).toBeGreaterThan(importantIdx); // block precedes topic sections
+    expect(result.output).toContain('Missile intercepted');
+    expect(result.output.split('Missile intercepted').length - 1).toBe(1); // not duplicated below
+  });
+
   test('de-duplicates identical titles before calling DeepL', async () => {
     deeplHandler = async (req) => {
       const body = await req.json();
