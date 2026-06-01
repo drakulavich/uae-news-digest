@@ -72,7 +72,7 @@ function validate(raw: unknown, path: string): TopicsConfig {
     let matchMode: MatchMode | undefined;
     if (t.match !== undefined) {
       if (!Array.isArray(t.match) || t.match.length === 0) {
-        throw new Error(`${where}.match must be a non-empty array of strings`);
+        throw new Error(`${where}.match must be a non-empty array of strings (got ${JSON.stringify(t.match)})`);
       }
       match = t.match.map((m, j) => requireString(m, `${where}.match[${j}]`));
 

@@ -138,6 +138,28 @@ describe('loadTopicsConfig', () => {
     });
     await expect(loadTopicsConfig(path)).rejects.toThrow(/match/);
   });
+
+  test('accepts a positive-integer matchMode', async () => {
+    const path = writeConfig('match-mode-int.json', {
+      topics: [{ slug: 'x', name: 'X', query: 'q', match: ['a', 'b', 'c'], matchMode: 2 }],
+    });
+    const cfg = await loadTopicsConfig(path);
+    expect(cfg.topics[0]!.matchMode).toBe(2);
+  });
+
+  test('rejects an invalid matchMode', async () => {
+    const path = writeConfig('match-mode-invalid.json', {
+      topics: [{ slug: 'x', name: 'X', query: 'q', match: ['a'], matchMode: 'sometimes' }],
+    });
+    await expect(loadTopicsConfig(path)).rejects.toThrow(/matchMode/);
+  });
+
+  test('rejects a non-array match', async () => {
+    const path = writeConfig('match-non-array.json', {
+      topics: [{ slug: 'x', name: 'X', query: 'q', match: 'school' }],
+    });
+    await expect(loadTopicsConfig(path)).rejects.toThrow(/match/);
+  });
 });
 
 describe('resolveTopicsConfigPath', () => {
