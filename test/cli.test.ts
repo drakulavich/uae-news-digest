@@ -292,13 +292,17 @@ describe('CLI integration', () => {
     expect(parsed.count).toBe(2);
     expect(parsed.warnings).toEqual([]);
     expect(parsed.items).toHaveLength(2);
-    expect(Object.keys(parsed.items[0]).sort()).toEqual(['hoursAgo', 'publishedAt', 'score', 'source', 'title']);
+    expect(Object.keys(parsed.items[0]).sort()).toEqual(['hoursAgo', 'importance', 'matchedTerms', 'publishedAt', 'score', 'signals', 'source', 'tier', 'title']);
     expect(parsed.items[0]).toEqual({
       title: 'Dubai airport reopens after rain',
       source: 'Reuters',
       score: 9,
       publishedAt: new Date(oneHourAgo).toISOString(),
       hoursAgo: 1,
+      importance: expect.any(Number),
+      tier: expect.any(String),
+      signals: expect.any(Array),
+      matchedTerms: [],
     });
     expect(parsed.items[1]).toEqual({
       title: 'Abu Dhabi market overview',
@@ -306,7 +310,33 @@ describe('CLI integration', () => {
       score: 6,
       publishedAt: new Date(twoHoursAgo).toISOString(),
       hoursAgo: 2,
+      importance: expect.any(Number),
+      tier: expect.any(String),
+      signals: expect.any(Array),
+      matchedTerms: [],
     });
+  });
+
+  test('--prompt prints the filter criterion and exits 0', async () => {
+    const proc = Bun.spawn(['bun', CLI, '--prompt'], { stdout: 'pipe', stderr: 'pipe' });
+    const out = await new Response(proc.stdout).text();
+    expect(await proc.exited).toBe(0);
+    expect(out).toContain('news filter for an expat family in the UAE');
+  });
+
+  test('--json enriches items with importance, signals, and tier', async () => {
+    const stateFile = tmpStateFile();
+    const fixturePath = join(import.meta.dir, 'fixtures', 'sample-feed.xml');
+    const result = await run(
+      ['--json', '--no-topics', '--rss-url', `file://${fixturePath}`, '--state-file', stateFile, '--dry-run'],
+      { UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z' },
+    );
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.items.length).toBeGreaterThan(0);
+    expect(parsed.items[0]).toHaveProperty('importance');
+    expect(parsed.items[0]).toHaveProperty('tier');
+    expect(parsed.items[0]).toHaveProperty('signals');
   });
 
   test('manifest reports package version and bin name', async () => {

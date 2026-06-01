@@ -114,6 +114,59 @@ describe('loadTopicsConfig', () => {
       emoji: '💰',
     });
   });
+
+  test('parses optional match and matchMode on a topic', async () => {
+    const path = writeConfig('match-mode.json', {
+      topics: [{ slug: 'schools', name: 'Schools', query: 'school fees', match: ['school', 'fees'], matchMode: 'any' }],
+    });
+    const cfg = await loadTopicsConfig(path);
+    expect(cfg.topics[0]!.match).toEqual(['school', 'fees']);
+    expect(cfg.topics[0]!.matchMode).toBe('any');
+  });
+
+  test('defaults matchMode to "all" when match present but mode omitted', async () => {
+    const path = writeConfig('match-default-mode.json', {
+      topics: [{ slug: 'schools', name: 'Schools', query: 'school fees', match: ['school', 'fees'] }],
+    });
+    const cfg = await loadTopicsConfig(path);
+    expect(cfg.topics[0]!.matchMode).toBe('all');
+  });
+
+  test('rejects a non-string entry in match', async () => {
+    const path = writeConfig('match-invalid.json', {
+      topics: [{ slug: 'x', name: 'X', query: 'q', match: ['ok', 5] }],
+    });
+    await expect(loadTopicsConfig(path)).rejects.toThrow(/match/);
+  });
+
+  test('accepts a positive-integer matchMode', async () => {
+    const path = writeConfig('match-mode-int.json', {
+      topics: [{ slug: 'x', name: 'X', query: 'q', match: ['a', 'b', 'c'], matchMode: 2 }],
+    });
+    const cfg = await loadTopicsConfig(path);
+    expect(cfg.topics[0]!.matchMode).toBe(2);
+  });
+
+  test('rejects an invalid matchMode', async () => {
+    const path = writeConfig('match-mode-invalid.json', {
+      topics: [{ slug: 'x', name: 'X', query: 'q', match: ['a'], matchMode: 'sometimes' }],
+    });
+    await expect(loadTopicsConfig(path)).rejects.toThrow(/matchMode/);
+  });
+
+  test('rejects a non-array match', async () => {
+    const path = writeConfig('match-non-array.json', {
+      topics: [{ slug: 'x', name: 'X', query: 'q', match: 'school' }],
+    });
+    await expect(loadTopicsConfig(path)).rejects.toThrow(/match/);
+  });
+
+  test('rejects matchMode without a match array', async () => {
+    const path = writeConfig('match-mode-orphan.json', {
+      topics: [{ slug: 'x', name: 'X', query: 'q', matchMode: 'any' }],
+    });
+    await expect(loadTopicsConfig(path)).rejects.toThrow(/matchMode requires/);
+  });
 });
 
 describe('resolveTopicsConfigPath', () => {

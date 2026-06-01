@@ -13,6 +13,7 @@ import { loadTopicsConfig, resolveTopicsConfigPath } from './topics';
 import { runTopicalDigest } from './pipeline';
 import type { TopicConfig, TopicsConfig } from './topics';
 import { BIN_NAME, TOOL_ID, VERSION } from './meta';
+import { FILTER_PROMPT } from './importance';
 
 function validatePositiveNumber(name: string, raw: string | number): number {
   const value = typeof raw === 'number' ? raw : Number(raw);
@@ -20,6 +21,13 @@ function validatePositiveNumber(name: string, raw: string | number): number {
     throw new Error(`Invalid --${name}: ${raw}`);
   }
   return value;
+}
+
+function parseMatchMode(raw: string): 'all' | 'any' | number {
+  if (raw === 'all' || raw === 'any') return raw;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) throw new Error(`Invalid --match-mode: ${raw} (use all | any | positive integer)`);
+  return n;
 }
 
 function resolveNow(raw: string | undefined): Date {
@@ -48,6 +56,9 @@ program
   .option('--topics-config <path>', 'path to topics config JSON (overrides auto-detect)')
   .option('--no-topics', 'force legacy region mode even if a topics config is present')
   .option('--dry-run', 'print digest without updating state file', false)
+  .option('--match <terms...>', 'require these keywords in the title (region mode)')
+  .option('--match-mode <mode>', 'how many --match terms to require: all | any | <N>', 'all')
+  .option('--prompt', 'print the agent filter prompt and exit', false)
   .addHelpText('after', `
 Example:
   uae-news-digest --hours 12 --limit 10
@@ -82,6 +93,9 @@ program
             '--topics-config <path>',
             '--no-topics',
             '--dry-run',
+            '--match <terms...>',
+            '--match-mode <mode>',
+            '--prompt',
             '--json',
           ],
           examples: ['uae-news-digest --hours 12 --limit 10'],
@@ -163,6 +177,10 @@ async function runInTopicsMode(args: TopicsRunArgs): Promise<void> {
         score: d.score,
         publishedAt: d.publishedAt.toISOString(),
         hoursAgo: Math.round((now.getTime() - d.publishedAt.getTime()) / 3_600_000),
+        importance: d.importance,
+        tier: d.tier,
+        signals: d.signals,
+        matchedTerms: d.matchedTerms ?? [],
       })),
     );
     process.stdout.write(JSON.stringify({
@@ -216,6 +234,11 @@ function makeFetcher(timeoutMs: number) {
 
 program.action(async (options) => {
   try {
+    if (options.prompt) {
+      process.stdout.write(FILTER_PROMPT + '\n');
+      return;
+    }
+
     const hours = validatePositiveNumber('hours', options.hours);
     const limit = validatePositiveNumber('limit', options.limit);
     const timeoutMs = validatePositiveNumber('timeout-ms', options.timeoutMs);
@@ -285,6 +308,8 @@ program.action(async (options) => {
       targetLang: options.targetLang,
       region: options.region,
       now,
+      match: options.match,
+      matchMode: options.match ? parseMatchMode(options.matchMode) : undefined,
     });
 
     if (!options.json) {
@@ -307,6 +332,10 @@ program.action(async (options) => {
           score: d.score,
           publishedAt: d.publishedAt.toISOString(),
           hoursAgo: Math.round((now.getTime() - d.publishedAt.getTime()) / 3_600_000),
+          importance: d.importance,
+          tier: d.tier,
+          signals: d.signals,
+          matchedTerms: d.matchedTerms ?? [],
         })),
       }, null, 2) + '\n');
     } else {

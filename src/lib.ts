@@ -5,8 +5,10 @@ export { normalizeWhitespace, normalizeTitle, normalizeSource, makeKey } from '.
 export { parseRss } from './rss';
 export type { RssItem } from './rss';
 export { scoreItem, titleSimilarity } from './scoring';
-export { buildDigest, parsePubDate } from './digest';
-export type { DigestItem, BuildDigestOptions } from './digest';
+export { scoreImportance, IMPORTANCE_THRESHOLD, FILTER_PROMPT, escapeRegExp } from './importance';
+export type { ImportanceTier, ImportanceResult } from './importance';
+export { buildDigest, buildDigestWithStats, matchTerms, parsePubDate } from './digest';
+export type { DigestItem, BuildDigestOptions, MatchMode } from './digest';
 export { emojiFor, renderDigest, renderTopicalDigest } from './render';
 export { translateDeepL, DEEPL_API_URL } from './translate';
 export type { DeepLTranslation, DeepLResponse } from './translate';

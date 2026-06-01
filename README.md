@@ -84,6 +84,75 @@ And when you need structured output:
 uae-news-digest --json | jq '.items[].title'
 ```
 
+## Signal filter
+
+Every run automatically surfaces headlines that materially affect an expat family in the UAE across four areas:
+
+- **Safety / threats** — missiles, drones, airspace closures, evacuation alerts, storms
+- **Money / daily life** — rent, fees, fuel prices, salary, fines, subsidies
+- **Rules / visas / documents** — visa changes, new laws, permit and licence updates
+- **Logistics / infrastructure** — flight disruptions, road closures, metro outages
+
+Items that score above the threshold are pulled into a `🚨 Important` block printed **at the top** of the digest, deduplicated from the regular listing below. Each important line shows a `[signals]` marker that explains why it surfaced. PR puff (launches, awards, "world's first/tallest/largest", festivals, and similar) is penalised and pushed down.
+
+This is a heuristic — no API key required, always on.
+
+**Example output (topics mode):**
+
+```
+🇦🇪 UAE digest — 2025-11-14
+
+🚨 Important
+  🛡️ UAE intercepts Iranian missile barrage (The National, 1h ago) [missile, airspace] — UAE Security
+  ✈️ Dubai airport closes Terminal 2 for maintenance (Gulf News, 3h ago) [flight] — Travel
+
+💰 UAE economy
+  📉 OPEC+ weighs output cut for Q1 (Reuters, 4h ago)
+  ...
+```
+
+In **region mode** the Important block has the same layout but without the ` — Topic Name` suffix.
+
+### Topic `match` / `matchMode`
+
+Google News sometimes returns loosely-matched articles for a query. Add optional `match` and `matchMode` keys to any topic to require real keyword matches in the article title:
+
+```jsonc
+{
+  "topics": [
+    {
+      "slug": "schools",
+      "name": "Schools",
+      "query": "school fees Dubai",
+      "match": ["school", "fees"],
+      "matchMode": "all"
+    }
+  ]
+}
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `match` | `string[]` | — | Keywords that must appear in the article title. Omit to keep existing behaviour. |
+| `matchMode` | `"all"` \| `"any"` \| `<N>` | `"all"` | `"all"` — every term must match; `"any"` — at least one; a positive integer `N` — at least N terms. |
+
+When articles are dropped for failing the keyword filter, a warning reports how many were dropped (visible in non-JSON mode on stderr). The CLI equivalents for region mode are `--match <terms...>` and `--match-mode <mode>`.
+
+### Agent workflow (key-free smart pass)
+
+`--json` enriches every item with `importance`, `tier` (`breaking` | `impact` | `neutral` | `fluff`), `signals`, and `matchedTerms`. Pipe that to an LLM with the ready-made filter criterion:
+
+```bash
+uae-news-digest --prompt                         # print the filter criterion
+uae-news-digest --json | claude "$(uae-news-digest --prompt)"
+```
+
+The agent can drop noise reproducibly based solely on the structured metadata — no extra API key, no custom prompt engineering required.
+
+`--prompt` output:
+
+> You are a news filter for an expat family in the UAE. Keep only what materially affects safety, money, rules/visas, or logistics. Drop PR, launches, awards, rankings, and 'world's first/tallest/largest'.
+
 ## Topics Mode
 
 For per-topic digests (e.g. economy, real estate, regional politics) instead of one undifferentiated regional feed, create a `digest.config.json` file:
