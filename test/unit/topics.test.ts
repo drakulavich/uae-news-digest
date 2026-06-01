@@ -114,6 +114,30 @@ describe('loadTopicsConfig', () => {
       emoji: '💰',
     });
   });
+
+  test('parses optional match and matchMode on a topic', async () => {
+    const path = writeConfig('match-mode.json', {
+      topics: [{ slug: 'schools', name: 'Schools', query: 'school fees', match: ['school', 'fees'], matchMode: 'any' }],
+    });
+    const cfg = await loadTopicsConfig(path);
+    expect(cfg.topics[0]!.match).toEqual(['school', 'fees']);
+    expect(cfg.topics[0]!.matchMode).toBe('any');
+  });
+
+  test('defaults matchMode to "all" when match present but mode omitted', async () => {
+    const path = writeConfig('match-default-mode.json', {
+      topics: [{ slug: 'schools', name: 'Schools', query: 'school fees', match: ['school', 'fees'] }],
+    });
+    const cfg = await loadTopicsConfig(path);
+    expect(cfg.topics[0]!.matchMode).toBe('all');
+  });
+
+  test('rejects a non-string entry in match', async () => {
+    const path = writeConfig('match-invalid.json', {
+      topics: [{ slug: 'x', name: 'X', query: 'q', match: ['ok', 5] }],
+    });
+    await expect(loadTopicsConfig(path)).rejects.toThrow(/match/);
+  });
 });
 
 describe('resolveTopicsConfigPath', () => {

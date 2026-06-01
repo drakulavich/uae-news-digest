@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import type { RssLocale } from './region';
+import type { MatchMode } from './digest';
 
 const DEFAULT_LOCALE: Omit<RssLocale, 'q'> = { hl: 'en', gl: 'AE', ceid: 'AE:en' };
 const DEFAULT_TOPIC_LIMIT = 5;
@@ -9,6 +10,8 @@ export type TopicConfig = {
   name: string;
   emoji?: string;
   query: string;
+  match?: string[];
+  matchMode?: MatchMode;
   limit: number;
   locale: Omit<RssLocale, 'q'>;
 };
@@ -65,6 +68,25 @@ function validate(raw: unknown, path: string): TopicsConfig {
     const query = requireString(t.query, `${where}.query`);
     const emoji = t.emoji === undefined ? undefined : requireString(t.emoji, `${where}.emoji`);
 
+    let match: string[] | undefined;
+    let matchMode: MatchMode | undefined;
+    if (t.match !== undefined) {
+      if (!Array.isArray(t.match) || t.match.length === 0) {
+        throw new Error(`${where}.match must be a non-empty array of strings`);
+      }
+      match = t.match.map((m, j) => requireString(m, `${where}.match[${j}]`));
+
+      if (t.matchMode === undefined) {
+        matchMode = 'all';
+      } else if (t.matchMode === 'all' || t.matchMode === 'any') {
+        matchMode = t.matchMode;
+      } else if (typeof t.matchMode === 'number' && Number.isInteger(t.matchMode) && t.matchMode > 0) {
+        matchMode = t.matchMode;
+      } else {
+        throw new Error(`${where}.matchMode must be "all", "any", or a positive integer (got ${JSON.stringify(t.matchMode)})`);
+      }
+    }
+
     let limit = DEFAULT_TOPIC_LIMIT;
     if (t.limit !== undefined) {
       if (typeof t.limit !== 'number' || !Number.isInteger(t.limit) || t.limit <= 0) {
@@ -83,7 +105,7 @@ function validate(raw: unknown, path: string): TopicsConfig {
     }
     seenSlugs.add(slug);
 
-    topics.push({ slug, name, emoji, query, limit, locale: topicLocale });
+    topics.push({ slug, name, emoji, query, match, matchMode, limit, locale: topicLocale });
   }
 
   return { locale, topics };
