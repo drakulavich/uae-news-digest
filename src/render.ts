@@ -24,10 +24,12 @@ export function emojiFor(title: string): string {
   return '•';
 }
 
-function formatItemLine(item: DigestItem, translations: Map<string, string> | undefined, now: Date, indent: string): string {
+function formatItemLine(item: DigestItem, translations: Map<string, string> | undefined, now: Date, indent: string, showSignals = false): string {
   const title = translations?.get(item.title) ?? item.title;
   const hoursAgo = Math.round((now.getTime() - item.publishedAt.getTime()) / 3_600_000);
-  const marker = item.signals.length > 0 ? ` [${item.signals.join(', ')}]` : '';
+  // The [signals] marker is shown only inside the 🚨 Important block; regular-body
+  // lines stay byte-identical to the pre-feature output.
+  const marker = showSignals && item.signals.length > 0 ? ` [${item.signals.join(', ')}]` : '';
   return `${indent}${emojiFor(item.title)} ${title} (${item.source}, ${hoursAgo}h ago)${marker}`;
 }
 
@@ -46,7 +48,7 @@ export function renderDigest(items: DigestItem[], translations?: Map<string, str
   const lines = [`${flag} ${name} Latest News Digest`, ''];
   if (important.length > 0) {
     lines.push('🚨 Important');
-    for (const item of important) lines.push(formatItemLine(item, translations, now, '  '));
+    for (const item of important) lines.push(formatItemLine(item, translations, now, '  ', true));
     lines.push('');
   }
   for (const item of items) {
@@ -78,7 +80,7 @@ export function renderTopicalDigest(
   if (important.length > 0) {
     lines.push('🚨 Important');
     for (const { item, topic } of important) {
-      lines.push(`${formatItemLine(item, translations, now, '  ')} — ${topic.name}`);
+      lines.push(`${formatItemLine(item, translations, now, '  ', true)} — ${topic.name}`);
     }
     lines.push('');
   }
@@ -91,7 +93,8 @@ export function renderTopicalDigest(
     const visible = section.items.filter((item) => !importantKeys.has(item.key));
 
     if (visible.length === 0) {
-      lines.push('  (нет новых материалов)');
+      // Distinguish "feed was empty" from "everything was promoted to 🚨 Important".
+      lines.push(section.items.length > 0 ? '  (всё в 🚨 Important)' : '  (нет новых материалов)');
     } else {
       for (const item of visible) {
         lines.push(formatItemLine(item, translations, now, '  '));

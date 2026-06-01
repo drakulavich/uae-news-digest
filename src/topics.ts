@@ -85,6 +85,8 @@ function validate(raw: unknown, path: string): TopicsConfig {
       } else {
         throw new Error(`${where}.matchMode must be "all", "any", or a positive integer (got ${JSON.stringify(t.matchMode)})`);
       }
+    } else if (t.matchMode !== undefined) {
+      throw new Error(`${where}.matchMode requires a "match" array to be set`);
     }
 
     let limit = DEFAULT_TOPIC_LIMIT;

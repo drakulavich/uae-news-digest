@@ -186,6 +186,16 @@ describe('renderTopicalDigest', () => {
     expect(out).toContain('(нет новых материалов)');
   });
 
+  test('shows a promotion placeholder when every section item went to 🚨 Important', () => {
+    const out = renderTopicalDigest([
+      { topic: makeTopic({ name: 'Security', emoji: '🛡️' }),
+        items: [makeItem({ title: 'Missile intercepted over Abu Dhabi airspace', importance: 8, signals: ['missile', 'airspace'], tier: 'breaking', key: 'imp1' })] },
+    ], undefined, now);
+    expect(out).toContain('🚨 Important');
+    expect(out).toContain('(всё в 🚨 Important)');
+    expect(out).not.toContain('(нет новых материалов)');
+  });
+
   test('uses translations when provided', () => {
     const translations = new Map([['GDP up', 'ВВП вырос']]);
     const out = renderTopicalDigest([
@@ -244,5 +254,18 @@ describe('renderDigest 🚨 Important block', () => {
     ];
     const out = renderDigest(items, undefined, now, 'uae');
     expect(out).not.toContain('🚨 Important');
+  });
+
+  test('signal markers never leak into the regular body (fluff item below threshold)', () => {
+    const now = new Date('2026-03-22T10:00:00Z');
+    const items = [
+      // fluff item: has signals but stays below threshold, so it remains in the body
+      { score: 5, importance: -3, signals: ['launches', "world's first"], tier: 'fluff' as const,
+        publishedAt: new Date('2026-03-22T09:00:00Z'), title: 'Dubai hotel launches AI concierge', source: 'Reuters', key: 'f1' },
+    ];
+    const out = renderDigest(items, undefined, now, 'uae');
+    expect(out).not.toContain('🚨 Important');
+    expect(out).toContain('Dubai hotel launches AI concierge');
+    expect(out).not.toContain('[launches'); // marker must NOT appear in the body
   });
 });

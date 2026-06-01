@@ -15,7 +15,7 @@ const FLUFF_PENALTY = 3;
 /** Safety / threats — what demands an immediate reaction. */
 export const BREAKING_MARKERS = [
   'breaking', 'urgent', 'evacuat', 'killed', 'attack', 'missile', 'drone',
-  'airspace', 'airport closed', 'banned', 'alert', 'warning', 'storm',
+  'airspace', 'airport closed', 'closure', 'banned', 'alert', 'warning', 'storm',
   'flood', 'recall',
 ];
 

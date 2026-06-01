@@ -10,6 +10,12 @@ describe('scoreImportance', () => {
     expect(r.signals).toContain('airspace');
   });
 
+  test('"closure" phrasing is caught alongside "closed"', () => {
+    const r = scoreImportance('Sheikh Zayed Road closure announced for the weekend');
+    expect(r.tier).toBe('breaking');
+    expect(r.signals).toContain('closure');
+  });
+
   test('money/rules impact headline is tier "impact" and above threshold', () => {
     const r = scoreImportance('Dubai rents jump and new visa fees announced');
     expect(r.tier).toBe('impact');

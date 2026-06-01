@@ -160,6 +160,13 @@ describe('loadTopicsConfig', () => {
     });
     await expect(loadTopicsConfig(path)).rejects.toThrow(/match/);
   });
+
+  test('rejects matchMode without a match array', async () => {
+    const path = writeConfig('match-mode-orphan.json', {
+      topics: [{ slug: 'x', name: 'X', query: 'q', matchMode: 'any' }],
+    });
+    await expect(loadTopicsConfig(path)).rejects.toThrow(/matchMode requires/);
+  });
 });
 
 describe('resolveTopicsConfigPath', () => {
