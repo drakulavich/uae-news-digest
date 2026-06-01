@@ -5,6 +5,8 @@ export { normalizeWhitespace, normalizeTitle, normalizeSource, makeKey } from '.
 export { parseRss } from './rss';
 export type { RssItem } from './rss';
 export { scoreItem, titleSimilarity } from './scoring';
+export { scoreImportance, IMPORTANCE_THRESHOLD, FILTER_PROMPT, escapeRegExp } from './importance';
+export type { ImportanceTier, ImportanceResult } from './importance';
 export { buildDigest, parsePubDate } from './digest';
 export type { DigestItem, BuildDigestOptions } from './digest';
 export { emojiFor, renderDigest, renderTopicalDigest } from './render';
