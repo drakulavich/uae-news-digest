@@ -203,6 +203,28 @@ describe('runTopicalDigest', () => {
       expect(result.nextSeenKeys.has(item.key)).toBe(true);
     }
   });
+
+  test('emits a dropped-items warning when a topic match filter rejects items', async () => {
+    const now = new Date('2026-03-22T08:00:00Z');
+    const xml = `<?xml version="1.0"?><rss><channel>
+      <item><title>Dubai school fees rise for 2026</title><pubDate>Sun, 22 Mar 2026 07:00:00 GMT</pubDate><source>Gulf News</source></item>
+      <item><title>Dubai weather stays warm</title><pubDate>Sun, 22 Mar 2026 07:05:00 GMT</pubDate><source>Khaleej Times</source></item>
+    </channel></rss>`;
+
+    const result = await runTopicalDigest({
+      config: {
+        locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
+        topics: [{ slug: 'schools', name: 'Schools', query: 'school fees', limit: 5, locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' }, match: ['school', 'fees'], matchMode: 'all' }],
+      },
+      seenKeys: new Set(),
+      hours: 36,
+      fetchTopicRss: async () => xml,
+      now,
+    });
+
+    expect(result.sections[0]!.items).toHaveLength(1);
+    expect(result.warnings.some((w) => /dropped/.test(w))).toBe(true);
+  });
 });
 
 describe('runTopicalDigest with DeepL', () => {

@@ -1,9 +1,9 @@
 import { parseRss } from './rss';
-import { buildDigest } from './digest';
+import { buildDigestWithStats } from './digest';
 import { renderDigest, renderTopicalDigest } from './render';
 import { translateDeepL } from './translate';
 import { localeContextFor } from './region';
-import type { DigestItem } from './digest';
+import type { DigestItem, MatchMode } from './digest';
 import type { TopicConfig, TopicsConfig } from './topics';
 
 export type TopicSection = {
@@ -20,6 +20,8 @@ export type RunDigestOptions = {
   deeplAuthKey?: string;
   targetLang?: string;
   region?: string;
+  match?: string[];
+  matchMode?: MatchMode;
 };
 
 export type RunDigestResult = {
@@ -35,15 +37,21 @@ export function mergeSeenKeys(seenKeys: Set<string>, digest: DigestItem[]): Set<
 
 export async function runDigest(options: RunDigestOptions): Promise<RunDigestResult> {
   const items = parseRss(options.xml);
-  const digest = buildDigest(items, {
+  const { items: digest, droppedByMatch } = buildDigestWithStats(items, {
     seenKeys: options.seenKeys,
     hours: options.hours,
     limit: options.limit,
     now: options.now,
+    match: options.match,
+    matchMode: options.matchMode,
   });
 
   let translations: Map<string, string> | undefined;
   const warnings: string[] = [];
+
+  if (droppedByMatch > 0) {
+    warnings.push(`${droppedByMatch} item(s) dropped — missing required keywords`);
+  }
 
   if (options.targetLang && options.deeplAuthKey && digest.length > 0) {
     const titles = digest.map((d) => d.title);
@@ -108,12 +116,18 @@ export async function runTopicalDigest(
       continue;
     }
 
-    const items = buildDigest(parseRss(result.value), {
+    const { items, droppedByMatch } = buildDigestWithStats(parseRss(result.value), {
       seenKeys: seen,
       hours: opts.hours,
       limit: opts.limitOverride ?? topic.limit,
       now,
+      match: topic.match,
+      matchMode: topic.matchMode,
     });
+
+    if (droppedByMatch > 0) {
+      warnings.push(`Topic "${topic.slug}": ${droppedByMatch} item(s) dropped — missing required keywords`);
+    }
 
     if (items.length === 0) {
       warnings.push(`Topic "${topic.slug}" returned 0 items — check the query syntax`);
