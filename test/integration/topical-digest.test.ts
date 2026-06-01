@@ -314,6 +314,8 @@ describe('runTopicalDigest with DeepL', () => {
     expect(realEstateIdx).toBeGreaterThan(importantIdx); // block precedes topic sections
     expect(result.output).toContain('Missile intercepted');
     expect(result.output.split('Missile intercepted').length - 1).toBe(1); // not duplicated below
+    // the promoted line is tagged with its originating topic
+    expect(result.output).toMatch(/Missile intercepted[^\n]*— Real Estate/);
   });
 
   test('de-duplicates identical titles before calling DeepL', async () => {
