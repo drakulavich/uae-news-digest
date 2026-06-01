@@ -46,12 +46,19 @@ export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** Markers matched as a prefix to catch inflections (evacuate/evacuation, inaugurate/inauguration). */
+const STEM_MARKERS = new Set(['evacuat', 'inaugurat']);
+
 function findMarkers(haystack: string, markers: string[]): string[] {
   const found: string[] = [];
   for (const m of markers) {
-    // Leading word boundary + prefix: matches "rent"/"rents"/"rental",
-    // but not "current"/"parent".
-    if (new RegExp('\\b' + escapeRegExp(m), 'i').test(haystack)) found.push(m);
+    // Stems match as a prefix (evacuat -> evacuate/evacuation).
+    // Everything else matches as a whole word plus optional plural
+    // (rent -> rent/rents), so "tax" does not match "taxi" nor "law" "lawyer".
+    const pattern = STEM_MARKERS.has(m)
+      ? '\\b' + escapeRegExp(m)
+      : '\\b' + escapeRegExp(m) + '(?:e?s)?\\b';
+    if (new RegExp(pattern, 'i').test(haystack)) found.push(m);
   }
   return found;
 }

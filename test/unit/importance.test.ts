@@ -41,4 +41,14 @@ describe('scoreImportance', () => {
     const r = scoreImportance('Council reviews current routine procedures');
     expect(r.signals).not.toContain('rent');
   });
+
+  test('"tax" marker does not fire on "taxi"', () => {
+    const r = scoreImportance('Dubai taxi drivers complete training programme');
+    expect(r.signals).not.toContain('tax');
+  });
+
+  test('"law" marker does not fire on "lawyer"', () => {
+    const r = scoreImportance('Dubai lawyer profiled in weekend feature');
+    expect(r.signals).not.toContain('law');
+  });
 });
