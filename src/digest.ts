@@ -1,5 +1,6 @@
 import { normalizeTitle, normalizeSource, makeKey } from './normalize';
 import { scoreItem, titleSimilarity } from './scoring';
+import { scoreImportance, type ImportanceTier } from './importance';
 import type { RssItem } from './rss';
 
 const DEFAULT_SKIP_RE = /(opinion|daily mail|travel and tour world|tradingview|cycling|horse|football|msn|substack|influencer|hotel room|fitness journey|baskin-robbins)/i;
@@ -7,10 +8,14 @@ const FUZZY_SIMILARITY_THRESHOLD = 0.45;
 
 export type DigestItem = {
   score: number;
+  importance: number;
+  signals: string[];
+  tier: ImportanceTier;
   publishedAt: Date;
   title: string;
   source: string;
   key: string;
+  matchedTerms?: string[];
 };
 
 export type BuildDigestOptions = {
@@ -45,8 +50,12 @@ export function buildDigest(items: RssItem[], options: BuildDigestOptions): Dige
     const key = makeKey(title, source);
     if (seenKeys.has(key)) continue;
 
+    const imp = scoreImportance(title);
     const digestItem: DigestItem = {
       score: scoreItem(title, source),
+      importance: imp.importance,
+      signals: imp.signals,
+      tier: imp.tier,
       publishedAt,
       title,
       source,

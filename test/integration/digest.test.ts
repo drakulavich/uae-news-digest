@@ -59,6 +59,18 @@ describe('buildDigest', () => {
     expect(digest[0]?.title).toBe('UAE oil prices rise');
   });
 
+  test('attaches importance, signals, and tier to each item', () => {
+    const now = new Date('2026-03-22T08:00:00Z');
+    const items: RssItem[] = [
+      { title: 'UAE intercepts missile over Dubai airspace', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Reuters' },
+    ];
+    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now });
+    expect(digest).toHaveLength(1);
+    expect(digest[0]!.tier).toBe('breaking');
+    expect(digest[0]!.importance).toBeGreaterThan(0);
+    expect(digest[0]!.signals).toContain('missile');
+  });
+
   test('respects limit', () => {
     const now = new Date('2026-03-22T08:00:00Z');
     const topics = ['airport closure', 'property market crash', 'oil price surge', 'visa regulation change', 'metro expansion plan', 'weather sandstorm warning', 'hospital opening ceremony', 'shipping trade agreement', 'drone technology expo', 'education reform policy'];

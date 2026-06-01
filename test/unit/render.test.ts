@@ -54,6 +54,9 @@ describe('renderDigest', () => {
   const now = new Date('2026-03-22T08:00:00Z');
   const sampleItem: DigestItem = {
     score: 5,
+    importance: 0,
+    signals: [],
+    tier: 'neutral',
     publishedAt: new Date('2026-03-22T07:00:00Z'),
     title: 'Dubai property sector shows early signs of weakness',
     source: 'Reuters',
@@ -121,6 +124,9 @@ describe('renderDigest', () => {
 function makeItem(over: Partial<DigestItem>): DigestItem {
   return {
     score: 1,
+    importance: 0,
+    signals: [],
+    tier: 'neutral',
     publishedAt: new Date('2026-05-22T08:00:00Z'),
     title: 'Title',
     source: 'Reuters',
