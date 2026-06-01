@@ -98,6 +98,17 @@ describe('matchTerms', () => {
     expect(matchTerms('a b c', ['a', 'b', 'c'], 2).ok).toBe(true);
     expect(matchTerms('a only', ['a', 'b', 'c'], 2).ok).toBe(false);
   });
+  test('matches whole word + plural but not a longer different word', () => {
+    expect(matchTerms('Dubai schools reopen', ['school'], 'any').ok).toBe(true);
+    expect(matchTerms('Dubai schooling system overhaul', ['school'], 'any').ok).toBe(false);
+  });
+  test('matching is case-insensitive', () => {
+    expect(matchTerms('Dubai SCHOOL fees rise', ['School'], 'any').ok).toBe(true);
+  });
+  test('empty match array means no filtering at matchTerms level', () => {
+    // buildDigestWithStats guards empty arrays; matchTerms with [] requires 0 terms
+    expect(matchTerms('anything', [], 'all').ok).toBe(true);
+  });
 });
 
 describe('buildDigestWithStats match filter', () => {

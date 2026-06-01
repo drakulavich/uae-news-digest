@@ -27,7 +27,9 @@ export function matchTerms(
 ): { ok: boolean; matchedTerms: string[] } {
   const hay = title.toLowerCase();
   const matchedTerms = match.filter((t) =>
-    new RegExp('\\b' + escapeRegExp(t.toLowerCase())).test(hay),
+    // Whole word + optional plural: "school" matches "school"/"schools"
+    // but not "schooling"; "fee" matches "fee"/"fees".
+    new RegExp('\\b' + escapeRegExp(t.toLowerCase()) + '(?:e?s)?\\b').test(hay),
   );
   let need: number;
   if (mode === 'all') need = match.length;
@@ -46,13 +48,15 @@ export type BuildDigestOptions = {
   matchMode?: MatchMode;
 };
 
+export type BuildDigestResult = { items: DigestItem[]; droppedByMatch: number };
+
 export function parsePubDate(pubDate: string | undefined): Date | null {
   if (!pubDate) return null;
   const parsed = new Date(pubDate);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptions): { items: DigestItem[]; droppedByMatch: number } {
+export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptions): BuildDigestResult {
   const { seenKeys, hours, limit, now = new Date(), skipRe = DEFAULT_SKIP_RE, match, matchMode = 'all' } = options;
   const cutoff = new Date(now.getTime() - hours * 60 * 60 * 1000);
   const unique = new Map<string, DigestItem>();
