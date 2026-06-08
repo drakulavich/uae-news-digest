@@ -156,6 +156,7 @@ program.action(async (options) => {
           score: d.score,
           publishedAt: d.publishedAt.toISOString(),
           hoursAgo: Math.round((now.getTime() - d.publishedAt.getTime()) / 3_600_000),
+          ...(d.googleUrl ? { googleUrl: d.googleUrl, originalUrl: d.originalUrl ?? null } : {}),
         })),
       }, null, 2) + '\n');
     } else {
