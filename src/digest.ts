@@ -11,6 +11,8 @@ export type DigestItem = {
   title: string;
   source: string;
   key: string;
+  googleUrl?: string;
+  originalUrl?: string | null;
 };
 
 export type BuildDigestOptions = {
@@ -51,6 +53,7 @@ export function buildDigest(items: RssItem[], options: BuildDigestOptions): Dige
       title,
       source,
       key,
+      ...(item.googleUrl ? { googleUrl: item.googleUrl, originalUrl: item.originalUrl ?? null } : {}),
     };
 
     const existing = unique.get(key);
