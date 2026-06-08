@@ -25,6 +25,8 @@ describe('parseRss', () => {
     const items = parseRss(xml);
     expect(items).toHaveLength(1);
     expect(items[0]?.title).toBe('Only one');
+    expect(items[0]).not.toHaveProperty('googleUrl');
+    expect(items[0]).not.toHaveProperty('originalUrl');
   });
 
   test('handles malformed XML gracefully', () => {
