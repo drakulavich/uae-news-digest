@@ -59,6 +59,25 @@ describe('buildDigest', () => {
     expect(digest[0]?.title).toBe('UAE oil prices rise');
   });
 
+  test('preserves URL metadata on selected digest items', () => {
+    const now = new Date('2026-03-22T08:00:00Z');
+    const items: RssItem[] = [
+      {
+        title: 'Dubai airport reopens after rain',
+        pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT',
+        source: 'Reuters',
+        googleUrl: 'https://news.google.com/rss/articles/dubai-airport',
+        originalUrl: null,
+      },
+    ];
+
+    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now });
+
+    expect(digest).toHaveLength(1);
+    expect(digest[0]?.googleUrl).toBe('https://news.google.com/rss/articles/dubai-airport');
+    expect(digest[0]?.originalUrl).toBeNull();
+  });
+
   test('respects limit', () => {
     const now = new Date('2026-03-22T08:00:00Z');
     const topics = ['airport closure', 'property market crash', 'oil price surge', 'visa regulation change', 'metro expansion plan', 'weather sandstorm warning', 'hospital opening ceremony', 'shipping trade agreement', 'drone technology expo', 'education reform policy'];

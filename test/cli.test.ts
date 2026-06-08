@@ -10,8 +10,8 @@ const oneHourAgo = new Date(TEST_NOW.getTime() - 3_600_000).toUTCString();
 const twoHoursAgo = new Date(TEST_NOW.getTime() - 7_200_000).toUTCString();
 
 const RSS_XML = `<?xml version="1.0"?><rss><channel>
-  <item><title>Dubai airport reopens after rain</title><pubDate>${oneHourAgo}</pubDate><source url="https://example.com">Reuters</source></item>
-  <item><title>Abu Dhabi market overview</title><pubDate>${twoHoursAgo}</pubDate><source url="https://example.com">Gulf News</source></item>
+  <item><title>Dubai airport reopens after rain</title><link>https://news.google.com/rss/articles/dubai-airport</link><pubDate>${oneHourAgo}</pubDate><source url="https://example.com">Reuters</source></item>
+  <item><title>Abu Dhabi market overview</title><link>https://news.google.com/rss/articles/abu-dhabi-market</link><pubDate>${twoHoursAgo}</pubDate><source url="https://example.com">Gulf News</source></item>
 </channel></rss>`;
 
 const RSS_EMPTY = `<?xml version="1.0"?><rss><channel></channel></rss>`;
@@ -187,13 +187,15 @@ describe('CLI integration', () => {
     expect(parsed.count).toBe(2);
     expect(parsed.warnings).toEqual([]);
     expect(parsed.items).toHaveLength(2);
-    expect(Object.keys(parsed.items[0]).sort()).toEqual(['hoursAgo', 'publishedAt', 'score', 'source', 'title']);
+    expect(Object.keys(parsed.items[0]).sort()).toEqual(['googleUrl', 'hoursAgo', 'originalUrl', 'publishedAt', 'score', 'source', 'title']);
     expect(parsed.items[0]).toEqual({
       title: 'Dubai airport reopens after rain',
       source: 'Reuters',
       score: 8,
       publishedAt: new Date(oneHourAgo).toISOString(),
       hoursAgo: 1,
+      googleUrl: 'https://news.google.com/rss/articles/dubai-airport',
+      originalUrl: null,
     });
     expect(parsed.items[1]).toEqual({
       title: 'Abu Dhabi market overview',
@@ -201,6 +203,8 @@ describe('CLI integration', () => {
       score: 6,
       publishedAt: new Date(twoHoursAgo).toISOString(),
       hoursAgo: 2,
+      googleUrl: 'https://news.google.com/rss/articles/abu-dhabi-market',
+      originalUrl: null,
     });
   });
 

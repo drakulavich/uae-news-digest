@@ -2,12 +2,14 @@ import { describe, expect, test } from 'bun:test';
 import { parseRss } from '../../src/rss';
 
 describe('parseRss', () => {
-  test('extracts items and source text', () => {
-    const xml = `<?xml version="1.0"?><rss><channel><item><title>Dubai market rises</title><pubDate>Sun, 22 Mar 2026 04:00:00 GMT</pubDate><source url="https://example.com">Reuters</source></item></channel></rss>`;
+  test('extracts items, source text, and link', () => {
+    const xml = `<?xml version="1.0"?><rss><channel><item><title>Dubai market rises</title><link>https://news.google.com/rss/articles/example</link><pubDate>Sun, 22 Mar 2026 04:00:00 GMT</pubDate><source url="https://example.com">Reuters</source></item></channel></rss>`;
     const items = parseRss(xml);
     expect(items).toHaveLength(1);
     expect(items[0]).toEqual({
       title: 'Dubai market rises',
+      googleUrl: 'https://news.google.com/rss/articles/example',
+      originalUrl: null,
       pubDate: 'Sun, 22 Mar 2026 04:00:00 GMT',
       source: 'Reuters',
     });
@@ -23,6 +25,8 @@ describe('parseRss', () => {
     const items = parseRss(xml);
     expect(items).toHaveLength(1);
     expect(items[0]?.title).toBe('Only one');
+    expect(items[0]).not.toHaveProperty('googleUrl');
+    expect(items[0]).not.toHaveProperty('originalUrl');
   });
 
   test('handles malformed XML gracefully', () => {
