@@ -16,6 +16,7 @@ export type DigestItem = {
   source: string;
   key: string;
   matchedTerms?: string[];
+  link?: string;
 };
 
 export type MatchMode = 'all' | 'any' | number;
@@ -93,6 +94,7 @@ export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptio
       source,
       key,
       matchedTerms,
+      link: item.link,
     };
 
     const existing = unique.get(key);

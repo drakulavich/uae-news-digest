@@ -181,6 +181,7 @@ async function runInTopicsMode(args: TopicsRunArgs): Promise<void> {
         tier: d.tier,
         signals: d.signals,
         matchedTerms: d.matchedTerms ?? [],
+        googleUrl: d.link ?? null,
       })),
     );
     process.stdout.write(JSON.stringify({
@@ -336,6 +337,7 @@ program.action(async (options) => {
           tier: d.tier,
           signals: d.signals,
           matchedTerms: d.matchedTerms ?? [],
+          googleUrl: d.link ?? null,
         })),
       }, null, 2) + '\n');
     } else {
