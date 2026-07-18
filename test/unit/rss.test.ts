@@ -13,6 +13,18 @@ describe('parseRss', () => {
     });
   });
 
+  test('preserves the RSS item link when present', () => {
+    const xml = `<?xml version="1.0"?><rss><channel><item><title>Dubai market rises</title><link>https://news.google.com/rss/articles/abc</link><pubDate>Sun, 22 Mar 2026 04:00:00 GMT</pubDate></item></channel></rss>`;
+    const items = parseRss(xml);
+    expect(items[0]?.link).toBe('https://news.google.com/rss/articles/abc');
+  });
+
+  test('leaves link undefined when the RSS item has no link', () => {
+    const xml = `<?xml version="1.0"?><rss><channel><item><title>No link here</title></item></channel></rss>`;
+    const items = parseRss(xml);
+    expect(items[0]?.link).toBeUndefined();
+  });
+
   test('returns empty array for empty channel', () => {
     const xml = `<?xml version="1.0"?><rss><channel></channel></rss>`;
     expect(parseRss(xml)).toEqual([]);

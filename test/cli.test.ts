@@ -11,7 +11,7 @@ const oneHourAgo = new Date(TEST_NOW.getTime() - 3_600_000).toUTCString();
 const twoHoursAgo = new Date(TEST_NOW.getTime() - 7_200_000).toUTCString();
 
 const RSS_XML = `<?xml version="1.0"?><rss><channel>
-  <item><title>Dubai airport reopens after rain</title><pubDate>${oneHourAgo}</pubDate><source url="https://example.com">Reuters</source></item>
+  <item><title>Dubai airport reopens after rain</title><link>https://news.google.com/rss/articles/dubai-airport</link><pubDate>${oneHourAgo}</pubDate><source url="https://example.com">Reuters</source></item>
   <item><title>Abu Dhabi market overview</title><pubDate>${twoHoursAgo}</pubDate><source url="https://example.com">Gulf News</source></item>
 </channel></rss>`;
 
@@ -292,7 +292,7 @@ describe('CLI integration', () => {
     expect(parsed.count).toBe(2);
     expect(parsed.warnings).toEqual([]);
     expect(parsed.items).toHaveLength(2);
-    expect(Object.keys(parsed.items[0]).sort()).toEqual(['hoursAgo', 'importance', 'matchedTerms', 'publishedAt', 'score', 'signals', 'source', 'tier', 'title']);
+    expect(Object.keys(parsed.items[0]).sort()).toEqual(['googleUrl', 'hoursAgo', 'importance', 'matchedTerms', 'publishedAt', 'score', 'signals', 'source', 'tier', 'title']);
     expect(parsed.items[0]).toEqual({
       title: 'Dubai airport reopens after rain',
       source: 'Reuters',
@@ -303,6 +303,7 @@ describe('CLI integration', () => {
       tier: expect.any(String),
       signals: expect.any(Array),
       matchedTerms: [],
+      googleUrl: 'https://news.google.com/rss/articles/dubai-airport',
     });
     expect(parsed.items[1]).toEqual({
       title: 'Abu Dhabi market overview',
@@ -314,6 +315,7 @@ describe('CLI integration', () => {
       tier: expect.any(String),
       signals: expect.any(Array),
       matchedTerms: [],
+      googleUrl: null,
     });
   });
 
@@ -337,6 +339,10 @@ describe('CLI integration', () => {
     expect(parsed.items[0]).toHaveProperty('importance');
     expect(parsed.items[0]).toHaveProperty('tier');
     expect(parsed.items[0]).toHaveProperty('signals');
+    // every fixture item carries an <link>, so googleUrl flows through to JSON
+    for (const item of parsed.items) {
+      expect(item.googleUrl).toMatch(/^https:\/\/example\.com\//);
+    }
   });
 
   test('manifest reports package version and bin name', async () => {

@@ -5,6 +5,7 @@ export type RssItem = {
   title: string;
   pubDate?: string;
   source?: string;
+  link?: string;
 };
 
 export function parseRss(xml: string): RssItem[] {
@@ -21,5 +22,6 @@ export function parseRss(xml: string): RssItem[] {
       : item.source?.['#text']
         ? String(item.source['#text'])
         : undefined,
+    link: item.link ? String(item.link) : undefined,
   }));
 }
