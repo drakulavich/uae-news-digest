@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-22
+
+### Added
+- Signal filter: `--json` items now carry `importance`, `tier` (`breaking` | `impact` | `neutral` | `fluff`), and `signals`, so downstream consumers can rank and drop noise without re-deriving scores.
+- `--prompt` flag prints a ready-made agent filter instruction. Piping `uae-news-digest --json` into an LLM with that prompt drops PR/noise reproducibly from the metadata — no API key or custom prompt engineering.
+- `googleUrl` field on every `--json` item — the Google News article link, so consumers can deep-link to the original story.
+
+### Changed
+- `--help` is now self-sufficient for agents: a full usage guide covering region vs topics mode detection, the complete `--json` envelope and item schema, state/dedup rules, the agent-filter workflow, env vars, subcommands (`manifest` / `healthcheck`), and exit codes. The documented agent-filter pipe now includes `--dry-run` so ad-hoc filter passes don't mark articles as seen.
+
+### Chores
+- OpenSpec baseline (config + principles + glossary).
+- Dependency and CI action bumps: `commander`, `fast-xml-parser`, `actions/checkout`, `actions/setup-node`.
+
 ## [0.1.1] - 2026-05-23
 
 ### Added
