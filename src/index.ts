@@ -60,11 +60,85 @@ program
   .option('--match-mode <mode>', 'how many --match terms to require: all | any | <N>', 'all')
   .option('--prompt', 'print the agent filter prompt and exit', false)
   .addHelpText('after', `
-Example:
+WHAT IT DOES
+  Fetches a Google News RSS feed, filters to a lookback window (--hours), scores
+  and de-duplicates articles against a seen-items state file, and prints the top
+  --limit items. Human-readable text by default; machine-readable with --json.
+
+MODES (auto-detected)
+  region  (default) One RSS feed chosen by --region (uae|us|uk|de) or --rss-url.
+                    Optional title keyword gate via --match / --match-mode.
+  topics            Per-topic digest. Enabled automatically when a topics config
+                    is found, in this order:
+                      1. --topics-config <path>
+                      2. ./digest.config.json  (current directory)
+                      3. $XDG_CONFIG_HOME/uae-news-digest/topics.json  (or ~/.config/...)
+                    Force plain region mode with --no-topics. In topics mode
+                    --region and --rss-url are ignored (a note is sent to stderr).
+
+OUTPUT
+  Default: formatted digest text on stdout; warnings on stderr.
+  --json : a single JSON object on stdout:
+    {
+      "tool", "version",
+      "mode": "region" | "topics",
+      "query": { "hours", "limit"?, "targetLang" },
+      "topics"?: [ { "slug", "name", "count" } ],   // topics mode only
+      "count", "warnings": string[],
+      "items": [ {
+        "topic"?:      string,                       // topics mode only
+        "title":       string,
+        "source":      string,
+        "score":       number,
+        "publishedAt": string,                       // ISO-8601 UTC
+        "hoursAgo":    number,
+        "importance":  number,
+        "tier":        "breaking" | "impact" | "neutral" | "fluff",
+        "signals":     string[],
+        "matchedTerms": string[],
+        "googleUrl":   string | null                 // Google News article link
+      } ]
+    }
+  In --json mode warnings go into the "warnings" array (not stderr).
+
+STATE & DEDUP
+  Seen article keys are persisted to --state-file (default ./seen_titles.txt) and
+  skipped on later runs. A run only writes state when it produced items AND
+  --dry-run is absent. Use --dry-run for any throwaway/inspection run so it does
+  not hide those articles from the next scheduled digest.
+
+AGENT FILTER (key-free smart pass)
+  --prompt PRINTS a ready-made filter instruction and exits (it consumes no input).
+  Pipe the JSON items into an LLM with that instruction as the prompt:
+    uae-news-digest --json --dry-run | claude "$(uae-news-digest --prompt)"
+  --dry-run keeps state untouched for these ad-hoc passes; drop it when this pipe
+  IS the scheduled run. The LLM drops noise reproducibly from the metadata above
+  (tier/importance/signals) — no API key, no custom prompt engineering.
+
+ENV VARS
+  DEEPL_AUTH_KEY            Required by --target-lang (DeepL translation).
+  UAE_NEWS_DIGEST_NOW       Override "now" (ISO-8601) for deterministic runs/tests.
+  XDG_CONFIG_HOME / HOME    Used to locate the topics config (see MODES).
+
+SUBCOMMANDS
+  manifest                 Print a machine-readable tool descriptor (id, version,
+                           flags, envVars) as JSON. Use this to discover the tool.
+  healthcheck [--rss-url]  Smoke-test the feed; prints {ok,version,latencyMs};
+                           exits 0 on success, 1 on failure.
+
+EXIT CODES
+  0 success   1 fetch/timeout/validation error (a human-readable reason is
+  printed to stderr; on timeout retry with --timeout-ms 30000).
+
+EXAMPLES
   uae-news-digest --hours 12 --limit 10
   uae-news-digest --region us
   uae-news-digest --json
-  DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE`);
+  uae-news-digest --json --hours 168 --limit 168 --dry-run    # weekly, no state write
+  DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE
+  uae-news-digest manifest
+  uae-news-digest healthcheck
+  uae-news-digest --json --dry-run | claude "$(uae-news-digest --prompt)"`);
 
 // ── Manifest subcommand (inlined from @openclaw/cli-common) ──
 
