@@ -143,9 +143,11 @@ When articles are dropped for failing the keyword filter, a warning reports how 
 `--json` enriches every item with `importance`, `tier` (`breaking` | `impact` | `neutral` | `fluff`), `signals`, and `matchedTerms`. Pipe that to an LLM with the ready-made filter criterion:
 
 ```bash
-uae-news-digest --prompt                         # print the filter criterion
-uae-news-digest --json | claude "$(uae-news-digest --prompt)"
+uae-news-digest --prompt                                    # print the filter criterion
+uae-news-digest --json --dry-run | claude "$(uae-news-digest --prompt)"
 ```
+
+`--dry-run` keeps the seen-items state file untouched, so an ad-hoc agent-filter pass doesn't mark those articles as seen and hide them from the next real digest. Drop it when this pipe _is_ the scheduled run.
 
 The agent can drop noise reproducibly based solely on the structured metadata — no extra API key, no custom prompt engineering required.
 
