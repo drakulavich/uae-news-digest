@@ -4,7 +4,7 @@
 
 UAE News Digest is a daily UAE news digest CLI: fetches Google News RSS, scores and dedupes items, optionally translates. Bun runtime, no build step — `bin` points straight at `src/index.ts`.
 
-Two interfaces: the CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core`, exporting `parseRss`, `buildDigest`, `runDigest`, `renderDigest`).
+Two interfaces: the CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core` — 18 exports including `parseRss`, `buildDigest`, `runDigest`, `renderDigest`).
 
 ```
 RSS (Google News) → rss.ts parseRss → digest.ts buildDigest (score, dedupe)
@@ -15,7 +15,7 @@ RSS (Google News) → rss.ts parseRss → digest.ts buildDigest (score, dedupe)
 
 ### BUN-ONLY RUNTIME
 
-Bun-native APIs only (`Bun.spawn`, `Bun.write`, `Bun.file`, `Bun.$`). Bun executes TypeScript directly — there is no build step to add.
+Bun, not Node.js. Bun-native APIs only (`Bun.spawn`, `Bun.write`, `Bun.file`, `Bun.$`). Bun executes TypeScript directly — there is no build step to add.
 
 ### TRANSLATION IS OPT-IN
 
