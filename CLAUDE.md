@@ -1,109 +1,50 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
-UAE News Digest is a daily UAE news digest CLI tool that fetches from Google News RSS with optional DeepL translation. Built on Bun runtime.
+UAE News Digest is a daily UAE news digest CLI: fetches Google News RSS, scores and dedupes items, optionally translates. Bun runtime, no build step — `bin` points straight at `src/index.ts`.
 
-Two interfaces: a CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core`).
+Two interfaces: the CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core` — 18 exports including `parseRss`, `buildDigest`, `runDigest`, `renderDigest`).
+
+```
+RSS (Google News) → rss.ts parseRss → digest.ts buildDigest (score, dedupe)
+  → translate.ts translateDeepL (optional) → render.ts renderDigest → text
+```
 
 ## Critical Development Rules
 
 ### BUN-ONLY RUNTIME
 
-- This project runs on Bun, not Node.js. Use Bun-native APIs (`Bun.spawn`, `Bun.write`, `Bun.file`, `Bun.$`)
-- TypeScript is executed directly by Bun — no build step
-- The `bin` entry points directly at `src/index.ts`
+Bun, not Node.js. Bun-native APIs only (`Bun.spawn`, `Bun.write`, `Bun.file`, `Bun.$`). Bun executes TypeScript directly — there is no build step to add.
+
+### TRANSLATION IS OPT-IN
+
+Default output is English with no translation. It only runs when `--target-lang <code>` is passed **and** `DEEPL_AUTH_KEY` is set (DeepL Free API). Never translate by default — it costs quota.
 
 ### BRANCH PROTECTION
 
-- `main` branch is protected — never push directly to main
-- All changes must go through pull requests
-- CI must pass before merging
-
-### GIT WORKTREES FOR BIG CHANGES
-
-- Use `git worktree add` for multi-file features or refactors
-- Keeps main checkout clean while iterating on a feature branch
+`main` is protected: never push to it directly, every change goes through a PR, and CI must pass before merging. Use `git worktree add` for multi-file features so the main checkout stays clean.
 
 ### VERIFY BEFORE PUSHING
 
-- Run `bun test` locally before every push
-- Do NOT push broken code — fix locally first
+Run `bun test` and `bun run typecheck` locally before every push. Do NOT push broken code.
 
 ### ERROR HANDLING
 
-- Always write proper error handling with human-readable messages
-- Include context: what failed, why, and what to do about it
-- Never swallow errors silently
+Human-readable messages with context: what failed, why, what to do. Never swallow errors silently.
 
 ## Build Commands
 
 ```bash
 bun install                    # Install dependencies
 bun test                       # Run all tests
-bun run typecheck              # Run TypeScript type checking
+bun run typecheck              # TypeScript type checking
 bun run build                  # Emit declaration/build output
 bun run smoke:pack             # Smoke-test the packed npm package
 bun run dev                    # Run CLI in development
-bun link                       # Link binary globally
-```
-
-## Project Structure
-
-```
-uae-news-digest/
-├── src/
-│   ├── index.ts              # CLI entry point (Commander-based)
-│   ├── core.ts               # Public API re-exports
-│   ├── pipeline.ts           # End-to-end digest orchestration
-│   ├── digest.ts             # Filtering, dedup, and limiting
-│   ├── scoring.ts            # Item scoring and title similarity
-│   ├── normalize.ts          # Whitespace/title/source normalization
-│   ├── rss.ts                # RSS parsing
-│   ├── render.ts             # Text output rendering
-│   ├── translate.ts          # DeepL translation
-│   ├── region.ts             # Region preset handling
-│   ├── state.ts              # Seen-item state file I/O
-│   └── meta.ts               # Package metadata helpers
-├── test/
-│   ├── cli.test.ts           # CLI integration tests
-│   ├── integration/          # Pipeline and digest integration tests
-│   ├── unit/                 # Focused module tests
-│   └── fixtures/             # Shared test fixtures/helpers
-├── scripts/
-│   └── smoke-pack.ts         # npm pack consumer smoke test
-├── .github/
-│   └── workflows/            # CI
-└── package.json
-```
-
-## Architecture Overview
-
-```
-RSS feed (Google News)
-  → [rss.ts] parseRss → RssItem[]
-  → [digest.ts] buildDigest → scored, deduped DigestItem[]
-  → [translate.ts] translateDeepL (optional, when --target-lang set + DEEPL_AUTH_KEY)
-  → [render.ts] renderDigest → formatted text output
-```
-
-### Translation
-
-- Default output is English (no translation)
-- Translation is opt-in: pass `--target-lang <code>` with `DEEPL_AUTH_KEY` env var
-- Uses DeepL Free API for translation
-
-### Public API (`./core` export)
-
-```typescript
-import { parseRss, buildDigest, runDigest, renderDigest } from "@drakulavich/uae-news-digest/core";
 ```
 
 ## Code Style
 
-- **TypeScript**: Strict mode
-- **No build step**: Bun runs `.ts` directly
-- **Imports**: Use relative paths (`./lib`, not `src/lib`)
-- **Progress/errors**: `console.error()` — **Success output**: `console.log()`
+- **TypeScript**: strict mode; relative imports (`./lib`, not `src/lib`).
+- **Output**: `console.log()` for results, `console.error()` for progress and errors — stdout stays pipe-friendly.
