@@ -1,4 +1,5 @@
 import { describe, expect, test, afterAll } from 'bun:test';
+import { mkdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -50,5 +51,30 @@ describe('readSeenKeys / writeSeenKeys', () => {
     const loaded = await readSeenKeys(mergeFile);
     expect(loaded).toEqual(new Set(['first || source', 'second || source']));
     await Bun.$`rm -f ${mergeFile}`.quiet();
+  });
+
+  test('recovers a lock left behind by a terminated writer', async () => {
+    const stateFile = join(tmpdir(), `uae-news-stale-lock-${Date.now()}.txt`);
+    const lockDir = `${stateFile}.lock`;
+    mkdirSync(lockDir);
+    writeFileSync(join(lockDir, 'owner.json'), JSON.stringify({ pid: 999_999_999, createdAt: new Date(0).toISOString() }));
+
+    await mergeSeenKeysIntoState(stateFile, ['recovered || source']);
+
+    expect(await Bun.file(lockDir).exists()).toBe(false);
+    expect(await readSeenKeys(stateFile)).toEqual(new Set(['recovered || source']));
+    await Bun.$`rm -f ${stateFile}`.quiet();
+  });
+
+  test('recovers an old lock left before its owner metadata was written', async () => {
+    const stateFile = join(tmpdir(), `uae-news-unowned-lock-${Date.now()}.txt`);
+    const lockDir = `${stateFile}.lock`;
+    mkdirSync(lockDir);
+    utimesSync(lockDir, new Date(0), new Date(0));
+
+    await mergeSeenKeysIntoState(stateFile, ['metadata gap || source']);
+
+    expect(await readSeenKeys(stateFile)).toEqual(new Set(['metadata gap || source']));
+    await Bun.$`rm -f ${stateFile}`.quiet();
   });
 });

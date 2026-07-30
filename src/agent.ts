@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, mkdir, readdir, rm, unlink } from 'node:fs/promises';
+import { readFile, mkdir, readdir, rename, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import type { DigestItem } from './digest';
 import { FILTER_PROMPT } from './importance';
+import { acquireDirectoryLock } from './lock';
 import { mergeSeenKeysIntoState } from './state';
 
 export const AGENT_RUN_RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -79,28 +80,6 @@ function assertRunId(runId: string): void {
   }
 }
 
-async function wait(ms: number): Promise<void> {
-  await new Promise<void>((resolve) => setTimeout(resolve, ms));
-}
-
-async function acquireRunLock(path: string): Promise<() => Promise<void>> {
-  const lockDir = `${path}.lock`;
-  const deadline = Date.now() + 10_000;
-  while (true) {
-    try {
-      await mkdir(lockDir);
-      return async () => {
-        await rm(lockDir, { recursive: true, force: true });
-      };
-    } catch (error: unknown) {
-      const code = error instanceof Error && 'code' in error ? String(error.code) : '';
-      if (code !== 'EEXIST') throw error;
-      if (Date.now() >= deadline) throw new Error('Timed out waiting for the agent run to finish. Try again.');
-      await wait(25);
-    }
-  }
-}
-
 function isExpired(run: AgentRun, now: Date): boolean {
   return new Date(run.expiresAt).getTime() <= now.getTime();
 }
@@ -152,6 +131,17 @@ export async function loadAgentInstructions(
   return instructions;
 }
 
+async function writeRun(path: string, run: AgentRun): Promise<void> {
+  const tempPath = join(dirname(path), `.${basename(path)}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    await Bun.write(tempPath, JSON.stringify(run));
+    await rename(tempPath, path);
+  } catch (error) {
+    await unlink(tempPath).catch(() => {});
+    throw error;
+  }
+}
+
 export async function createAgentRun(
   input: CreateAgentRunInput,
   env: NodeJS.ProcessEnv = process.env,
@@ -184,7 +174,7 @@ export async function createAgentRun(
   };
   const dir = agentRunsDirectory(env);
   await mkdir(dir, { recursive: true });
-  await Bun.write(runPath(runId, env), JSON.stringify(run));
+  await writeRun(runPath(runId, env), run);
   return { runId, candidates: candidates.map((candidate) => candidate.item) };
 }
 
@@ -197,7 +187,7 @@ export async function commitAgentRun(
   assertRunId(runId);
   await pruneExpiredAgentRuns(now, env);
   const path = runPath(runId, env);
-  const release = await acquireRunLock(path);
+  const release = await acquireDirectoryLock(`${path}.lock`, `agent run ${runId}`);
   try {
     const run = await readRun(path);
     if (!run) {

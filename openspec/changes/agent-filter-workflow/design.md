@@ -129,6 +129,11 @@ irrelevant Items would repeatedly consume model context.
   before any state write and returns a corrective diagnostic.
 - [A default Digest writes Seen-item state while an agent run is pending] → A
   serialized read-merge-write operation preserves both sets of keys.
+- [A process stops while holding a state or run lock] → Locks record their
+  owner and safely recover dead owners; the brief pre-metadata window expires
+  by age instead of blocking later Digests permanently. Agent run records are
+  written to a temporary file and atomically renamed, so an interruption cannot
+  publish malformed JSON as a completable run.
 - [The RSS feed exposes fewer than 200 Items] → The response carries both the
   requested limit and actual count; callers must not treat 200 as guaranteed.
 - [A persistent rule is too broad or contradictory] → Source-labelled rules in
