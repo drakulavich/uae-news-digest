@@ -150,5 +150,5 @@ irrelevant Items would repeatedly consume model context.
 
 ## Open Questions
 
-- Confirm the proposed 24-hour run retention period before implementation.
-- None. A future Topics-mode agent result must be proposed separately.
+- Retention is fixed at 24 hours for version one. A future Topics-mode agent
+  result must be proposed separately.

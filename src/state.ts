@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { rename, unlink } from 'node:fs/promises';
+import { mkdir, rename, rm, unlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
 export const DEFAULT_STATE_FILE = './seen_titles.txt';
@@ -24,5 +24,50 @@ export async function writeSeenKeys(stateFile: string, seenKeys: Set<string>): P
       console.error(`Failed to remove temporary state file ${tmpFile}: ${message}`);
     });
     throw error;
+  }
+}
+
+const STATE_LOCK_TIMEOUT_MS = 10_000;
+const STATE_LOCK_RETRY_MS = 25;
+
+async function wait(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+async function acquireStateLock(stateFile: string): Promise<() => Promise<void>> {
+  const lockDir = `${stateFile}.lock`;
+  const deadline = Date.now() + STATE_LOCK_TIMEOUT_MS;
+
+  while (true) {
+    try {
+      await mkdir(lockDir);
+      return async () => {
+        await rm(lockDir, { recursive: true, force: true });
+      };
+    } catch (error: unknown) {
+      const code = error instanceof Error && 'code' in error ? String(error.code) : '';
+      if (code !== 'EEXIST') throw error;
+      if (Date.now() >= deadline) {
+        throw new Error(`Timed out waiting to update seen-item state: ${stateFile}`);
+      }
+      await wait(STATE_LOCK_RETRY_MS);
+    }
+  }
+}
+
+/**
+ * Adds keys without losing a concurrent digest update. Every writer using this
+ * helper serializes, re-reads the live file after acquiring the lock, and then
+ * atomically replaces the merged state.
+ */
+export async function mergeSeenKeysIntoState(stateFile: string, keys: Iterable<string>): Promise<void> {
+  await mkdir(dirname(stateFile), { recursive: true });
+  const release = await acquireStateLock(stateFile);
+  try {
+    const current = await readSeenKeys(stateFile);
+    for (const key of keys) current.add(key);
+    await writeSeenKeys(stateFile, current);
+  } finally {
+    await release();
   }
 }

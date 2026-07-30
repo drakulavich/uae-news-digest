@@ -1,19 +1,20 @@
 #!/usr/bin/env bun
 import { Command } from 'commander';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import {
   buildRssUrl,
   DEFAULT_STATE_FILE,
+  mergeSeenKeysIntoState,
   readSeenKeys,
   runDigest,
-  writeSeenKeys,
 } from './lib';
 import { loadTopicsConfig, resolveTopicsConfigPath } from './topics';
 import { runTopicalDigest } from './pipeline';
 import type { TopicConfig, TopicsConfig } from './topics';
 import { BIN_NAME, TOOL_ID, VERSION } from './meta';
 import { FILTER_PROMPT } from './importance';
+import { commitAgentRun, createAgentRun, loadAgentInstructions } from './agent';
 
 function validatePositiveNumber(name: string, raw: string | number): number {
   const value = typeof raw === 'number' ? raw : Number(raw);
@@ -108,12 +109,15 @@ STATE & DEDUP
   not hide those articles from the next scheduled digest.
 
 AGENT FILTER (key-free smart pass)
-  --prompt PRINTS a ready-made filter instruction and exits (it consumes no input).
-  Pipe the JSON items into an LLM with that instruction as the prompt:
-    uae-news-digest --json --dry-run | claude "$(uae-news-digest --prompt)"
-  --dry-run keeps state untouched for these ad-hoc passes; drop it when this pipe
-  IS the scheduled run. The LLM drops noise reproducibly from the metadata above
-  (tier/importance/signals) — no API key, no custom prompt engineering.
+  Use an explicit two-step protocol. agent collect returns broad candidates,
+  the built-in criterion, custom rules, and a run ID without changing state.
+  After filtering, call agent commit --run-id <id> with zero or more --keep IDs.
+  Candidate runs expire after 24 hours.
+    uae-news-digest agent collect --hours 168
+    uae-news-digest agent commit --run-id <id> --keep <item-id>
+  Persistent rules: $XDG_CONFIG_HOME/uae-news-digest/filter.md (or ~/.config/...)
+  Add one-run rules with repeated --filter-rule <text>. --prompt remains available
+  to print only the built-in criterion for legacy integrations.
 
 ENV VARS
   DEEPL_AUTH_KEY            Required by --target-lang (DeepL translation).
@@ -138,7 +142,8 @@ EXAMPLES
   DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE
   uae-news-digest manifest
   uae-news-digest healthcheck
-  uae-news-digest --json --dry-run | claude "$(uae-news-digest --prompt)"`);
+  uae-news-digest agent collect --hours 168
+  uae-news-digest agent commit --run-id <id> --keep <item-id>`);
 
 // ── Manifest subcommand (inlined from @openclaw/cli-common) ──
 
@@ -174,9 +179,110 @@ program
           ],
           examples: ['uae-news-digest --hours 12 --limit 10'],
         },
+        {
+          name: 'agent collect',
+          description: 'Collect a broad region-mode candidate digest for an external agent',
+          flags: ['--hours <n>', '--limit <n> (default: 200)', '--state-file <path>', '--rss-url <url>', '--region <code>', '--filter-rule <text> (repeatable)'],
+          examples: ['uae-news-digest agent collect --hours 168'],
+        },
+        {
+          name: 'agent commit',
+          description: 'Record a filtering decision and return selected candidates',
+          flags: ['--run-id <id> (required)', '--keep <item-id> (repeatable)'],
+          examples: ['uae-news-digest agent commit --run-id <id> --keep <item-id>'],
+        },
       ],
-      envVars: ['DEEPL_AUTH_KEY'],
+      envVars: ['DEEPL_AUTH_KEY', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME'],
     }, null, 2));
+  });
+
+// ── Agent workflow ──
+
+const agent = program
+  .command('agent')
+  .description('Collect and explicitly commit an external agent filtering decision');
+
+agent
+  .command('collect')
+  .description('Return region-mode JSON candidates and filtering instructions without updating state')
+  .option('--limit <number>', 'max candidate items', '200')
+  .option('--filter-rule <text>', 'additional filtering rule (repeatable)', (value: string, previous: string[] = []) => [...previous, value], [])
+  .action(async function (this: Command, options: { limit: string; filterRule: string[] }) {
+    const global = this.optsWithGlobals() as {
+      region: string;
+      rssUrl?: string;
+      stateFile: string;
+      hours: string;
+      timeoutMs: string;
+      topicsConfig?: string;
+      match?: string[];
+      matchMode: string;
+    };
+    if (this.getOptionValueSourceWithGlobals('topicsConfig') === 'cli') {
+      throw new Error('Agent collection is region-only; remove --topics-config and run `uae-news-digest agent collect` again.');
+    }
+
+    const hours = validatePositiveNumber('hours', global.hours);
+    const limit = validatePositiveNumber(
+      'limit',
+      program.getOptionValueSource('limit') === 'cli' ? program.opts().limit : options.limit,
+    );
+    const timeoutMs = validatePositiveNumber('timeout-ms', global.timeoutMs);
+    const now = resolveNow(process.env.UAE_NEWS_DIGEST_NOW);
+    const seenKeys = await readSeenKeys(global.stateFile);
+    const rssUrl = global.rssUrl ?? buildRssUrl(global.region);
+    const response = await fetch(rssUrl, {
+      headers: { 'user-agent': 'Mozilla/5.0 (uae-news-digest)' },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok) {
+      throw new Error(`RSS fetch failed: HTTP ${response.status} ${response.statusText}. Check --rss-url or try again.`);
+    }
+
+    const result = await runDigest({
+      xml: await response.text(),
+      seenKeys,
+      hours,
+      limit,
+      region: global.region,
+      now,
+      match: global.match,
+      matchMode: global.match ? parseMatchMode(global.matchMode) : undefined,
+    });
+    const instructions = await loadAgentInstructions(options.filterRule, process.env);
+    const run = await createAgentRun({
+      stateFile: resolve(global.stateFile),
+      digest: result.digest,
+      now,
+    }, process.env);
+    process.stdout.write(JSON.stringify({
+      tool: TOOL_ID,
+      version: VERSION,
+      runId: run.runId,
+      mode: 'region',
+      query: { hours, candidateLimit: limit },
+      count: run.candidates.length,
+      instructions,
+      items: run.candidates,
+      next: { command: 'agent commit', runId: run.runId },
+    }, null, 2) + '\n');
+  });
+
+agent
+  .command('commit')
+  .description('Persist reviewed candidates and return only selected items')
+  .requiredOption('--run-id <id>', 'run identifier from agent collect')
+  .option('--keep <item-id>', 'candidate ID to keep (repeatable)', (value: string, previous: string[] = []) => [...previous, value], [])
+  .action(async function (this: Command, options: { runId: string; keep: string[] }) {
+    const now = resolveNow(process.env.UAE_NEWS_DIGEST_NOW);
+    const result = await commitAgentRun(options.runId, options.keep, now, process.env);
+    process.stdout.write(JSON.stringify({
+      tool: TOOL_ID,
+      version: VERSION,
+      runId: result.runId,
+      count: result.count,
+      items: result.items,
+    }, null, 2) + '\n');
   });
 
 program
@@ -279,7 +385,7 @@ async function runInTopicsMode(args: TopicsRunArgs): Promise<void> {
   if (options.dryRun) console.error('(dry run — state file not updated)');
   const wroteAny = result.sections.some((s) => s.items.length > 0);
   if (wroteAny && !options.dryRun) {
-    await writeSeenKeys(options.stateFile, result.nextSeenKeys);
+    await mergeSeenKeysIntoState(options.stateFile, result.nextSeenKeys);
   }
 }
 
@@ -423,7 +529,7 @@ program.action(async (options) => {
     }
 
     if (result.digest.length > 0 && !options.dryRun) {
-      await writeSeenKeys(options.stateFile, result.nextSeenKeys);
+      await mergeSeenKeysIntoState(options.stateFile, result.nextSeenKeys);
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

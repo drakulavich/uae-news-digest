@@ -2,7 +2,7 @@ import { describe, expect, test, afterAll } from 'bun:test';
 import { readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import { readSeenKeys, writeSeenKeys } from '../../src/state';
+import { mergeSeenKeysIntoState, readSeenKeys, writeSeenKeys } from '../../src/state';
 
 describe('readSeenKeys / writeSeenKeys', () => {
   const testFile = join(tmpdir(), `uae-news-test-${Date.now()}.txt`);
@@ -38,5 +38,17 @@ describe('readSeenKeys / writeSeenKeys', () => {
     const files = await readdir(dirname(testFile));
     const tempPrefix = `.${basename(testFile)}.`;
     expect(files.filter((file) => file.startsWith(tempPrefix) && file.endsWith('.tmp'))).toEqual([]);
+  });
+
+  test('concurrent merges preserve keys from every writer', async () => {
+    const mergeFile = join(tmpdir(), `uae-news-merge-${Date.now()}-${Math.random()}.txt`);
+    await Promise.all([
+      mergeSeenKeysIntoState(mergeFile, ['first || source']),
+      mergeSeenKeysIntoState(mergeFile, ['second || source']),
+    ]);
+
+    const loaded = await readSeenKeys(mergeFile);
+    expect(loaded).toEqual(new Set(['first || source', 'second || source']));
+    await Bun.$`rm -f ${mergeFile}`.quiet();
   });
 });

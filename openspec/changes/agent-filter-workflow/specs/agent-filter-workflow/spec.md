@@ -121,8 +121,7 @@ retain their current behavior; the agent workflow SHALL be additive.
 
 ## Open Issues
 
-- The finite retention period for a collected run is not yet chosen. The design
-  proposes 24 hours, but the final value must be confirmed before implementation.
+- Incomplete agent runs expire after 24 hours.
 - This change deliberately records all candidates of a completed run as reviewed.
   If a future workflow needs rejected Items to reappear, it requires a separate
   state-policy proposal rather than weakening this default silently.
