@@ -140,16 +140,41 @@ When articles are dropped for failing the keyword filter, a warning reports how 
 
 ### Agent workflow (key-free smart pass)
 
-`--json` enriches every item with `importance`, `tier` (`breaking` | `impact` | `neutral` | `fluff`), `signals`, and `matchedTerms`. Pipe that to an LLM with the ready-made filter criterion:
+For an agent that calls the CLI itself, use the explicit two-step protocol. It
+collects broad candidates without changing the seen-items state, then commits a
+filtering decision after the model has chosen what to keep:
 
 ```bash
-uae-news-digest --prompt                                    # print the filter criterion
-uae-news-digest --json --dry-run | claude "$(uae-news-digest --prompt)"
+uae-news-digest agent collect --hours 168 > candidates.json
+# Apply candidates.json.instructions to candidates.json.items in your model.
+uae-news-digest agent commit --run-id <run-id> --keep <item-id>
 ```
 
-`--dry-run` keeps the seen-items state file untouched, so an ad-hoc agent-filter pass doesn't mark those articles as seen and hide them from the next real digest. Drop it when this pipe _is_ the scheduled run.
+`agent collect` is always region mode, defaults to a candidate limit of 200,
+and returns the requested limit alongside the actual item count. It includes
+run-scoped item IDs, source, score, dates, importance, tier, signals, matched
+terms, and Google News URL. It reads the selected state file to avoid already
+seen articles but never writes it.
 
-The agent can drop noise reproducibly based solely on the structured metadata — no extra API key, no custom prompt engineering required.
+`agent commit` accepts the collected run ID and zero or more repeated
+`--keep <item-id>` values. It records *every* collected candidate as reviewed
+(including rejected items), returns only the kept items, and preserves any
+state entries written by another digest while the model was deciding. Runs
+expire after 24 hours; collect again if a run has expired or was already
+committed.
+
+The built-in filter instruction is always returned first. Add durable custom
+rules in `$XDG_CONFIG_HOME/uae-news-digest/filter.md` (or
+`~/.config/uae-news-digest/filter.md`), and add one-run rules with repeated
+`--filter-rule <text>` values:
+
+```bash
+uae-news-digest agent collect \
+  --filter-rule "Keep school updates too." \
+  --filter-rule "Prefer verified sources."
+```
+
+`--prompt` still prints only the built-in instruction for legacy integrations:
 
 `--prompt` output:
 

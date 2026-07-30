@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:test';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Server } from 'bun';
@@ -354,6 +354,10 @@ describe('CLI integration', () => {
     expect(parsed.id).toBe('uae-news-digest');
     expect(parsed.version).toBe(packageJson.version);
     expect(parsed.bin).toBe('uae-news-digest');
+    expect(parsed.commands).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'agent collect' }),
+      expect.objectContaining({ name: 'agent commit' }),
+    ]));
   });
 
   test('healthcheck supports deterministic RSS URL', async () => {
@@ -692,6 +696,193 @@ describe('topics mode', () => {
       await Bun.$`rm -f ${stateFile}`.quiet();
     } finally {
       rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('agent workflow', () => {
+  function tmpDir(prefix: string): string {
+    return mkdtempSync(join(tmpdir(), prefix));
+  }
+
+  test('collect returns broad, self-describing candidates without changing state', async () => {
+    const stateFile = tmpStateFile();
+    const cacheHome = tmpDir('uae-agent-cache-');
+    try {
+      const result = await run([
+        'agent', 'collect',
+        '--rss-url', `${baseUrl}/rss`,
+        '--state-file', stateFile,
+      ], { XDG_CACHE_HOME: cacheHome });
+
+      expectExitCode(result, 0);
+      expect(await Bun.file(stateFile).exists()).toBe(false);
+      const parsed = JSON.parse(result.stdout);
+      expect(Object.keys(parsed).sort()).toEqual(['count', 'instructions', 'items', 'mode', 'next', 'query', 'runId', 'tool', 'version']);
+      expect(parsed.mode).toBe('region');
+      expect(parsed.query).toEqual({ hours: 36, candidateLimit: 200 });
+      expect(parsed.count).toBe(2);
+      expect(parsed.instructions).toEqual([{
+        source: 'built-in',
+        text: expect.stringContaining('news filter for an expat family in the UAE'),
+      }]);
+      expect(parsed.next).toEqual({ command: 'agent commit', runId: parsed.runId });
+      expect(Object.keys(parsed.items[0]).sort()).toEqual([
+        'googleUrl', 'hoursAgo', 'id', 'importance', 'matchedTerms', 'publishedAt',
+        'score', 'signals', 'source', 'tier', 'title',
+      ]);
+      expect(parsed.items[0].id).toEqual(expect.any(String));
+    } finally {
+      rmSync(cacheHome, { recursive: true, force: true });
+    }
+  });
+
+  test('collect excludes existing seen items and composes config and flag rules in order', async () => {
+    const stateFile = tmpStateFile();
+    const cacheHome = tmpDir('uae-agent-cache-');
+    const configHome = tmpDir('uae-agent-config-');
+    mkdirSync(join(configHome, 'uae-news-digest'), { recursive: true });
+    writeFileSync(join(configHome, 'uae-news-digest', 'filter.md'), 'Keep school updates too.');
+    writeFileSync(stateFile, 'abu dhabi market overview || gulf news\n');
+    try {
+      const result = await run([
+        'agent', 'collect',
+        '--rss-url', `${baseUrl}/rss`,
+        '--state-file', stateFile,
+        '--filter-rule', 'Keep verified sources.',
+        '--filter-rule', 'Prefer UAE coverage.',
+      ], { XDG_CACHE_HOME: cacheHome, XDG_CONFIG_HOME: configHome });
+
+      expectExitCode(result, 0);
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.count).toBe(1);
+      expect(parsed.items[0].title).toBe('Dubai airport reopens after rain');
+      expect(parsed.instructions).toEqual([
+        { source: 'built-in', text: expect.any(String) },
+        { source: 'config', text: 'Keep school updates too.' },
+        { source: 'flag', text: 'Keep verified sources.' },
+        { source: 'flag', text: 'Prefer UAE coverage.' },
+      ]);
+      expect(await Bun.file(stateFile).text()).toBe('abu dhabi market overview || gulf news\n');
+    } finally {
+      rmSync(cacheHome, { recursive: true, force: true });
+      rmSync(configHome, { recursive: true, force: true });
+      rmSync(stateFile, { force: true });
+    }
+  });
+
+  test('collect rejects invalid limits and explicit topics configs without creating a run', async () => {
+    const stateFile = tmpStateFile();
+    const cacheHome = tmpDir('uae-agent-cache-');
+    try {
+      const invalidLimit = await run(['agent', 'collect', '--limit', '0', '--state-file', stateFile], {
+        XDG_CACHE_HOME: cacheHome,
+      });
+      expectExitCode(invalidLimit, 1);
+      expect(invalidLimit.stderr).toContain('Invalid --limit');
+
+      const topicsConfig = join(cacheHome, 'topics.json');
+      writeFileSync(topicsConfig, '{"topics":[]}');
+      const topics = await run(['agent', 'collect', '--topics-config', topicsConfig, '--state-file', stateFile], {
+        XDG_CACHE_HOME: cacheHome,
+      });
+      expectExitCode(topics, 1);
+      expect(topics.stderr).toMatch(/region-only/i);
+      expect(await Bun.file(stateFile).exists()).toBe(false);
+    } finally {
+      rmSync(cacheHome, { recursive: true, force: true });
+    }
+  });
+
+  test('collect fails safely when the persistent rules path cannot be read', async () => {
+    const stateFile = tmpStateFile();
+    const cacheHome = tmpDir('uae-agent-cache-');
+    const configHome = tmpDir('uae-agent-config-');
+    const rulesPath = join(configHome, 'uae-news-digest', 'filter.md');
+    mkdirSync(rulesPath, { recursive: true });
+    try {
+      const result = await run([
+        'agent', 'collect', '--rss-url', `${baseUrl}/rss`, '--state-file', stateFile,
+      ], { XDG_CACHE_HOME: cacheHome, XDG_CONFIG_HOME: configHome });
+      expectExitCode(result, 1);
+      expect(result.stderr).toMatch(/could not read persistent agent filter rules/i);
+      expect(await Bun.file(stateFile).exists()).toBe(false);
+    } finally {
+      rmSync(cacheHome, { recursive: true, force: true });
+      rmSync(configHome, { recursive: true, force: true });
+    }
+  });
+
+  test('commit records every reviewed candidate, preserves an intervening write, and returns only kept items', async () => {
+    const stateFile = tmpStateFile();
+    const cacheHome = tmpDir('uae-agent-cache-');
+    try {
+      const collected = await run([
+        'agent', 'collect', '--rss-url', `${baseUrl}/rss`, '--state-file', stateFile,
+      ], { XDG_CACHE_HOME: cacheHome });
+      expectExitCode(collected, 0);
+      const candidate = JSON.parse(collected.stdout);
+      writeFileSync(stateFile, 'intervening item || another source\n');
+
+      const committed = await run([
+        'agent', 'commit', '--run-id', candidate.runId, '--keep', candidate.items[0].id,
+      ], { XDG_CACHE_HOME: cacheHome });
+      expectExitCode(committed, 0);
+      const parsed = JSON.parse(committed.stdout);
+      expect(parsed.count).toBe(1);
+      expect(parsed.items).toEqual([expect.objectContaining({ id: candidate.items[0].id })]);
+      const state = await Bun.file(stateFile).text();
+      expect(state).toContain('intervening item || another source');
+      expect(state).toContain('dubai airport reopens after rain || reuters');
+      expect(state).toContain('abu dhabi market overview || gulf news');
+    } finally {
+      rmSync(cacheHome, { recursive: true, force: true });
+      rmSync(stateFile, { force: true });
+    }
+  });
+
+  test('commit rejects invalid, duplicate, and expired runs without changing state', async () => {
+    const stateFile = tmpStateFile();
+    const cacheHome = tmpDir('uae-agent-cache-');
+    try {
+      const collected = await run([
+        'agent', 'collect', '--rss-url', `${baseUrl}/rss`, '--state-file', stateFile,
+      ], { XDG_CACHE_HOME: cacheHome });
+      const candidate = JSON.parse(collected.stdout);
+
+      const invalid = await run([
+        'agent', 'commit', '--run-id', candidate.runId, '--keep', 'wrong-id',
+      ], { XDG_CACHE_HOME: cacheHome });
+      expectExitCode(invalid, 1);
+      expect(invalid.stderr).toMatch(/not part of run/i);
+      expect(await Bun.file(stateFile).exists()).toBe(false);
+
+      const committed = await run(['agent', 'commit', '--run-id', candidate.runId], { XDG_CACHE_HOME: cacheHome });
+      expectExitCode(committed, 0);
+      expect(JSON.parse(committed.stdout)).toMatchObject({ count: 0, items: [] });
+      const duplicate = await run(['agent', 'commit', '--run-id', candidate.runId], { XDG_CACHE_HOME: cacheHome });
+      expectExitCode(duplicate, 1);
+      expect(duplicate.stderr).toMatch(/agent collect again/i);
+
+      const unknown = await run(['agent', 'commit', '--run-id', '00000000-0000-4000-8000-000000000000'], {
+        XDG_CACHE_HOME: cacheHome,
+      });
+      expectExitCode(unknown, 1);
+      expect(unknown.stderr).toMatch(/unknown or unavailable agent run/i);
+
+      const expiring = await run([
+        'agent', 'collect', '--rss-url', `${baseUrl}/rss`, '--state-file', stateFile,
+      ], { XDG_CACHE_HOME: cacheHome });
+      const expiredRun = JSON.parse(expiring.stdout);
+      const expired = await run(['agent', 'commit', '--run-id', expiredRun.runId], {
+        XDG_CACHE_HOME: cacheHome,
+        UAE_NEWS_DIGEST_NOW: new Date(TEST_NOW.getTime() + 25 * 3_600_000).toISOString(),
+      });
+      expectExitCode(expired, 1);
+      expect(expired.stderr).toMatch(/agent collect again/i);
+    } finally {
+      rmSync(cacheHome, { recursive: true, force: true });
+      rmSync(stateFile, { force: true });
     }
   });
 });

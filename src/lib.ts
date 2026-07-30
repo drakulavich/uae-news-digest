@@ -12,7 +12,7 @@ export type { DigestItem, BuildDigestOptions, MatchMode } from './digest';
 export { emojiFor, renderDigest, renderTopicalDigest } from './render';
 export { translateDeepL, DEEPL_API_URL } from './translate';
 export type { DeepLTranslation, DeepLResponse } from './translate';
-export { readSeenKeys, writeSeenKeys, DEFAULT_STATE_FILE } from './state';
+export { readSeenKeys, writeSeenKeys, mergeSeenKeysIntoState, DEFAULT_STATE_FILE } from './state';
 export { runDigest, mergeSeenKeys, runTopicalDigest } from './pipeline';
 export type { RunDigestOptions, RunDigestResult, RunTopicalDigestOptions, RunTopicalDigestResult, TopicFetcher, TopicSection } from './pipeline';
 export { loadTopicsConfig, resolveTopicsConfigPath } from './topics';
