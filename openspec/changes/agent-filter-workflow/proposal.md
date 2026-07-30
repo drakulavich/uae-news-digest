@@ -20,6 +20,16 @@ can mark Items as seen before the agent has finished its decision.
 - Defer Seen-item state changes until `agent commit`, so an external model can
   make its selection before Items become unavailable to later runs.
 
+## Non-goals
+
+- Calling an LLM, selecting a model, managing credentials, or interpreting an
+  LLM response inside the CLI.
+- Guaranteeing that a single Google News RSS feed contains 200 Items.
+- Changing the Core API, Layla's default Digest command, or Sana's existing
+  `--prompt` command.
+- Providing a UI for editing custom filtering rules or a Topics-mode agent
+  result in this first release.
+
 ## Capabilities
 
 ### New Capabilities
