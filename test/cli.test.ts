@@ -696,4 +696,40 @@ describe('topics mode', () => {
       rmSync(cwd, { recursive: true, force: true });
     }
   });
+
+  test('heuristics from the config file drive emoji and the Important block', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'cli-topics-heuristics-'));
+    writeFileSync(
+      join(cwd, 'digest.config.json'),
+      JSON.stringify({
+        locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
+        topics: [{ slug: 'space', name: 'Space', emoji: '🚀', query: 'satellite' }],
+        emoji: [{ emoji: '🛰️', terms: ['satellite'] }],
+        importance: { threshold: 1, impact: { weight: 2, markers: ['satellite'] } },
+        // The fixture carries two near-duplicate satellite headlines; disable fuzzy
+        // dedupe so both stay distinct and the exact-title assertion below is stable.
+        dedupe: { similarityThreshold: 1 },
+      }),
+    );
+    try {
+      const stateFile = tmpStateFile();
+      const { stdout, exitCode } = await runFromCwd(
+        ['--hours', '99999', '--dry-run', '--state-file', stateFile],
+        {
+          cwd,
+          env: {
+            UAE_NEWS_DIGEST_TOPIC_FIXTURE: FIXTURE_PATH,
+            UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z',
+          },
+        },
+      );
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('🚨 Important');
+      expect(stdout).toContain('🛰️ UAE launches new satellite');
+      expect(stdout).toContain('[satellite]');
+      expect(stdout).not.toContain('📰');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
 });

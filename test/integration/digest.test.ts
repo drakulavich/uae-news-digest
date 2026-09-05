@@ -154,6 +154,16 @@ describe('buildDigest heuristics come from the config', () => {
     const cfg = parseConfig({ locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' }, topics: [{ slug: 'a', name: 'A', query: 'q' }], skip: ['football'] }, 'test');
     const digest = buildDigest(items, { ...base, heuristics: cfg });
     expect(digest.map((d) => d.title)).toEqual(['Dubai flight status updates after rain']);
+
+    // Source arm: a clean title from a skipped source must be dropped too.
+    const sourceItems: RssItem[] = [
+      { title: 'Abu Dhabi weekend guide', pubDate: 'Sun, 22 Mar 2026 07:20:00 GMT', source: 'MSN' },
+    ];
+    const skipSourceCfg = parseConfig({ locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' }, topics: [{ slug: 'a', name: 'A', query: 'q' }], skip: ['msn'] }, 'test');
+    expect(buildDigest(sourceItems, { ...base, heuristics: skipSourceCfg })).toHaveLength(0);
+
+    const noSkipCfg = parseConfig({ locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' }, topics: [{ slug: 'a', name: 'A', query: 'q' }] }, 'test');
+    expect(buildDigest(sourceItems, { ...base, heuristics: noSkipCfg })).toHaveLength(1);
   });
 
   test('no skip list keeps everything, and neutral heuristics score 0', () => {
