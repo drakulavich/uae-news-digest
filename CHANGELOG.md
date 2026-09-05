@@ -6,6 +6,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Config schema (validated with `zod`) now carries every heuristic: `skip`, `scoring` (source tiers, title boosts), `dedupe` (similarity threshold, synonyms, stop words), `importance` (markers, weights, threshold), `emoji` rules, `display` (`display` is parsed but not yet rendered; the topical header still derives from `locale.gl` until the next release), and `agentPrompt`. A built-in UAE config (`src/config/default.json`) reproduces the previous hard-coded behaviour.
+- Programmatic API: `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, `DigestConfigSchema`, and the `DigestConfig` / `Topic` / `Heuristics` types.
+
+### Changed
+- **Breaking (config):** `locale` is required in a topics config; unknown keys are rejected.
+- **Breaking (behaviour):** a topics config without heuristic sections now runs with neutral heuristics (no source/keyword boosts, no 🚨 Important block, `•` emoji, no skip list). Copy the sections you want from `src/config/default.json`.
+- **Breaking (API):** `loadTopicsConfig` → `loadConfig`, `resolveTopicsConfigPath` → `resolveConfigPath`, `TopicConfig` → `Topic`, `TopicsConfig` → `DigestConfig`; `scoreItem`, `titleSimilarity`, `scoreImportance`, `emojiFor`, `buildDigest*` take a config slice, and `runTopicalDigest` reads heuristics from its `config`. Removed: `IMPORTANCE_THRESHOLD`, `FILTER_PROMPT`, `BREAKING_MARKERS`, `IMPACT_MARKERS`, `FLUFF_MARKERS`, `TIER_*_RE`. `escapeRegExp` moved from `importance` to `terms` (still re-exported from `lib`).
+- Term lists match whole words (with `s`/`es` plural) and support a trailing `*` for stem matching; previously scoring, emoji and skip matched raw substrings (e.g. "rain" fired on "Ukraine").
+- `dedupe.synonyms` keys/values and `dedupe.stopWords` are lower-cased at load and must be single ASCII words (letters and digits), since they are compared against normalised title tokens; anything else is rejected with the offending path.
+- `--match` terms go through the same matcher as config lists, so a trailing `*` in a `--match` term is now a stem wildcard rather than a literal.
+
+### Chores
+- `bunfig.toml` preloads the test fetch guard so plain `bun test` is safe.
+
 ## [0.2.0] - 2026-07-22
 
 ### Added

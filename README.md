@@ -188,6 +188,8 @@ For per-topic digests (e.g. economy, real estate, regional politics) instead of 
 }
 ```
 
+Heuristics (skip list, source tiers, keyword boosts, dedupe synonyms, importance markers, emoji rules) also live in this file. A config without those sections runs neutral. Start from the built-in UAE set in [`src/config/default.json`](src/config/default.json).
+
 The CLI looks for the config in this order:
 
 1. `--topics-config <path>` (explicit override)

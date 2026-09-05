@@ -1,7 +1,9 @@
 import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:test';
 import type { Server } from 'bun';
 import { runTopicalDigest } from '../../src/pipeline';
-import type { TopicConfig, TopicsConfig } from '../../src/topics';
+import { parseConfig } from '../../src/config/schema';
+import { DEFAULT_CONFIG } from '../../src/config/load';
+import type { DigestConfig } from '../../src/config/schema';
 
 type DeepLHandler = (req: Request) => Response | Promise<Response>;
 let deeplHandler: DeepLHandler = () => new Response('Not configured', { status: 500 });
@@ -21,15 +23,12 @@ beforeEach(() => {
   deeplHandler = () => new Response('Not configured', { status: 500 });
 });
 
-function topic(over: Partial<TopicConfig>): TopicConfig {
-  return {
-    slug: 'topic',
-    name: 'Topic',
-    query: 'q',
-    limit: 5,
-    locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-    ...over,
-  };
+const LOCALE = { hl: 'en', gl: 'AE', ceid: 'AE:en' };
+
+/** Build a validated config from partial topics; heuristics default to the built-in UAE set so existing assertions hold. */
+function config(topics: Record<string, unknown>[], extra: Record<string, unknown> = {}): DigestConfig {
+  const { locale: _l, display: _d, topics: _t, ...heuristics } = DEFAULT_CONFIG;
+  return parseConfig({ locale: LOCALE, topics, ...heuristics, ...extra }, 'test');
 }
 
 function rssXml(items: { title: string; source: string; pubDate: string }[]): string {
@@ -46,13 +45,10 @@ const NOW = new Date('2026-05-22T12:00:00Z');
 
 describe('runTopicalDigest', () => {
   test('renders sections in config order, applies per-topic limits', async () => {
-    const config: TopicsConfig = {
-      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-      topics: [
-        topic({ slug: 'economy', name: 'Economy', emoji: '💰', limit: 2 }),
-        topic({ slug: 'realty', name: 'Realty', emoji: '🏠', limit: 1 }),
-      ],
-    };
+    const cfg = config([
+      { slug: 'economy', name: 'Economy', emoji: '💰', limit: 2, query: 'q' },
+      { slug: 'realty', name: 'Realty', emoji: '🏠', limit: 1, query: 'q' },
+    ]);
 
     const fetchByQuery = new Map<string, string>([
       [
@@ -73,7 +69,7 @@ describe('runTopicalDigest', () => {
     ]);
 
     const result = await runTopicalDigest({
-      config,
+      config: cfg,
       seenKeys: new Set(),
       hours: 36,
       fetchTopicRss: async (t) => fetchByQuery.get(t.slug)!,
@@ -91,18 +87,15 @@ describe('runTopicalDigest', () => {
   });
 
   test('global dedup: first topic in config wins', async () => {
-    const config: TopicsConfig = {
-      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-      topics: [
-        topic({ slug: 'economy', name: 'Economy', emoji: '💰', limit: 5 }),
-        topic({ slug: 'iran', name: 'Iran', emoji: '⚠️', limit: 5 }),
-      ],
-    };
+    const cfg = config([
+      { slug: 'economy', name: 'Economy', emoji: '💰', limit: 5, query: 'q' },
+      { slug: 'iran', name: 'Iran', emoji: '⚠️', limit: 5, query: 'q' },
+    ]);
     const shared = rssXml([
       { title: 'US-Iran sanctions hit UAE oil exports', source: 'Reuters', pubDate: 'Fri, 22 May 2026 11:00:00 GMT' },
     ]);
     const result = await runTopicalDigest({
-      config,
+      config: cfg,
       seenKeys: new Set(),
       hours: 36,
       fetchTopicRss: async () => shared,
@@ -116,17 +109,14 @@ describe('runTopicalDigest', () => {
   });
 
   test('respects persisted seenKeys (article skipped in all topics)', async () => {
-    const config: TopicsConfig = {
-      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-      topics: [topic({ slug: 'a', name: 'A' })],
-    };
+    const cfg = config([{ slug: 'a', name: 'A', query: 'q' }]);
     const xml = rssXml([
       { title: 'Old news', source: 'Reuters', pubDate: 'Fri, 22 May 2026 11:00:00 GMT' },
       { title: 'Fresh news', source: 'Reuters', pubDate: 'Fri, 22 May 2026 11:30:00 GMT' },
     ]);
     // Build the key the same way digest.ts does, via runDigest beforehand.
     const seed = await runTopicalDigest({
-      config,
+      config: cfg,
       seenKeys: new Set(),
       hours: 36,
       fetchTopicRss: async () => xml,
@@ -136,7 +126,7 @@ describe('runTopicalDigest', () => {
     expect(seenKey).toBeDefined();
 
     const result = await runTopicalDigest({
-      config,
+      config: cfg,
       seenKeys: new Set([seenKey!]),
       hours: 36,
       fetchTopicRss: async () => xml,
@@ -148,15 +138,12 @@ describe('runTopicalDigest', () => {
   });
 
   test('one failing topic produces a warning, others still render', async () => {
-    const config: TopicsConfig = {
-      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-      topics: [
-        topic({ slug: 'good', name: 'Good', emoji: '✅' }),
-        topic({ slug: 'bad', name: 'Bad', emoji: '❌' }),
-      ],
-    };
+    const cfg = config([
+      { slug: 'good', name: 'Good', emoji: '✅', query: 'q' },
+      { slug: 'bad', name: 'Bad', emoji: '❌', query: 'q' },
+    ]);
     const result = await runTopicalDigest({
-      config,
+      config: cfg,
       seenKeys: new Set(),
       hours: 36,
       fetchTopicRss: async (t) => {
@@ -171,12 +158,9 @@ describe('runTopicalDigest', () => {
   });
 
   test('empty topic produces a "zero items" warning', async () => {
-    const config: TopicsConfig = {
-      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-      topics: [topic({ slug: 'silent', name: 'Silent' })],
-    };
+    const cfg = config([{ slug: 'silent', name: 'Silent', query: 'q' }]);
     const result = await runTopicalDigest({
-      config,
+      config: cfg,
       seenKeys: new Set(),
       hours: 36,
       fetchTopicRss: async () => rssXml([]),
@@ -186,12 +170,9 @@ describe('runTopicalDigest', () => {
   });
 
   test('advances nextSeenKeys with every selected item', async () => {
-    const config: TopicsConfig = {
-      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-      topics: [topic({ slug: 'a', name: 'A' })],
-    };
+    const cfg = config([{ slug: 'a', name: 'A', query: 'q' }]);
     const result = await runTopicalDigest({
-      config,
+      config: cfg,
       seenKeys: new Set(['preexisting']),
       hours: 36,
       fetchTopicRss: async () =>
@@ -212,10 +193,9 @@ describe('runTopicalDigest', () => {
     </channel></rss>`;
 
     const result = await runTopicalDigest({
-      config: {
-        locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-        topics: [{ slug: 'schools', name: 'Schools', query: 'school fees', limit: 5, locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' }, match: ['school', 'fees'], matchMode: 'all' }],
-      },
+      config: config([
+        { slug: 'schools', name: 'Schools', query: 'school fees', limit: 5, match: ['school', 'fees'], matchMode: 'all' },
+      ]),
       seenKeys: new Set(),
       hours: 36,
       fetchTopicRss: async () => xml,
@@ -224,6 +204,19 @@ describe('runTopicalDigest', () => {
 
     expect(result.sections[0]!.items).toHaveLength(1);
     expect(result.warnings.some((w) => /dropped/.test(w))).toBe(true);
+  });
+
+  test('a config without heuristic sections produces neutral items', async () => {
+    const result = await runTopicalDigest({
+      config: parseConfig({ locale: LOCALE, topics: [{ slug: 'a', name: 'A', query: 'q' }] }, 'test'),
+      seenKeys: new Set(),
+      hours: 36,
+      fetchTopicRss: async () => rssXml([{ title: 'Missile intercepted over Abu Dhabi airspace', source: 'Reuters', pubDate: NOW.toUTCString() }]),
+      now: NOW,
+    });
+    expect(result.sections[0]!.items[0]).toMatchObject({ score: 0, importance: 0, tier: 'neutral', signals: [] });
+    expect(result.output).not.toContain('🚨 Important');
+    expect(result.output).toContain('• Missile intercepted');
   });
 });
 
@@ -239,15 +232,12 @@ describe('runTopicalDigest with DeepL', () => {
       );
     };
 
-    const config: TopicsConfig = {
-      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-      topics: [
-        topic({ slug: 'a', name: 'A', emoji: '🅰️' }),
-        topic({ slug: 'b', name: 'B', emoji: '🅱️' }),
-      ],
-    };
+    const cfg = config([
+      { slug: 'a', name: 'A', emoji: '🅰️', query: 'q' },
+      { slug: 'b', name: 'B', emoji: '🅱️', query: 'q' },
+    ]);
     const result = await runTopicalDigest({
-      config,
+      config: cfg,
       seenKeys: new Set(),
       hours: 36,
       fetchTopicRss: async (t) =>
@@ -267,12 +257,9 @@ describe('runTopicalDigest with DeepL', () => {
 
   test('falls back gracefully when DeepL fails', async () => {
     deeplHandler = async () => new Response('boom', { status: 500 });
-    const config: TopicsConfig = {
-      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-      topics: [topic({ slug: 'a', name: 'A' })],
-    };
+    const cfg = config([{ slug: 'a', name: 'A', query: 'q' }]);
     const result = await runTopicalDigest({
-      config,
+      config: cfg,
       seenKeys: new Set(),
       hours: 36,
       fetchTopicRss: async () =>
@@ -295,13 +282,10 @@ describe('runTopicalDigest with DeepL', () => {
     </channel></rss>`;
 
     const result = await runTopicalDigest({
-      config: {
-        locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-        topics: [
-          { slug: 'realestate', name: 'Real Estate', query: 'property', limit: 5, locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' } },
-          { slug: 'community', name: 'Community', query: 'community', limit: 5, locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' } },
-        ],
-      },
+      config: config([
+        { slug: 'realestate', name: 'Real Estate', query: 'property', limit: 5 },
+        { slug: 'community', name: 'Community', query: 'community', limit: 5 },
+      ]),
       seenKeys: new Set(),
       hours: 36,
       fetchTopicRss: async (t) => (t.slug === 'realestate' ? realEstateXml : calmXml),
@@ -329,17 +313,14 @@ describe('runTopicalDigest with DeepL', () => {
       );
     };
 
-    const config: TopicsConfig = {
-      locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-      topics: [
-        topic({ slug: 'a', name: 'A' }),
-        topic({ slug: 'b', name: 'B' }),
-      ],
-    };
+    const cfg = config([
+      { slug: 'a', name: 'A', query: 'q' },
+      { slug: 'b', name: 'B', query: 'q' },
+    ]);
     // Same headline from two different sources → both items survive cross-topic
     // dedup (different keys), but the title appears twice in the title list.
     const result = await runTopicalDigest({
-      config,
+      config: cfg,
       seenKeys: new Set(),
       hours: 36,
       fetchTopicRss: async (t) =>

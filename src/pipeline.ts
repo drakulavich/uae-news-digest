@@ -4,10 +4,10 @@ import { renderDigest, renderTopicalDigest } from './render';
 import { translateDeepL } from './translate';
 import { localeContextFor } from './region';
 import type { DigestItem, MatchMode } from './digest';
-import type { TopicConfig, TopicsConfig } from './topics';
+import type { DigestConfig, Heuristics, Topic } from './config/schema';
 
 export type TopicSection = {
-  topic: TopicConfig;
+  topic: Topic;
   items: DigestItem[];
 };
 
@@ -22,6 +22,7 @@ export type RunDigestOptions = {
   region?: string;
   match?: string[];
   matchMode?: MatchMode;
+  heuristics: Heuristics;
 };
 
 export type RunDigestResult = {
@@ -44,6 +45,7 @@ export async function runDigest(options: RunDigestOptions): Promise<RunDigestRes
     now: options.now,
     match: options.match,
     matchMode: options.matchMode,
+    heuristics: options.heuristics,
   });
 
   let translations: Map<string, string> | undefined;
@@ -68,16 +70,16 @@ export async function runDigest(options: RunDigestOptions): Promise<RunDigestRes
 
   return {
     digest,
-    output: renderDigest(digest, translations, options.now ?? new Date(), options.region ?? 'uae'),
+    output: renderDigest(digest, translations, options.now ?? new Date(), options.region ?? 'uae', options.heuristics),
     nextSeenKeys: mergeSeenKeys(options.seenKeys, digest),
     warnings,
   };
 }
 
-export type TopicFetcher = (topic: TopicConfig) => Promise<string>;
+export type TopicFetcher = (topic: Topic) => Promise<string>;
 
 export type RunTopicalDigestOptions = {
-  config: TopicsConfig;
+  config: DigestConfig;
   seenKeys: Set<string>;
   hours: number;
   limitOverride?: number;
@@ -123,6 +125,7 @@ export async function runTopicalDigest(
       now,
       match: topic.match,
       matchMode: topic.matchMode,
+      heuristics: opts.config,
     });
 
     if (droppedByMatch > 0) {
@@ -155,7 +158,7 @@ export async function runTopicalDigest(
 
   return {
     sections,
-    output: renderTopicalDigest(sections, translations, now, localeContextFor(opts.config.locale.gl)),
+    output: renderTopicalDigest(sections, translations, now, localeContextFor(opts.config.locale.gl), opts.config),
     nextSeenKeys: seen,
     warnings,
   };

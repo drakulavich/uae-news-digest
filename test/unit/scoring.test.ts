@@ -1,68 +1,89 @@
 import { describe, expect, test } from 'bun:test';
-import { scoreItem } from '../../src/scoring';
+import { scoreItem, titleSimilarity } from '../../src/scoring';
+import { DEFAULT_CONFIG } from '../../src/config/load';
+import type { DedupeConfig, ScoringConfig } from '../../src/config/schema';
 
-describe('scoreItem', () => {
+const scoring = DEFAULT_CONFIG.scoring!;
+
+describe('scoreItem with the default config', () => {
   test('tier 1 international sources get +5', () => {
-    expect(scoreItem('Generic headline', 'Reuters')).toBe(5);
-    expect(scoreItem('Generic headline', 'BBC')).toBe(5);
-    expect(scoreItem('Generic headline', 'AP News')).toBe(5);
-    expect(scoreItem('Generic headline', 'The New York Times')).toBe(5);
-    expect(scoreItem('Generic headline', 'The Washington Post')).toBe(5);
-    expect(scoreItem('Generic headline', 'The Economist')).toBe(5);
-    expect(scoreItem('Generic headline', 'Financial Times')).toBe(5);
-    expect(scoreItem('Generic headline', 'Bloomberg')).toBe(5);
-    expect(scoreItem('Generic headline', 'Wall Street Journal')).toBe(5);
-    expect(scoreItem('Generic headline', 'The Guardian')).toBe(5);
+    for (const s of ['Reuters', 'BBC', 'AP News', 'The New York Times', 'The Washington Post', 'The Economist', 'Financial Times', 'Bloomberg', 'Wall Street Journal', 'The Guardian']) {
+      expect(scoreItem('Generic headline', s, scoring)).toBe(5);
+    }
   });
 
   test('tier 2 regional sources get +3', () => {
-    expect(scoreItem('Generic headline', 'Al Jazeera')).toBe(3);
-    expect(scoreItem('Generic headline', 'Deutsche Welle')).toBe(3);
-    expect(scoreItem('Generic headline', 'France 24')).toBe(3);
-    expect(scoreItem('Generic headline', 'CNBC')).toBe(3);
-    expect(scoreItem('Generic headline', 'CNN')).toBe(3);
-    expect(scoreItem('Generic headline', 'Anadolu Agency')).toBe(3);
+    for (const s of ['Al Jazeera', 'Deutsche Welle', 'France 24', 'CNBC', 'CNN', 'Anadolu Agency']) {
+      expect(scoreItem('Generic headline', s, scoring)).toBe(3);
+    }
   });
 
   test('tier 3 local sources get +2', () => {
-    expect(scoreItem('Generic headline', 'Gulf News')).toBe(2);
-    expect(scoreItem('Generic headline', 'Khaleej Times')).toBe(2);
-    expect(scoreItem('Generic headline', 'The National')).toBe(2);
-    expect(scoreItem('Generic headline', 'Zawya')).toBe(2);
+    for (const s of ['Gulf News', 'Khaleej Times', 'The National', 'Zawya']) {
+      expect(scoreItem('Generic headline', s, scoring)).toBe(2);
+    }
   });
 
-  test('unknown source gets 0 (source-only)', () => {
-    expect(scoreItem('Generic headline about nothing', 'Unknown Blog')).toBe(0);
+  test('unknown source gets 0', () => {
+    expect(scoreItem('Generic headline about nothing', 'Unknown Blog', scoring)).toBe(0);
   });
 
-  test('UAE mention in title gets +2', () => {
-    expect(scoreItem('Dubai sees growth', 'Unknown Blog')).toBe(2);
-    expect(scoreItem('Abu Dhabi airport news', 'Unknown Blog')).toBe(4);
+  test('UAE mention and priority keyword each add +2, once per boost', () => {
+    expect(scoreItem('Dubai sees growth', 'Unknown Blog', scoring)).toBe(2);
+    expect(scoreItem('Abu Dhabi airport news', 'Unknown Blog', scoring)).toBe(4);
+    expect(scoreItem('Rain expected tomorrow', 'Unknown', scoring)).toBe(2);
+    expect(scoreItem('Dubai airport closed due to rain', 'Reuters', scoring)).toBe(9);
+    expect(scoreItem('Dubai airport closed due to rain', 'Gulf News', scoring)).toBe(6);
   });
 
-  test('priority keyword gets +2', () => {
-    expect(scoreItem('Rain expected tomorrow', 'Unknown')).toBe(2);
-    expect(scoreItem('Missile launch detected', 'Unknown')).toBe(2);
+  test('boost terms match whole words only', () => {
+    expect(scoreItem('Ukraine talks resume', 'Unknown', scoring)).toBe(0); // "rain" must not fire
+  });
+});
+
+describe('scoreItem with custom or absent config', () => {
+  test('first matching tier wins, tiers are evaluated in order', () => {
+    const custom: ScoringConfig = {
+      sourceTiers: [{ weight: 9, sources: ['gazette'] }, { weight: 1, sources: ['gazette', 'herald'] }],
+      titleBoosts: [],
+    };
+    expect(scoreItem('x', 'Daily Gazette', custom)).toBe(9);
+    expect(scoreItem('x', 'Herald', custom)).toBe(1);
   });
 
-  test('tier 1 + UAE + priority stacks to 9', () => {
-    expect(scoreItem('Dubai airport closed due to rain', 'Reuters')).toBe(9);
+  test('returns 0 when scoring is not configured', () => {
+    expect(scoreItem('Dubai airport closed due to rain', 'Reuters', undefined)).toBe(0);
+  });
+});
+
+describe('titleSimilarity', () => {
+  const dedupe = DEFAULT_CONFIG.dedupe!;
+
+  test('is 1 for identical titles and 0 for disjoint ones', () => {
+    expect(titleSimilarity('Dubai rents rise', 'Dubai rents rise', dedupe)).toBe(1);
+    expect(titleSimilarity('Dubai rents rise', 'Oil output falls', dedupe)).toBe(0);
   });
 
-  test('tier 3 + UAE + priority stacks to 6', () => {
-    expect(scoreItem('Dubai airport closed due to rain', 'Gulf News')).toBe(6);
+  test('synonyms and stop words from the config bring paraphrases together', () => {
+    const a = 'UAE says it intercepted 5 Iranian missiles, 17 drones';
+    const b = 'UAE air defences engage 5 ballistic missiles, 17 UAVs on March 24';
+    expect(titleSimilarity(a, b, dedupe)).toBeGreaterThanOrEqual(0.45);
+    expect(titleSimilarity(a, b, undefined)).toBeLessThan(0.45);
   });
 
-  test('tier 1 alone outranks tier 3 + UAE + priority', () => {
-    // Reuters generic headline (5) > Gulf News with UAE + priority keywords (2+2+2=6)?
-    // No — but tier 1 + 1 of the bonuses (5+2=7) > tier 3 max (6).
-    const tier1WithUae = scoreItem('Dubai story', 'Reuters');
-    const tier3FullStack = scoreItem('Dubai airport closed due to rain', 'Gulf News');
-    expect(tier1WithUae).toBeGreaterThan(tier3FullStack);
+  test('a custom dedupe config is honoured', () => {
+    const custom: DedupeConfig = { similarityThreshold: 0.5, synonyms: { auto: 'car', automobile: 'car' }, stopWords: ['the'] };
+    expect(titleSimilarity('the auto market', 'the automobile market', custom)).toBe(1);
   });
 
-  test('tiers are mutually exclusive (no double-counting)', () => {
-    // Reuters matches only tier 1, not tier 2 or tier 3
-    expect(scoreItem('Generic headline', 'Reuters')).toBe(5);
+  test('empty titles return 1', () => {
+    expect(titleSimilarity('', '', dedupe)).toBe(1);
+  });
+
+  test('synonym lookup ignores inherited object properties', () => {
+    // "constructor" is a real word and also an inherited key of every plain object;
+    // it must survive as a token, not be replaced by Object's constructor function.
+    const custom: DedupeConfig = { similarityThreshold: 0.5, synonyms: {}, stopWords: [] };
+    expect(titleSimilarity('constructor plan', 'constructor scheme', custom)).toBeCloseTo(1 / 3);
   });
 });

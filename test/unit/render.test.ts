@@ -1,53 +1,46 @@
 import { describe, expect, test } from 'bun:test';
 import { emojiFor, renderDigest, renderTopicalDigest } from '../../src/render';
-import { IMPORTANCE_THRESHOLD } from '../../src/importance';
+import { importanceThreshold } from '../../src/importance';
 import { makeKey } from '../../src/normalize';
 import type { DigestItem } from '../../src/digest';
-import type { TopicConfig } from '../../src/topics';
+import type { Topic } from '../../src/config/schema';
+import { DEFAULT_CONFIG } from '../../src/config/load';
 
-describe('emojiFor', () => {
-  test('weather/rain', () => {
-    expect(emojiFor('Heavy rain expected')).toBe('🌧️');
-    expect(emojiFor('Unstable weather conditions')).toBe('🌧️');
+const IMPORTANCE_THRESHOLD = importanceThreshold(DEFAULT_CONFIG.importance);
+
+describe('emojiFor with the default rules', () => {
+  const rules = DEFAULT_CONFIG.emoji;
+  test.each([
+    ['Heavy rain expected', '🌧️'],
+    ['Unstable weather conditions', '🌧️'],
+    ['Property prices surge', '📉'],
+    ['Dubai market overview', '📉'],
+    ['Airport reopens after delays', '✈️'],
+    ['Airspace closed for safety', '✈️'],
+    ['Missile intercepted', '🛡️'],
+    ['Drone attack reported', '🛡️'],
+    ['Hormuz strait tensions', '⛴️'],
+    ['Hezbollah funding traced', '🚨'],
+    ['Terrorism charges filed', '🚨'],
+    ['Schools reopen after break', '🎓'],
+    ['Oil prices drop sharply', '🛢️'],
+    ['Something completely unrelated', '•'],
+  ])('%s → %s', (title, emoji) => {
+    expect(emojiFor(title, rules)).toBe(emoji);
   });
 
-  test('property/market', () => {
-    expect(emojiFor('Property prices surge')).toBe('📉');
-    expect(emojiFor('Dubai market overview')).toBe('📉');
+  test('first matching rule wins', () => {
+    // "rain" (rule 1) beats "airport" (rule 3)
+    expect(emojiFor('Dubai airport reopens after rain', rules)).toBe('🌧️');
   });
+});
 
-  test('aviation', () => {
-    expect(emojiFor('Airport reopens after delays')).toBe('✈️');
-    expect(emojiFor('Airspace closed for safety')).toBe('✈️');
+describe('emojiFor with custom or absent rules', () => {
+  test('Unicode terms work', () => {
+    expect(emojiFor('нестабильная погода обрушивается', [{ emoji: '🌧️', terms: ['погода'] }])).toBe('🌧️');
   });
-
-  test('military', () => {
-    expect(emojiFor('Missile intercepted')).toBe('🛡️');
-    expect(emojiFor('Drone attack reported')).toBe('🛡️');
-  });
-
-  test('shipping', () => {
-    expect(emojiFor('Hormuz strait tensions')).toBe('⛴️');
-  });
-
-  test('terrorism', () => {
-    expect(emojiFor('Hezbollah funding traced')).toBe('🚨');
-  });
-
-  test('education', () => {
-    expect(emojiFor('Schools reopen after break')).toBe('🎓');
-  });
-
-  test('oil/energy', () => {
-    expect(emojiFor('Oil prices drop sharply')).toBe('🛢️');
-  });
-
-  test('default bullet for unmatched', () => {
-    expect(emojiFor('Something completely unrelated')).toBe('•');
-  });
-
-  test('Russian погода', () => {
-    expect(emojiFor('нестабильная погода обрушивается')).toBe('🌧️');
+  test('returns the bullet when no rules are configured', () => {
+    expect(emojiFor('Heavy rain expected', undefined)).toBe('•');
   });
 });
 
@@ -65,7 +58,7 @@ describe('renderDigest', () => {
   };
 
   test('prints digest with hours ago suffix', () => {
-    const output = renderDigest([sampleItem], undefined, now);
+    const output = renderDigest([sampleItem], undefined, now, 'uae', DEFAULT_CONFIG);
     expect(output).toContain('🇦🇪 UAE Latest News Digest');
     expect(output).toContain('📉');
     expect(output).toContain('Dubai property sector shows early signs of weakness');
@@ -77,7 +70,7 @@ describe('renderDigest', () => {
       ...sampleItem,
       publishedAt: new Date('2026-03-22T07:45:00Z'),
     };
-    const output = renderDigest([recentItem], undefined, now);
+    const output = renderDigest([recentItem], undefined, now, 'uae', DEFAULT_CONFIG);
     expect(output).toContain('Reuters, 0h ago');
   });
 
@@ -85,39 +78,39 @@ describe('renderDigest', () => {
     const translations = new Map([
       ['Dubai property sector shows early signs of weakness', 'Сектор недвижимости Дубая'],
     ]);
-    const output = renderDigest([sampleItem], translations, now);
+    const output = renderDigest([sampleItem], translations, now, 'uae', DEFAULT_CONFIG);
     expect(output).toContain('Сектор недвижимости Дубая');
     expect(output).toContain('Reuters, 1h ago');
   });
 
   test('keeps original title when translations map has no entry', () => {
     const translations = new Map<string, string>();
-    const output = renderDigest([sampleItem], translations, now);
+    const output = renderDigest([sampleItem], translations, now, 'uae', DEFAULT_CONFIG);
     expect(output).toContain('Dubai property sector shows early signs of weakness');
   });
 
   test('prints empty message for no items', () => {
-    const output = renderDigest([]);
+    const output = renderDigest([], undefined, now, 'uae', DEFAULT_CONFIG);
     expect(output).toContain('No significant news in the check window.');
   });
 
   test('uses UAE header for default region', () => {
-    const output = renderDigest([sampleItem], undefined, now);
+    const output = renderDigest([sampleItem], undefined, now, 'uae', DEFAULT_CONFIG);
     expect(output).toContain('🇦🇪 UAE');
   });
 
   test('uses US header for us region', () => {
-    const output = renderDigest([sampleItem], undefined, now, 'us');
+    const output = renderDigest([sampleItem], undefined, now, 'us', DEFAULT_CONFIG);
     expect(output).toContain('🇺🇸 US');
   });
 
   test('uses Germany header for de region', () => {
-    const output = renderDigest([sampleItem], undefined, now, 'de');
+    const output = renderDigest([sampleItem], undefined, now, 'de', DEFAULT_CONFIG);
     expect(output).toContain('🇩🇪 Germany');
   });
 
   test('uses generic header for unknown region', () => {
-    const output = renderDigest([sampleItem], undefined, now, 'xx');
+    const output = renderDigest([sampleItem], undefined, now, 'xx', DEFAULT_CONFIG);
     expect(output).toContain('📰 News');
   });
 });
@@ -136,13 +129,14 @@ function makeItem(over: Partial<DigestItem>): DigestItem {
   };
 }
 
-function makeTopic(over: Partial<TopicConfig>): TopicConfig {
+function makeTopic(over: Partial<Topic>): Topic {
   return {
     slug: 'topic',
     name: 'Topic',
     emoji: '📌',
     query: 'q',
     limit: 5,
+    matchMode: undefined,
     locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
     ...over,
   };
@@ -161,7 +155,7 @@ describe('renderTopicalDigest', () => {
         topic: makeTopic({ slug: 'realty', name: 'Недвижимость', emoji: '🏠' }),
         items: [makeItem({ title: 'Emaar launches tower', source: 'Arabian Business', publishedAt: new Date('2026-05-22T08:00:00Z') })],
       },
-    ], undefined, now);
+    ], undefined, now, { flag: '🇦🇪', name: 'UAE', timezone: 'Asia/Dubai' }, DEFAULT_CONFIG);
 
     const economyIdx = out.indexOf('💰 Экономика');
     const realtyIdx = out.indexOf('🏠 Недвижимость');
@@ -174,14 +168,14 @@ describe('renderTopicalDigest', () => {
   test('falls back to bullet when emoji is missing', () => {
     const out = renderTopicalDigest([
       { topic: makeTopic({ name: 'Plain', emoji: undefined }), items: [makeItem({})] },
-    ], undefined, now);
+    ], undefined, now, { flag: '🇦🇪', name: 'UAE', timezone: 'Asia/Dubai' }, DEFAULT_CONFIG);
     expect(out).toContain('• Plain');
   });
 
   test('shows placeholder for empty sections', () => {
     const out = renderTopicalDigest([
       { topic: makeTopic({ name: 'Quiet', emoji: '🤫' }), items: [] },
-    ], undefined, now);
+    ], undefined, now, { flag: '🇦🇪', name: 'UAE', timezone: 'Asia/Dubai' }, DEFAULT_CONFIG);
     expect(out).toContain('🤫 Quiet');
     expect(out).toContain('(нет новых материалов)');
   });
@@ -190,7 +184,7 @@ describe('renderTopicalDigest', () => {
     const out = renderTopicalDigest([
       { topic: makeTopic({ name: 'Security', emoji: '🛡️' }),
         items: [makeItem({ title: 'Missile intercepted over Abu Dhabi airspace', importance: 8, signals: ['missile', 'airspace'], tier: 'breaking', key: 'imp1' })] },
-    ], undefined, now);
+    ], undefined, now, { flag: '🇦🇪', name: 'UAE', timezone: 'Asia/Dubai' }, DEFAULT_CONFIG);
     expect(out).toContain('🚨 Important');
     expect(out).toContain('(всё в 🚨 Important)');
     expect(out).not.toContain('(нет новых материалов)');
@@ -200,7 +194,7 @@ describe('renderTopicalDigest', () => {
     const translations = new Map([['GDP up', 'ВВП вырос']]);
     const out = renderTopicalDigest([
       { topic: makeTopic({}), items: [makeItem({ title: 'GDP up' })] },
-    ], translations, now);
+    ], translations, now, { flag: '🇦🇪', name: 'UAE', timezone: 'Asia/Dubai' }, DEFAULT_CONFIG);
     expect(out).toContain('ВВП вырос (Reuters');
     expect(out).not.toContain('GDP up (');
   });
@@ -212,6 +206,8 @@ describe('renderTopicalDigest', () => {
       [{ topic: makeTopic({}), items: [] }],
       undefined,
       lateUtc,
+      { flag: '🇦🇪', name: 'UAE', timezone: 'Asia/Dubai' },
+      DEFAULT_CONFIG,
     );
     expect(out).toMatch(/^🇦🇪 UAE digest — 2026-05-23\n/);
   });
@@ -223,6 +219,7 @@ describe('renderTopicalDigest', () => {
       undefined,
       new Date('2026-05-23T02:30:00Z'),
       { flag: '🇺🇸', name: 'US', timezone: 'America/New_York' },
+      DEFAULT_CONFIG,
     );
     expect(out).toMatch(/^🇺🇸 US digest — 2026-05-22\n/);
   });
@@ -237,7 +234,7 @@ describe('renderDigest 🚨 Important block', () => {
       { score: 5, importance: 0, signals: [], tier: 'neutral' as const,
         publishedAt: new Date('2026-03-22T09:00:00Z'), title: 'Local council holds routine meeting', source: 'Gulf News', key: 'k2' },
     ];
-    const out = renderDigest(items, undefined, now, 'uae');
+    const out = renderDigest(items, undefined, now, 'uae', DEFAULT_CONFIG);
     expect(out).toContain('🚨 Important');
     const importantIdx = out.indexOf('🚨 Important');
     const missileIdx = out.indexOf('UAE intercepts missile');
@@ -252,7 +249,7 @@ describe('renderDigest 🚨 Important block', () => {
       { score: 2, importance: IMPORTANCE_THRESHOLD - 1, signals: [], tier: 'neutral' as const,
         publishedAt: new Date('2026-03-22T09:00:00Z'), title: 'Routine update', source: 'Gulf News', key: 'k3' },
     ];
-    const out = renderDigest(items, undefined, now, 'uae');
+    const out = renderDigest(items, undefined, now, 'uae', DEFAULT_CONFIG);
     expect(out).not.toContain('🚨 Important');
   });
 
@@ -263,7 +260,7 @@ describe('renderDigest 🚨 Important block', () => {
       { score: 5, importance: -3, signals: ['launches', "world's first"], tier: 'fluff' as const,
         publishedAt: new Date('2026-03-22T09:00:00Z'), title: 'Dubai hotel launches AI concierge', source: 'Reuters', key: 'f1' },
     ];
-    const out = renderDigest(items, undefined, now, 'uae');
+    const out = renderDigest(items, undefined, now, 'uae', DEFAULT_CONFIG);
     expect(out).not.toContain('🚨 Important');
     expect(out).toContain('Dubai hotel launches AI concierge');
     expect(out).not.toContain('[launches'); // marker must NOT appear in the body

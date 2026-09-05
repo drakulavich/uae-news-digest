@@ -4,7 +4,9 @@
 
 UAE News Digest is a daily UAE news digest CLI: fetches Google News RSS, scores and dedupes items, optionally translates. Bun runtime, no build step — `bin` points straight at `src/index.ts`.
 
-Two interfaces: the CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core` — 18 exports including `parseRss`, `buildDigest`, `runDigest`, `renderDigest`).
+Heuristics (skip, scoring, dedupe, importance, emoji) come from the config — never hard-code region knowledge in `src/*.ts`; the built-in UAE set lives in `src/config/default.json`.
+
+Two interfaces: the CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core` — exports `parseRss`, `buildDigest`, `runDigest`, `renderDigest`, `loadConfig`, `DEFAULT_CONFIG` among others).
 
 ```
 RSS (Google News) → rss.ts parseRss → digest.ts buildDigest (score, dedupe)
