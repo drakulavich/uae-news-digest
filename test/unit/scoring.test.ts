@@ -75,4 +75,8 @@ describe('titleSimilarity', () => {
     const custom: DedupeConfig = { similarityThreshold: 0.5, synonyms: { auto: 'car', automobile: 'car' }, stopWords: ['the'] };
     expect(titleSimilarity('the auto market', 'the automobile market', custom)).toBe(1);
   });
+
+  test('empty titles return 1', () => {
+    expect(titleSimilarity('', '', dedupe)).toBe(1);
+  });
 });
