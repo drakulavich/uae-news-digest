@@ -35,6 +35,12 @@ const TopicSchema = z
     name: nonEmpty('name'),
     emoji: nonEmpty('emoji').optional(),
     query: nonEmpty('query'),
+    /** Advanced: fetch this RSS URL instead of building a Google News search URL from `query`. */
+    feedUrl: z
+      .string()
+      .trim()
+      .refine((v) => /^https?:\/\/\S+$/.test(v), 'feedUrl must be an absolute http:// or https:// URL')
+      .optional(),
     match: z.array(TermSchema).min(1, 'match must be a non-empty array of strings').optional(),
     matchMode: MatchModeSchema.optional(),
     limit: z.number().int().positive('limit must be a positive integer').default(5),

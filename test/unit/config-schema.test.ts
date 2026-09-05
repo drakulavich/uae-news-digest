@@ -67,6 +67,16 @@ describe('parseConfig — structure', () => {
   test('includes the source in the error message', () => {
     expect(() => parseConfig({}, '/tmp/x.json')).toThrow(/Invalid config at \/tmp\/x\.json/);
   });
+
+  test('accepts an absolute http(s) feedUrl on a topic', () => {
+    const cfg = parseConfig({ ...minimal, topics: [{ slug: 'a', name: 'A', query: 'q', feedUrl: 'http://localhost:8080/rss' }] }, 'test');
+    expect(cfg.topics[0]!.feedUrl).toBe('http://localhost:8080/rss');
+  });
+
+  test('rejects a relative or non-http feedUrl', () => {
+    expect(() => parseConfig({ ...minimal, topics: [{ slug: 'a', name: 'A', query: 'q', feedUrl: '/rss' }] }, 'test')).toThrow(/feedUrl/);
+    expect(() => parseConfig({ ...minimal, topics: [{ slug: 'a', name: 'A', query: 'q', feedUrl: 'ftp://x/rss' }] }, 'test')).toThrow(/feedUrl/);
+  });
 });
 
 describe('parseConfig — match / matchMode', () => {
