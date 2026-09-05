@@ -1,6 +1,7 @@
 import { normalizeTitle, normalizeSource, makeKey } from './normalize';
 import { scoreItem, titleSimilarity } from './scoring';
-import { scoreImportance, escapeRegExp, type ImportanceTier } from './importance';
+import { scoreImportance, type ImportanceTier } from './importance';
+import { escapeRegExp } from './terms';
 import type { RssItem } from './rss';
 
 const DEFAULT_SKIP_RE = /(opinion|daily mail|travel and tour world|tradingview|cycling|horse|football|msn|substack|influencer|hotel room|fitness journey|baskin-robbins)/i;

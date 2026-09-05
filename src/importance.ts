@@ -1,3 +1,5 @@
+import { escapeRegExp } from './terms';
+
 export type ImportanceTier = 'breaking' | 'impact' | 'neutral' | 'fluff';
 
 export type ImportanceResult = {
@@ -41,10 +43,6 @@ export const FILTER_PROMPT =
   "You are a news filter for an expat family in the UAE. Keep only what " +
   "materially affects safety, money, rules/visas, or logistics. Drop PR, " +
   "launches, awards, rankings, and 'world's first/tallest/largest'.";
-
-export function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 /** Markers matched as a prefix to catch inflections (evacuate/evacuation, inaugurate/inauguration). */
 const STEM_MARKERS = new Set(['evacuat', 'inaugurat']);
