@@ -133,7 +133,7 @@ async function main(): Promise<void> {
 
     const coreSmoke = join(consumerDir, 'core-smoke.ts');
     await writeFile(coreSmoke, `
-import { buildRssUrl, runDigest } from '@drakulavich/uae-news-digest/core';
+import { buildRssUrl, runDigest, DEFAULT_CONFIG } from '@drakulavich/uae-news-digest/core';
 
 if (!buildRssUrl('uae').startsWith('https://news.google.com/rss/search')) {
   throw new Error('buildRssUrl did not return a Google News RSS URL');
@@ -147,6 +147,7 @@ const result = await runDigest({
   hours: 36,
   limit: 1,
   now: new Date('2026-03-22T08:00:00Z'),
+  heuristics: DEFAULT_CONFIG,
 });
 
 if (result.digest.length !== 1 || !result.output.includes('Dubai airport reopens after rain')) {
