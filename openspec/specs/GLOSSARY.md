@@ -18,7 +18,9 @@ verbatim; if you need a new term, add it here first.
 | **Seen-item state** | The state file (`--state-file`, default `DEFAULT_STATE_FILE`) recording already-shown Items so they are not repeated; bypassed by `--dry-run` (`src/state.ts`). |
 | **DeepL translation** | Optional translation of the Digest via DeepL when `--target-lang` is set and `DEEPL_AUTH_KEY` is present (`src/translate.ts`, `translateDeepL`). |
 | **Output mode** | How the Digest is emitted: human text by default (`src/render.ts`), machine-readable JSON with `--json` (`src/json.ts`). |
-| **manifest** | The command that prints the tool manifest as JSON for agents (`src/index.ts`, `manifest`). |
-| **healthcheck** | The command that smoke-checks feed reachability and readiness, with `--rss-url` for deterministic testing (`src/index.ts`, `healthcheck`). |
-| **Agent filter prompt** | The text printed by `--prompt` describing how an LLM agent should filter the Digest (`src/index.ts`). |
+| **manifest** | The command that prints the tool manifest as JSON for agents, derived from the CLI definition (`src/cli/program.ts`, `src/cli/commands.ts`, `manifest`). |
+| **healthcheck** | The command that smoke-checks the first topic's feed from the resolved config, with `--rss-url` for deterministic testing (`src/cli/commands.ts`, `healthcheck`). |
+| **Agent filter prompt** | The text printed by `--prompt`, read from the resolved config's `agentPrompt` (`src/cli/run.ts`, `runDefault`). |
+| **CLI command** | A Commander action in `src/cli/program.ts`; returns an exit code via `onExit`, throws `CliError` for usage/config problems; `main(argv)` maps both to the process exit code. |
+| **CliError** | A typed, user-facing CLI failure with a `kind` of `usage`, `config`, `network`, or `timeout`; fetch failures are classified at the source by `classifyFetchError` (`src/cli/errors.ts`). |
 | **Core API** | The programmatic interface re-exported from `@drakulavich/uae-news-digest/core` (`src/core.ts`) — `runDigest`, `renderText`, `toJson`, `loadConfig`, and other helpers. |

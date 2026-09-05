@@ -47,6 +47,8 @@ uae-news-digest --hours 12 --limit 10                # tighter briefing window
 uae-news-digest --json                               # stable envelope for automation
 uae-news-digest --config ./digest.config.json        # your own topics
 uae-news-digest healthcheck                          # JSON liveness probe
+uae-news-digest config print-default > digest.config.json  # start a config from the built-in set
+uae-news-digest config validate                      # check the auto-detected config
 DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # optional DeepL translation
 ```
 
@@ -54,12 +56,25 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # optional DeepL translatio
 |------|---------|-------------|
 | `--config <path>` | | Path to a digest config JSON (overrides auto-detect; see [Topics Mode](#topics-mode)) |
 | `--hours <n>` | `36` | Lookback window in hours |
-| `--limit <n>` | | Max items per topic (overrides each topic's own limit) |
+| `--limit <n>` | | Max items per topic (overrides each topic's own limit); must be a positive integer |
 | `--target-lang <code>` | | DeepL target language (e.g. `DE`, `FR`, `JA`). Requires `DEEPL_AUTH_KEY` |
 | `--state-file <path>` | `./seen_titles.txt` | Seen-items state file |
 | `--timeout-ms <n>` | `15000` | RSS fetch timeout |
 | `--dry-run` | `false` | Preview without updating state |
 | `--json` | `false` | Output as JSON (agent-friendly envelope) |
+
+### Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `manifest` | Print a machine-readable tool descriptor as JSON |
+| `healthcheck [--rss-url <url>]` | Smoke-test the first topic's feed (or `--rss-url`); prints `{ok, version, latencyMs}` |
+| `config print-default` | Print the built-in config as JSON, ready to copy into `digest.config.json` |
+| `config validate [path]` | Validate a config file (default: the auto-detected one); prints `ok` or every issue with its JSON path |
+
+### Exit codes
+
+`0` success (a topic may still have failed — see warnings). `1` a usage, config, network, or timeout error, or no topic could be fetched.
 
 ## What You Get
 
@@ -183,7 +198,7 @@ Without a config, the built-in UAE config runs (one topic). For per-topic digest
 }
 ```
 
-Heuristics (skip list, source tiers, keyword boosts, dedupe synonyms, importance markers, emoji rules) also live in this file. A config without those sections runs neutral. Start from the built-in UAE set in [`src/config/default.json`](src/config/default.json).
+Heuristics (skip list, source tiers, keyword boosts, dedupe synonyms, importance markers, emoji rules) also live in this file. A config without those sections runs neutral. Start from the built-in UAE set with `uae-news-digest config print-default > digest.config.json`, then edit it; run `uae-news-digest config validate` to check it against the schema before using it.
 
 Each topic builds its Google News RSS URL from `query` and `locale`. Add `feedUrl` to a topic to fetch that exact RSS URL instead — useful for non-Google feeds or deterministic tests.
 
@@ -195,7 +210,7 @@ The CLI looks for the config in this order:
 
 Without a config the built-in UAE config runs. The CLI fetches each topic in parallel and renders one section per topic (a single-topic config still prints its heading). A story already selected by an earlier topic is not repeated in a later one (exact-key match; fuzzy near-duplicate detection runs within each topic), so the topic order in the config sets priority.
 
-`--target-lang` translates all section titles in a single DeepL batch. `--limit`, when given, overrides every topic's per-topic limit for the run.
+`--target-lang` translates all section titles in a single DeepL batch. `--limit`, when given, must be a positive integer and overrides every topic's per-topic limit for the run.
 
 The example `query` strings above are starting points, not optimal — iterate them against real Google News output.
 
@@ -265,7 +280,7 @@ uae-news-digest --hours 12 --limit 10
 
 State file (`seen_titles.txt`) tracks seen articles so scheduled runs do not repeat the same briefing forever.
 
-`healthcheck` uses the default live Google News RSS feed. For deterministic smoke tests, pass `healthcheck --rss-url <url>`.
+`healthcheck` probes the first topic's feed from the resolved config (`--config`, `./digest.config.json`, XDG, or the built-in default). For deterministic smoke tests against a fixed feed, pass `healthcheck --rss-url <url>`.
 
 ## Requirements
 
