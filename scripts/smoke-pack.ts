@@ -100,6 +100,11 @@ async function main(): Promise<void> {
       throw new Error(`Unexpected manifest from packed binary: ${JSON.stringify(manifest)}`);
     }
 
+    const printed = JSON.parse(await run(['bun', bin, 'config', 'print-default'], consumerDir));
+    if (!Array.isArray(printed.topics) || printed.topics.length === 0) {
+      throw new Error(`Unexpected config print-default from packed binary: ${JSON.stringify(printed).slice(0, 200)}`);
+    }
+
     const rssServer = startRssServer();
     try {
       const rssUrl = `http://localhost:${rssServer.port}/rss`;
@@ -114,6 +119,10 @@ async function main(): Promise<void> {
         locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
         topics: [{ slug: 'uae', name: 'UAE', query: 'UAE', feedUrl: rssUrl, limit: 6 }],
       }));
+      const validated = await run(['bun', bin, 'config', 'validate', configPath], consumerDir);
+      if (!validated.startsWith('ok')) {
+        throw new Error(`Unexpected config validate from packed binary: ${validated}`);
+      }
       const digest = JSON.parse(await run([
         'bun', bin, '--json', '--config', configPath, '--state-file', stateFile, '--dry-run',
       ], consumerDir, {

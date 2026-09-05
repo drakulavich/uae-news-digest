@@ -9,7 +9,8 @@ Heuristics (skip, scoring, dedupe, importance, emoji) come from the config — n
 Two interfaces: the CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core` — exports `runDigest`, `renderText`, `toJson`, `loadConfig`, `DEFAULT_CONFIG` among others).
 
 ```
-config (default.json or digest.config.json) → url.ts buildFeedUrl → fetch (CLI adapter)
+src/index.ts → cli/program.ts main(argv) → cli/run.ts (default command)
+  → config (default.json or digest.config.json) → url.ts buildFeedUrl → cli/adapters.ts fetchText
   → rss.ts parseRss → digest.ts buildDigestWithStats (score, dedupe) → translate (optional)
   → render.ts renderText | json.ts toJson
 ```
@@ -35,6 +36,10 @@ Run `bun test` and `bun run typecheck` locally before every push. Do NOT push br
 ### ERROR HANDLING
 
 Human-readable messages with context: what failed, why, what to do. Never swallow errors silently.
+
+### ONE EXIT PATH
+
+Commands under `src/cli/` return exit codes and throw `CliError`; only `src/index.ts` touches `process.exitCode`.
 
 ## Build Commands
 

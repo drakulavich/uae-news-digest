@@ -9,9 +9,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - Config schema (validated with `zod`) now carries every heuristic: `skip`, `scoring` (source tiers, title boosts), `dedupe` (similarity threshold, synonyms, stop words), `importance` (markers, weights, threshold), `emoji` rules, `display`, and `agentPrompt`. A built-in UAE config (`src/config/default.json`) reproduces the previous hard-coded behaviour.
 - Programmatic API: `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, `DigestConfigSchema`, and the `DigestConfig` / `Topic` / `Heuristics` types.
-- `topics[].feedUrl`: fetch an explicit RSS URL instead of a Google News search (used by tests and the packed-package smoke; replaces `--rss-url`).
+- `topics[].feedUrl`: fetch an explicit RSS URL instead of a Google News search (used by tests and the packed-package smoke; replaces the main command's `--rss-url`; `healthcheck --rss-url` stays).
+- `config print-default` prints the built-in config as JSON; `config validate [path]` runs a file (or the auto-detected config) through the schema and prints `ok` or every issue with its JSON path (exit 1).
+- `manifest` now lists the subcommands and derives the default command's flags from the CLI definition instead of a hand-kept list.
 
 ### Changed
+- `healthcheck` without `--rss-url` probes the first topic of the resolved config (`--config`, `./digest.config.json`, XDG, or the built-in default), not only the built-in one.
+- `--prompt` prints `agentPrompt` from the resolved config; a config without one exits 1 naming the missing key.
+- `--limit` must be a positive integer (`--limit 2.5` is a usage error).
+- The state file's directory is created on write (`writeSeenKeys`), so the CLI no longer shells out to `mkdir`.
+- CLI internals moved to `src/cli/*` (`program.ts`, `run.ts`, `commands.ts`, `adapters.ts`, `errors.ts`); `src/index.ts` is a three-line bin calling `main(argv)`. Failures are typed `CliError`s (`usage` / `config` / `network` / `timeout`) classified where they occur; every command returns its exit code through one path — no `process.exit` inside commands.
 - **Breaking (config):** `locale` is required in a topics config; unknown keys are rejected.
 - **Breaking (behaviour):** a topics config without heuristic sections now runs with neutral heuristics (no source/keyword boosts, no 🚨 Important block, `•` emoji, no skip list). Copy the sections you want from `src/config/default.json`.
 - **Breaking (API):** `loadTopicsConfig` → `loadConfig`, `resolveTopicsConfigPath` → `resolveConfigPath`, `TopicConfig` → `Topic`, `TopicsConfig` → `DigestConfig`; `scoreItem`, `titleSimilarity`, `scoreImportance`, `emojiFor`, `buildDigest*` take a config slice, and `runTopicalDigest` reads heuristics from its `config`. Removed: `IMPORTANCE_THRESHOLD`, `FILTER_PROMPT`, `BREAKING_MARKERS`, `IMPACT_MARKERS`, `FLUFF_MARKERS`, `TIER_*_RE`. `escapeRegExp` moved from `importance` to `terms` (still re-exported from `lib`).
@@ -23,6 +30,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Breaking (API):** `runDigest(options)` now takes `{ config, seenKeys, hours, limitOverride?, now, fetchText, translate?, targetLang? }` and returns `{ sections, warnings, nextSeenKeys, fetchedTopics }`; rendering is `renderText(result, config, now)` and `toJson(result, meta)`. Removed: `runTopicalDigest`, `renderDigest`, `renderTopicalDigest`, `mergeSeenKeys`, `buildRssUrl`, `REGION_PRESETS`, `localeContextFor`, and the `RegionPreset`/`RssLocale`/`LocaleContext` types. `translateDeepL` throws on failure instead of returning `null`. `DigestItem.link` → `url`; `matchedTerms` is always an array; `translatedTitle` added.
 - Partial failures stay warnings; the CLI exits 1 only when no topic could be fetched. The "feed returned no items — check the query" warning fires only when the feed itself was empty, not when every item was already seen. A response that is not an RSS document (an HTML error page, an Atom feed) is a failed topic (`could not parse RSS`), not an empty feed — so an outage across every topic exits 1.
 - `display` from the config now drives the text header (flag, name, timezone).
+
+### Fixed
+- Two titles that reduce to no words (for example non-Latin titles under the ASCII word extraction) no longer count as identical, so a non-Latin feed is not collapsed into a single item.
 
 ### Chores
 - `bunfig.toml` preloads the test fetch guard so plain `bun test` is safe.

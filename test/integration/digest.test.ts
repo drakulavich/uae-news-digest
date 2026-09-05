@@ -40,6 +40,18 @@ describe('buildDigest', () => {
     expect(digest).toHaveLength(1);
   });
 
+  test('wordless (non-Latin) titles: identical ones dedupe across sources, different ones both survive', () => {
+    const now = new Date('2026-03-22T08:00:00Z');
+    const items: RssItem[] = [
+      { title: 'الإمارات تطلق قمراً', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Reuters' },
+      { title: 'الإمارات تطلق قمراً', pubDate: 'Sun, 22 Mar 2026 07:30:00 GMT', source: 'Gulf News' },
+      { title: 'ارتفاع أسعار النفط', pubDate: 'Sun, 22 Mar 2026 07:45:00 GMT', source: 'Reuters' },
+    ];
+
+    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now, heuristics: DEFAULT_CONFIG });
+    expect(digest.map((d) => d.title).sort()).toEqual(['ارتفاع أسعار النفط', 'الإمارات تطلق قمراً'].sort());
+  });
+
   test('returns empty for all-skipped items', () => {
     const now = new Date('2026-03-22T08:00:00Z');
     const items: RssItem[] = [
