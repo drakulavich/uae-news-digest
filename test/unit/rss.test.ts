@@ -37,14 +37,15 @@ describe('parseRss', () => {
     expect(items[0]?.title).toBe('Only one');
   });
 
-  test('handles malformed XML gracefully', () => {
-    expect(() => parseRss('not xml at all')).not.toThrow();
-    const items = parseRss('not xml at all');
-    expect(items).toEqual([]);
+  test('throws on input that is not XML', () => {
+    expect(() => parseRss('not xml at all')).toThrow('not an RSS document');
+    expect(() => parseRss('not xml at all <<<')).toThrow();
   });
 
-  test('handles XML with no rss root', () => {
-    const xml = `<?xml version="1.0"?><feed><entry><title>Atom</title></entry></feed>`;
-    expect(parseRss(xml)).toEqual([]);
+  test('throws on XML without an <rss><channel> root (Atom, HTML error page)', () => {
+    const atom = `<?xml version="1.0"?><feed><entry><title>Atom</title></entry></feed>`;
+    expect(() => parseRss(atom)).toThrow('not an RSS document');
+    const html = '<!doctype html><html><body>Service unavailable</body></html>';
+    expect(() => parseRss(html)).toThrow('not an RSS document');
   });
 });

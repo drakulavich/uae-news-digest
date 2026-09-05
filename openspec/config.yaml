@@ -7,9 +7,9 @@ context: |
   translation. The Pipeline (`src/pipeline.ts`, `runDigest`) fetches RSS, normalizes,
   scores, dedups by title similarity, applies the Signal filter (surface important
   news, drop PR noise), limits, and renders (text or `--json`); a Seen-item state
-  file suppresses repeats across runs, and Region presets (`uae`/`us`/`uk`/`de`) or
-  a topics config scope the feed. Commands: the default digest (with `--match` /
-  `--match-mode`, `--hours`, `--limit`, `--dry-run`, `--prompt`, …), `manifest`, and
+  file suppresses repeats across runs, and a config file (built-in UAE config by
+  default) defines the topics and heuristics. Commands: the default digest (with
+  `--config`, `--hours`, `--limit`, `--dry-run`, `--prompt`, …), `manifest`, and
   `healthcheck`.
   Two interfaces: the CLI (`uae-news-digest`, Commander-based `src/index.ts`) and the
   programmatic API (`@drakulavich/uae-news-digest/core`, `src/core.ts`).

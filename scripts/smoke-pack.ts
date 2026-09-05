@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
     assertPackedFiles(packResults);
     const tarball = join(packDir, packResults[0]!.filename);
 
-    await writeFile(join(consumerDir, 'package.json'), JSON.stringify({ type: 'module' }, null, 2));
+    await Bun.write(join(consumerDir, 'package.json'), JSON.stringify({ type: 'module' }, null, 2));
     await run(['bun', 'add', tarball], consumerDir);
 
     const bin = join(consumerDir, 'node_modules', '.bin', 'uae-news-digest');
@@ -109,15 +109,13 @@ async function main(): Promise<void> {
       }
 
       const stateFile = join(workDir, 'seen_titles.txt');
+      const configPath = join(workDir, 'digest.config.json');
+      await Bun.write(configPath, JSON.stringify({
+        locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
+        topics: [{ slug: 'uae', name: 'UAE', query: 'UAE', feedUrl: rssUrl, limit: 6 }],
+      }));
       const digest = JSON.parse(await run([
-        'bun',
-        bin,
-        '--json',
-        '--rss-url',
-        rssUrl,
-        '--state-file',
-        stateFile,
-        '--dry-run',
+        'bun', bin, '--json', '--config', configPath, '--state-file', stateFile, '--dry-run',
       ], consumerDir, {
         UAE_NEWS_DIGEST_NOW: '2026-03-22T08:00:00Z',
         // Neutralize XDG/HOME so a user's real topics config can't bleed in.
@@ -132,25 +130,27 @@ async function main(): Promise<void> {
     }
 
     const coreSmoke = join(consumerDir, 'core-smoke.ts');
-    await writeFile(coreSmoke, `
-import { buildRssUrl, runDigest, DEFAULT_CONFIG } from '@drakulavich/uae-news-digest/core';
+    await Bun.write(coreSmoke, `
+import { buildFeedUrl, runDigest, renderText, DEFAULT_CONFIG } from '@drakulavich/uae-news-digest/core';
 
-if (!buildRssUrl('uae').startsWith('https://news.google.com/rss/search')) {
-  throw new Error('buildRssUrl did not return a Google News RSS URL');
+if (!buildFeedUrl(DEFAULT_CONFIG.topics[0]).startsWith('https://news.google.com/rss/search')) {
+  throw new Error('buildFeedUrl did not return a Google News RSS URL');
 }
 
 const xml = ${JSON.stringify(RSS_XML)};
+const now = new Date('2026-03-22T08:00:00Z');
 
 const result = await runDigest({
-  xml,
+  config: DEFAULT_CONFIG,
   seenKeys: new Set(),
   hours: 36,
-  limit: 1,
-  now: new Date('2026-03-22T08:00:00Z'),
-  heuristics: DEFAULT_CONFIG,
+  limitOverride: 1,
+  now,
+  fetchText: async () => xml,
 });
 
-if (result.digest.length !== 1 || !result.output.includes('Dubai airport reopens after rain')) {
+const text = renderText(result, DEFAULT_CONFIG, now);
+if (result.sections[0].items.length !== 1 || !text.includes('Dubai airport reopens after rain')) {
   throw new Error('runDigest packed core smoke failed');
 }
 `);

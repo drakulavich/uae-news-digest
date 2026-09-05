@@ -7,8 +7,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
-- Config schema (validated with `zod`) now carries every heuristic: `skip`, `scoring` (source tiers, title boosts), `dedupe` (similarity threshold, synonyms, stop words), `importance` (markers, weights, threshold), `emoji` rules, `display` (`display` is parsed but not yet rendered; the topical header still derives from `locale.gl` until the next release), and `agentPrompt`. A built-in UAE config (`src/config/default.json`) reproduces the previous hard-coded behaviour.
+- Config schema (validated with `zod`) now carries every heuristic: `skip`, `scoring` (source tiers, title boosts), `dedupe` (similarity threshold, synonyms, stop words), `importance` (markers, weights, threshold), `emoji` rules, `display`, and `agentPrompt`. A built-in UAE config (`src/config/default.json`) reproduces the previous hard-coded behaviour.
 - Programmatic API: `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, `DigestConfigSchema`, and the `DigestConfig` / `Topic` / `Heuristics` types.
+- `topics[].feedUrl`: fetch an explicit RSS URL instead of a Google News search (used by tests and the packed-package smoke; replaces `--rss-url`).
 
 ### Changed
 - **Breaking (config):** `locale` is required in a topics config; unknown keys are rejected.
@@ -16,7 +17,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Breaking (API):** `loadTopicsConfig` → `loadConfig`, `resolveTopicsConfigPath` → `resolveConfigPath`, `TopicConfig` → `Topic`, `TopicsConfig` → `DigestConfig`; `scoreItem`, `titleSimilarity`, `scoreImportance`, `emojiFor`, `buildDigest*` take a config slice, and `runTopicalDigest` reads heuristics from its `config`. Removed: `IMPORTANCE_THRESHOLD`, `FILTER_PROMPT`, `BREAKING_MARKERS`, `IMPACT_MARKERS`, `FLUFF_MARKERS`, `TIER_*_RE`. `escapeRegExp` moved from `importance` to `terms` (still re-exported from `lib`).
 - Term lists match whole words (with `s`/`es` plural) and support a trailing `*` for stem matching; previously scoring, emoji and skip matched raw substrings (e.g. "rain" fired on "Ukraine").
 - `dedupe.synonyms` keys/values and `dedupe.stopWords` are lower-cased at load and must be single ASCII words (letters and digits), since they are compared against normalised title tokens; anything else is rejected with the offending path.
-- `--match` terms go through the same matcher as config lists, so a trailing `*` in a `--match` term is now a stem wildcard rather than a literal.
+- Per-topic `match` terms go through the same matcher as the other config lists, so a trailing `*` is a stem wildcard rather than a literal.
+- **Breaking (CLI):** region mode is gone. `--region`, `--rss-url` (main command), `--match`, `--match-mode`, `--no-topics`, and `--topics-config` are removed; `--config <path>` names the config file. Without a config the built-in UAE config runs (one topic). `--limit` has no default and, when given, caps every topic. `healthcheck --rss-url` stays.
+- **Breaking (output):** one text format for every run — `{flag} {name} digest — {date}`, optional `🚨 Important` block, one section per topic (a single-topic config still prints its heading); `(no new items)` / `(all items are in 🚨 Important)` replace the Russian placeholders. One JSON format: `mode` removed, `googleUrl` → `url`, new `generatedAt` and `translatedTitle`, `query.limit` is `null` unless `--limit` was passed, `topics` always present.
+- **Breaking (API):** `runDigest(options)` now takes `{ config, seenKeys, hours, limitOverride?, now, fetchText, translate?, targetLang? }` and returns `{ sections, warnings, nextSeenKeys, fetchedTopics }`; rendering is `renderText(result, config, now)` and `toJson(result, meta)`. Removed: `runTopicalDigest`, `renderDigest`, `renderTopicalDigest`, `mergeSeenKeys`, `buildRssUrl`, `REGION_PRESETS`, `localeContextFor`, and the `RegionPreset`/`RssLocale`/`LocaleContext` types. `translateDeepL` throws on failure instead of returning `null`. `DigestItem.link` → `url`; `matchedTerms` is always an array; `translatedTitle` added.
+- Partial failures stay warnings; the CLI exits 1 only when no topic could be fetched. The "feed returned no items — check the query" warning fires only when the feed itself was empty, not when every item was already seen. A response that is not an RSS document (an HTML error page, an Atom feed) is a failed topic (`could not parse RSS`), not an empty feed — so an outage across every topic exits 1.
+- `display` from the config now drives the text header (flag, name, timezone).
 
 ### Chores
 - `bunfig.toml` preloads the test fetch guard so plain `bun test` is safe.

@@ -1,5 +1,5 @@
 // One matcher for every configurable word list (importance markers, skip list,
-// title boosts, emoji rules, --match). Terms are plain strings, never regexes.
+// title boosts, emoji rules, topic match lists). Terms are plain strings, never regexes.
 
 export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

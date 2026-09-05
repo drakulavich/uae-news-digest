@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Server } from 'bun';
+import defaultConfig from '../src/config/default.json';
 
 // ── Canned responses ──────────────────────────────────────────
 
@@ -47,12 +48,20 @@ beforeAll(() => {
         return new Response(RSS_XML, { headers: { 'content-type': 'application/xml' } });
       }
 
+      if (url.pathname === '/rss/fixture') {
+        return new Response(await Bun.file(join(import.meta.dir, 'fixtures', 'sample-feed.xml')).text(), { headers: { 'content-type': 'application/xml' } });
+      }
+
       if (url.pathname === '/rss/empty') {
         return new Response(RSS_EMPTY, { headers: { 'content-type': 'application/xml' } });
       }
 
       if (url.pathname === '/rss/error') {
         return new Response('Internal Server Error', { status: 500 });
+      }
+
+      if (url.pathname === '/rss/html') {
+        return new Response('<!doctype html><html><body>Service unavailable</body></html>', { headers: { 'content-type': 'text/html' } });
       }
 
       if (url.pathname === '/translate' && req.method === 'POST') {
@@ -236,12 +245,27 @@ function tmpStateFile(): string {
   return join(tmpdir(), `uae-cli-test-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
 }
 
+const tempDirs: string[] = [];
+afterAll(() => { for (const d of tempDirs) rmSync(d, { recursive: true, force: true }); });
+
+/** A config identical to the built-in UAE one, except the topic fetches `feedUrl`. Returns the `--config` path. */
+function feedConfig(feedUrl: string, topicOverrides: Record<string, unknown> = {}): string {
+  const dir = mkdtempSync(join(tmpdir(), 'cli-feed-'));
+  tempDirs.push(dir);
+  const path = join(dir, 'digest.config.json');
+  writeFileSync(path, JSON.stringify({
+    ...defaultConfig,
+    topics: [{ ...defaultConfig.topics[0], feedUrl, ...topicOverrides }],
+  }));
+  return path;
+}
+
 // ── Tests ─────────────────────────────────────────────────────
 
 describe('CLI integration', () => {
   test('CLI diagnostics include mock request history', () => {
     const diagnostic = formatRunResult({
-      command: ['bun', CLI, '--rss-url', `${baseUrl}/rss`],
+      command: ['bun', CLI, '--config', '/tmp/digest.config.json'],
       stdout: '',
       stderr: 'RSS fetch failed',
       exitCode: 1,
@@ -262,7 +286,7 @@ describe('CLI integration', () => {
   test('default text output with items', async () => {
     const stateFile = tmpStateFile();
     const { stdout, exitCode } = await run([
-      '--rss-url', `${baseUrl}/rss`,
+      '--config', feedConfig(`${baseUrl}/rss`),
       '--state-file', stateFile,
       '--dry-run',
     ]);
@@ -276,7 +300,7 @@ describe('CLI integration', () => {
     const packageJson = await Bun.file(PACKAGE_JSON).json();
     const { stdout, stderr, exitCode } = await run([
       '--json',
-      '--rss-url', `${baseUrl}/rss`,
+      '--config', feedConfig(`${baseUrl}/rss`),
       '--state-file', stateFile,
       '--dry-run',
     ]);
@@ -284,17 +308,20 @@ describe('CLI integration', () => {
     expect(exitCode).toBe(0);
     expect(stderr).toContain('dry run');
     const parsed = JSON.parse(stdout);
-    expect(Object.keys(parsed).sort()).toEqual(['count', 'items', 'mode', 'query', 'tool', 'version', 'warnings']);
+    expect(Object.keys(parsed).sort()).toEqual(['count', 'generatedAt', 'items', 'query', 'tool', 'topics', 'version', 'warnings']);
     expect(parsed.tool).toBe('uae-news-digest');
     expect(parsed.version).toBe(packageJson.version);
     expect(Object.keys(parsed.query).sort()).toEqual(['hours', 'limit', 'targetLang']);
-    expect(parsed.query).toEqual({ hours: 36, limit: 6, targetLang: null });
+    expect(parsed.query).toEqual({ hours: 36, limit: null, targetLang: null });
+    expect(parsed.topics).toEqual([{ slug: 'uae', name: 'UAE', count: 2 }]);
     expect(parsed.count).toBe(2);
     expect(parsed.warnings).toEqual([]);
     expect(parsed.items).toHaveLength(2);
-    expect(Object.keys(parsed.items[0]).sort()).toEqual(['googleUrl', 'hoursAgo', 'importance', 'matchedTerms', 'publishedAt', 'score', 'signals', 'source', 'tier', 'title']);
+    expect(Object.keys(parsed.items[0]).sort()).toEqual(['hoursAgo', 'importance', 'matchedTerms', 'publishedAt', 'score', 'signals', 'source', 'tier', 'title', 'topic', 'translatedTitle', 'url']);
     expect(parsed.items[0]).toEqual({
+      topic: 'uae',
       title: 'Dubai airport reopens after rain',
+      translatedTitle: null,
       source: 'Reuters',
       score: 9,
       publishedAt: new Date(oneHourAgo).toISOString(),
@@ -303,10 +330,12 @@ describe('CLI integration', () => {
       tier: expect.any(String),
       signals: expect.any(Array),
       matchedTerms: [],
-      googleUrl: 'https://news.google.com/rss/articles/dubai-airport',
+      url: 'https://news.google.com/rss/articles/dubai-airport',
     });
     expect(parsed.items[1]).toEqual({
+      topic: 'uae',
       title: 'Abu Dhabi market overview',
+      translatedTitle: null,
       source: 'Gulf News',
       score: 6,
       publishedAt: new Date(twoHoursAgo).toISOString(),
@@ -315,7 +344,7 @@ describe('CLI integration', () => {
       tier: expect.any(String),
       signals: expect.any(Array),
       matchedTerms: [],
-      googleUrl: null,
+      url: null,
     });
   });
 
@@ -328,9 +357,8 @@ describe('CLI integration', () => {
 
   test('--json enriches items with importance, signals, and tier', async () => {
     const stateFile = tmpStateFile();
-    const fixturePath = join(import.meta.dir, 'fixtures', 'sample-feed.xml');
     const result = await run(
-      ['--json', '--no-topics', '--rss-url', `file://${fixturePath}`, '--state-file', stateFile, '--dry-run'],
+      ['--json', '--config', feedConfig(`${baseUrl}/rss/fixture`), '--state-file', stateFile, '--dry-run'],
       { UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z' },
     );
     expect(result.exitCode).toBe(0);
@@ -339,9 +367,9 @@ describe('CLI integration', () => {
     expect(parsed.items[0]).toHaveProperty('importance');
     expect(parsed.items[0]).toHaveProperty('tier');
     expect(parsed.items[0]).toHaveProperty('signals');
-    // every fixture item carries an <link>, so googleUrl flows through to JSON
+    // every fixture item carries a <link>, so url flows through to JSON
     for (const item of parsed.items) {
-      expect(item.googleUrl).toMatch(/^https:\/\/example\.com\//);
+      expect(item.url).toMatch(/^https:\/\/example\.com\//);
     }
   });
 
@@ -383,7 +411,7 @@ describe('CLI integration', () => {
   test('--dry-run does not write state file', async () => {
     const stateFile = tmpStateFile();
     const { stderr, exitCode } = await run([
-      '--rss-url', `${baseUrl}/rss`,
+      '--config', feedConfig(`${baseUrl}/rss`),
       '--state-file', stateFile,
       '--dry-run',
     ]);
@@ -398,7 +426,7 @@ describe('CLI integration', () => {
     const stateFile = tmpStateFile();
     const result = await run(
       [
-        '--rss-url', `${baseUrl}/rss`,
+        '--config', feedConfig(`${baseUrl}/rss`),
         '--state-file', stateFile,
         '--target-lang', 'DE',
         '--dry-run',
@@ -433,7 +461,7 @@ describe('CLI integration', () => {
     const stateFile = tmpStateFile();
     const { stdout, stderr, exitCode } = await run(
       [
-        '--rss-url', `${baseUrl}/rss`,
+        '--config', feedConfig(`${baseUrl}/rss`),
         '--state-file', stateFile,
         '--target-lang', 'DE',
         '--dry-run',
@@ -445,7 +473,7 @@ describe('CLI integration', () => {
     );
 
     expect(exitCode).toBe(0);
-    expect(stderr).toContain('DeepL translation to DE failed; using original titles.');
+    expect(stderr).toContain('DeepL translation to DE failed (DeepL returned HTTP 500 Internal Server Error); using original titles.');
     expect(stdout).toContain('Dubai airport reopens after rain');
   });
 
@@ -454,7 +482,7 @@ describe('CLI integration', () => {
     const { stdout, exitCode } = await run(
       [
         '--json',
-        '--rss-url', `${baseUrl}/rss`,
+        '--config', feedConfig(`${baseUrl}/rss`),
         '--state-file', stateFile,
         '--target-lang', 'DE',
         '--dry-run',
@@ -467,14 +495,14 @@ describe('CLI integration', () => {
 
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
-    expect(parsed.warnings).toEqual(['DeepL translation to DE failed; using original titles.']);
+    expect(parsed.warnings).toEqual(['DeepL translation to DE failed (DeepL returned HTTP 500 Internal Server Error); using original titles.']);
   });
 
   test('--target-lang without DEEPL_AUTH_KEY exits with error', async () => {
     const stateFile = tmpStateFile();
     const { stderr, exitCode } = await run(
       [
-        '--rss-url', `${baseUrl}/rss`,
+        '--config', feedConfig(`${baseUrl}/rss`),
         '--state-file', stateFile,
         '--target-lang', 'DE',
       ],
@@ -488,7 +516,7 @@ describe('CLI integration', () => {
   test('invalid test clock exits with error', async () => {
     const stateFile = tmpStateFile();
     const { stderr, exitCode } = await run([
-      '--rss-url', `${baseUrl}/rss`,
+      '--config', feedConfig(`${baseUrl}/rss`),
       '--state-file', stateFile,
       '--dry-run',
     ], { UAE_NEWS_DIGEST_NOW: 'not-a-date' });
@@ -500,7 +528,7 @@ describe('CLI integration', () => {
   test('RSS timeout shows timeout message and exits 1', async () => {
     const stateFile = tmpStateFile();
     const result = await run([
-      '--rss-url', `${baseUrl}/rss/hang`,
+      '--config', feedConfig(`${baseUrl}/rss/hang`),
       '--state-file', stateFile,
       '--timeout-ms', '200',
     ]);
@@ -514,7 +542,7 @@ describe('CLI integration', () => {
     const stateFile = tmpStateFile();
 
     await expect(run([
-      '--rss-url', `${baseUrl}/rss/hang`,
+      '--config', feedConfig(`${baseUrl}/rss/hang`),
       '--state-file', stateFile,
       '--timeout-ms', '5000',
     ], undefined, { timeoutMs: 100 })).rejects.toThrow(/CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*exitCode:[\s\S]*stdout:[\s\S]*stderr:[\s\S]*requests:/);
@@ -523,7 +551,7 @@ describe('CLI integration', () => {
   test('RSS network failure shows network message and exits 1', async () => {
     const stateFile = tmpStateFile();
     const { stderr, exitCode } = await run([
-      '--rss-url', 'http://localhost:1/rss',
+      '--config', feedConfig('http://localhost:1/rss'),
       '--state-file', stateFile,
       '--timeout-ms', '2000',
     ]);
@@ -535,7 +563,7 @@ describe('CLI integration', () => {
   test('RSS HTTP error shows message and exits 1', async () => {
     const stateFile = tmpStateFile();
     const result = await run([
-      '--rss-url', `${baseUrl}/rss/error`,
+      '--config', feedConfig(`${baseUrl}/rss/error`),
       '--state-file', stateFile,
     ]);
 
@@ -544,22 +572,77 @@ describe('CLI integration', () => {
     expect(result.requests).toEqual([{ method: 'GET', path: '/rss/error', body: null }]);
   });
 
-  test('empty RSS feed shows no-news message', async () => {
+  test('HTTP 200 body that is not a feed (HTML error page) exits 1 with a parse message', async () => {
     const stateFile = tmpStateFile();
-    const { stdout, exitCode } = await run([
-      '--rss-url', `${baseUrl}/rss/empty`,
+    const result = await run([
+      '--config', feedConfig(`${baseUrl}/rss/html`),
+      '--state-file', stateFile,
+    ]);
+
+    expectExitCode(result, 1);
+    expect(result.stderr).toContain('could not parse RSS');
+    expect(result.requests).toEqual([{ method: 'GET', path: '/rss/html', body: null }]);
+  });
+
+  test('--json still prints the envelope when every topic fails, and exits 1', async () => {
+    const stateFile = tmpStateFile();
+    const result = await run([
+      '--json',
+      '--config', feedConfig(`${baseUrl}/rss/error`),
+      '--state-file', stateFile,
+    ]);
+
+    expectExitCode(result, 1);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.count).toBe(0);
+    expect(parsed.items).toEqual([]);
+    expect(parsed.warnings[0]).toContain('RSS fetch failed');
+    // in JSON mode warnings live in the envelope, but the exit-1 path also echoes them
+    expect(result.stderr).toContain('RSS fetch failed');
+  });
+
+  test('one failing topic is a warning, not a failure: exit 0 and the other section still renders', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cli-partial-'));
+    tempDirs.push(dir);
+    const configPath = join(dir, 'digest.config.json');
+    writeFileSync(configPath, JSON.stringify({
+      ...defaultConfig,
+      topics: [
+        { ...defaultConfig.topics[0], slug: 'good', name: 'Good', emoji: '✅', feedUrl: `${baseUrl}/rss` },
+        { ...defaultConfig.topics[0], slug: 'bad', name: 'Bad', emoji: '❌', feedUrl: `${baseUrl}/rss/error` },
+      ],
+    }));
+
+    const stateFile = tmpStateFile();
+    const { stdout, stderr, exitCode } = await run([
+      '--config', configPath,
       '--state-file', stateFile,
       '--dry-run',
     ]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('No significant news');
+    expect(stderr).toContain('Topic "bad" failed: RSS fetch failed: HTTP 500');
+    expect(stdout).toContain('✅ Good\n  🌧️ Dubai airport reopens after rain');
+    expect(stdout).toContain('❌ Bad\n  (no new items)');
+  });
+
+  test('empty RSS feed shows no-news message', async () => {
+    const stateFile = tmpStateFile();
+    const { stdout, stderr, exitCode } = await run([
+      '--config', feedConfig(`${baseUrl}/rss/empty`),
+      '--state-file', stateFile,
+      '--dry-run',
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('(no new items)');
+    expect(stderr).toContain('feed returned no items');
   });
 
   test('state file is written when not dry-run', async () => {
     const stateFile = tmpStateFile();
     const { exitCode } = await run([
-      '--rss-url', `${baseUrl}/rss`,
+      '--config', feedConfig(`${baseUrl}/rss`),
       '--state-file', stateFile,
     ]);
 
@@ -572,9 +655,39 @@ describe('CLI integration', () => {
     // Cleanup
     await Bun.$`rm -f ${stateFile}`.quiet();
   });
+
+  test('state file is not written when zero items were produced (not dry-run)', async () => {
+    const stateFile = tmpStateFile();
+    const { exitCode } = await run([
+      '--config', feedConfig(`${baseUrl}/rss/empty`),
+      '--state-file', stateFile,
+    ]);
+
+    expect(exitCode).toBe(0);
+    const exists = await Bun.file(stateFile).exists();
+    expect(exists).toBe(false);
+  });
+
+  test('--limit caps items per topic', async () => {
+    const stateFile = tmpStateFile();
+    const { stdout, exitCode } = await run([
+      '--json',
+      '--limit', '1',
+      '--config', feedConfig(`${baseUrl}/rss`),
+      '--state-file', stateFile,
+      '--dry-run',
+    ]);
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.query.limit).toBe(1);
+    expect(parsed.count).toBe(1);
+    expect(parsed.items).toHaveLength(1);
+    expect(parsed.topics).toEqual([{ slug: 'uae', name: 'UAE', count: 1 }]);
+  });
 });
 
-describe('topics mode', () => {
+describe('config discovery', () => {
   function writeTopicsCwd(): { cwd: string; cleanup: () => void } {
     const cwd = mkdtempSync(join(tmpdir(), 'cli-topics-'));
     writeFileSync(
@@ -582,37 +695,29 @@ describe('topics mode', () => {
       JSON.stringify({
         locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
         topics: [
-          { slug: 'a', name: 'Alpha', emoji: '🅰️', query: 'alpha' },
-          { slug: 'b', name: 'Beta',  emoji: '🅱️', query: 'beta' },
+          { slug: 'a', name: 'Alpha', emoji: '🅰️', query: 'alpha', feedUrl: `${baseUrl}/rss/fixture` },
+          { slug: 'b', name: 'Beta',  emoji: '🅱️', query: 'beta', feedUrl: `${baseUrl}/rss/fixture` },
         ],
       }),
     );
     return { cwd, cleanup: () => rmSync(cwd, { recursive: true, force: true }) };
   }
 
-  const FIXTURE_PATH = join(import.meta.dir, 'fixtures', 'sample-feed.xml');
-
-  test('auto-detects digest.config.json in cwd and switches to topics mode', async () => {
+  test('loads digest.config.json from cwd', async () => {
     const { cwd, cleanup } = writeTopicsCwd();
     try {
       const stateFile = tmpStateFile();
       const { stdout, exitCode } = await runFromCwd(
         ['--json', '--hours', '99999', '--state-file', stateFile],
-        {
-          cwd,
-          env: {
-            UAE_NEWS_DIGEST_TOPIC_FIXTURE: FIXTURE_PATH,
-            UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z',
-          },
-        },
+        { cwd, env: { UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z' } },
       );
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
-      expect(parsed.mode).toBe('topics');
       expect(parsed.topics).toEqual([
         expect.objectContaining({ slug: 'a', name: 'Alpha' }),
         expect.objectContaining({ slug: 'b', name: 'Beta' }),
       ]);
+      expect(parsed.items.length).toBeGreaterThan(0);
       for (const item of parsed.items) {
         expect(['a', 'b']).toContain(item.topic);
       }
@@ -622,74 +727,32 @@ describe('topics mode', () => {
     }
   });
 
-  test('--no-topics forces legacy mode even with config present', async () => {
-    const { cwd, cleanup } = writeTopicsCwd();
-    try {
-      const stateFile = tmpStateFile();
-      const { stdout, exitCode } = await runFromCwd(
-        [
-          '--json', '--no-topics',
-          '--rss-url', `${baseUrl}/rss`,
-          '--state-file', stateFile,
-        ],
-        { cwd, env: { UAE_NEWS_DIGEST_NOW: TEST_NOW.toISOString() } },
-      );
-      expect(exitCode).toBe(0);
-      const parsed = JSON.parse(stdout);
-      expect(parsed.mode).toBe('region');
-      expect(parsed.topics).toBeUndefined();
-      await Bun.$`rm -f ${stateFile}`.quiet();
-    } finally {
-      cleanup();
-    }
-  });
-
-  test('warns when --region is explicitly passed alongside topics config', async () => {
-    const { cwd, cleanup } = writeTopicsCwd();
-    try {
-      const stateFile = tmpStateFile();
-      const { stderr } = await runFromCwd(
-        ['--region', 'us', '--json', '--state-file', stateFile],
-        {
-          cwd,
-          env: {
-            UAE_NEWS_DIGEST_TOPIC_FIXTURE: FIXTURE_PATH,
-            UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z',
-          },
-        },
-      );
-      expect(stderr).toMatch(/--region.*ignored.*topics config/i);
-      await Bun.$`rm -f ${stateFile}`.quiet();
-    } finally {
-      cleanup();
-    }
-  });
-
-  test('--topics-config <path> overrides auto-detect', async () => {
+  test('--config <path> overrides auto-detect', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'cli-topics-explicit-'));
     const configPath = join(cwd, 'custom.json');
     writeFileSync(
       configPath,
       JSON.stringify({
         locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-        topics: [{ slug: 'x', name: 'Xray', emoji: '❎', query: 'xray' }],
+        topics: [{ slug: 'x', name: 'Xray', emoji: '❎', query: 'xray', feedUrl: `${baseUrl}/rss/fixture` }],
+      }),
+    );
+    // The auto-detect candidate that --config must beat.
+    writeFileSync(
+      join(cwd, 'digest.config.json'),
+      JSON.stringify({
+        locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
+        topics: [{ slug: 'ignored', name: 'Ignored', query: 'ignored', feedUrl: `${baseUrl}/rss/fixture` }],
       }),
     );
     try {
       const stateFile = tmpStateFile();
       const { stdout, exitCode } = await runFromCwd(
-        ['--json', '--topics-config', configPath, '--hours', '99999', '--state-file', stateFile],
-        {
-          cwd,
-          env: {
-            UAE_NEWS_DIGEST_TOPIC_FIXTURE: FIXTURE_PATH,
-            UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z',
-          },
-        },
+        ['--json', '--config', configPath, '--hours', '99999', '--state-file', stateFile],
+        { cwd, env: { UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z' } },
       );
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
-      expect(parsed.mode).toBe('topics');
       expect(parsed.topics).toEqual([expect.objectContaining({ slug: 'x', name: 'Xray' })]);
       await Bun.$`rm -f ${stateFile}`.quiet();
     } finally {
@@ -703,7 +766,7 @@ describe('topics mode', () => {
       join(cwd, 'digest.config.json'),
       JSON.stringify({
         locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-        topics: [{ slug: 'space', name: 'Space', emoji: '🚀', query: 'satellite' }],
+        topics: [{ slug: 'space', name: 'Space', emoji: '🚀', query: 'satellite', feedUrl: `${baseUrl}/rss/fixture` }],
         emoji: [{ emoji: '🛰️', terms: ['satellite'] }],
         importance: { threshold: 1, impact: { weight: 2, markers: ['satellite'] } },
         // The fixture carries two near-duplicate satellite headlines; disable fuzzy
@@ -715,13 +778,7 @@ describe('topics mode', () => {
       const stateFile = tmpStateFile();
       const { stdout, exitCode } = await runFromCwd(
         ['--hours', '99999', '--dry-run', '--state-file', stateFile],
-        {
-          cwd,
-          env: {
-            UAE_NEWS_DIGEST_TOPIC_FIXTURE: FIXTURE_PATH,
-            UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z',
-          },
-        },
+        { cwd, env: { UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z' } },
       );
       expect(exitCode).toBe(0);
       expect(stdout).toContain('🚨 Important');

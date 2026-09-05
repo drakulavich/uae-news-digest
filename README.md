@@ -21,7 +21,7 @@
 - **Signal first.** Preferred sources and UAE-specific keywords push important stories up.
 - **No repeat sludge.** Exact keys plus fuzzy title matching collapse syndicated duplicates.
 - **Human or machine.** Read the emoji digest in your terminal, or pipe stable JSON into agents, cron, Slack, or your own scripts.
-- **Bring your own feed.** Use UAE by default, switch regions, or pass any RSS URL.
+- **Bring your own topics.** Use the built-in UAE set, or drop in a config file to define your own topics, queries, and feeds.
 - **Translate only when you ask.** Optional DeepL support keeps the default path simple and dependency-light.
 
 ## Install
@@ -42,40 +42,37 @@ bun link
 ## Usage
 
 ```bash
-uae-news-digest                                      # fetch + print UAE news
+uae-news-digest                                      # fetch + print the UAE digest
 uae-news-digest --hours 12 --limit 10                # tighter briefing window
 uae-news-digest --json                               # stable envelope for automation
-uae-news-digest --region de                          # Germany preset
-uae-news-digest --rss-url http://localhost/feed.xml  # any RSS feed
+uae-news-digest --config ./digest.config.json        # your own topics
 uae-news-digest healthcheck                          # JSON liveness probe
 DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # optional DeepL translation
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--region <code>` | `uae` | News region preset (`uae`, `us`, `uk`, `de`) |
+| `--config <path>` | | Path to a digest config JSON (overrides auto-detect; see [Topics Mode](#topics-mode)) |
 | `--hours <n>` | `36` | Lookback window in hours |
-| `--limit <n>` | `6` | Max items in digest |
+| `--limit <n>` | | Max items per topic (overrides each topic's own limit) |
 | `--target-lang <code>` | | DeepL target language (e.g. `DE`, `FR`, `JA`). Requires `DEEPL_AUTH_KEY` |
-| `--rss-url <url>` | | Custom RSS URL (overrides `--region`) |
 | `--state-file <path>` | `./seen_titles.txt` | Seen-items state file |
 | `--timeout-ms <n>` | `15000` | RSS fetch timeout |
-| `--topics-config <path>` | | Path to topics config JSON (overrides auto-detect) |
-| `--no-topics` | | Force legacy region mode even if a topics config is present |
 | `--dry-run` | `false` | Preview without updating state |
 | `--json` | `false` | Output as JSON (agent-friendly envelope) |
 
 ## What You Get
 
 ```
-🇦🇪 UAE Latest News Digest
+🇦🇪 UAE digest — 2026-09-05
 
-🛡️ UAE intercepts 79 Iranian strike assets (The National, 2h ago)
-📉 Dubai property sales drop more than 30% (Anadolu Ajansı, 5h ago)
-⛴️ Container ship incident at Khor Fakkan (Reuters, 3h ago)
-✈️ Abu Dhabi airport reopens after rain (Khaleej Times, 1h ago)
-🌧️ Unstable weather hits some emirates (Gulf News, 4h ago)
-🛢️ Oil prices: OPEC+ mulls output increase (CNBC, 6h ago)
+📰 UAE
+  🛡️ UAE intercepts 79 Iranian strike assets (The National, 2h ago)
+  📉 Dubai property sales drop more than 30% (Anadolu Ajansı, 5h ago)
+  ⛴️ Container ship incident at Khor Fakkan (Reuters, 3h ago)
+  ✈️ Abu Dhabi airport reopens after rain (Khaleej Times, 1h ago)
+  🌧️ Unstable weather hits some emirates (Gulf News, 4h ago)
+  🛢️ Oil prices: OPEC+ mulls output increase (CNBC, 6h ago)
 ```
 
 And when you need structured output:
@@ -97,7 +94,7 @@ Items that score above the threshold are pulled into a `🚨 Important` block pr
 
 This is a heuristic — no API key required, always on.
 
-**Example output (topics mode):**
+**Example output:**
 
 ```
 🇦🇪 UAE digest — 2025-11-14
@@ -110,8 +107,6 @@ This is a heuristic — no API key required, always on.
   📉 OPEC+ weighs output cut for Q1 (Reuters, 4h ago)
   ...
 ```
-
-In **region mode** the Important block has the same layout but without the ` — Topic Name` suffix.
 
 ### Topic `match` / `matchMode`
 
@@ -136,7 +131,7 @@ Google News sometimes returns loosely-matched articles for a query. Add optional
 | `match` | `string[]` | — | Keywords that must appear in the article title. Omit to keep existing behaviour. |
 | `matchMode` | `"all"` \| `"any"` \| `<N>` | `"all"` | `"all"` — every term must match; `"any"` — at least one; a positive integer `N` — at least N terms. |
 
-When articles are dropped for failing the keyword filter, a warning reports how many were dropped (visible in non-JSON mode on stderr). The CLI equivalents for region mode are `--match <terms...>` and `--match-mode <mode>`.
+When articles are dropped for failing the keyword filter, a warning reports how many were dropped (visible in non-JSON mode on stderr).
 
 ### Agent workflow (key-free smart pass)
 
@@ -157,7 +152,7 @@ The agent can drop noise reproducibly based solely on the structured metadata �
 
 ## Topics Mode
 
-For per-topic digests (e.g. economy, real estate, regional politics) instead of one undifferentiated regional feed, create a `digest.config.json` file:
+Without a config, the built-in UAE config runs (one topic). For per-topic digests (e.g. economy, real estate, regional politics), create a `digest.config.json` file:
 
 ```json
 {
@@ -190,26 +185,28 @@ For per-topic digests (e.g. economy, real estate, regional politics) instead of 
 
 Heuristics (skip list, source tiers, keyword boosts, dedupe synonyms, importance markers, emoji rules) also live in this file. A config without those sections runs neutral. Start from the built-in UAE set in [`src/config/default.json`](src/config/default.json).
 
+Each topic builds its Google News RSS URL from `query` and `locale`. Add `feedUrl` to a topic to fetch that exact RSS URL instead — useful for non-Google feeds or deterministic tests.
+
 The CLI looks for the config in this order:
 
-1. `--topics-config <path>` (explicit override)
+1. `--config <path>` (explicit override)
 2. `./digest.config.json` (current working directory)
 3. `$XDG_CONFIG_HOME/uae-news-digest/topics.json` (falls back to `~/.config/uae-news-digest/topics.json`)
 
-When a config is found, the CLI fetches each topic in parallel and renders one section per topic. Cross-topic dedup is "first topic in config wins" — reorder the array to set priority. To force the legacy region mode while a config is present, pass `--no-topics`.
+Without a config the built-in UAE config runs. The CLI fetches each topic in parallel and renders one section per topic (a single-topic config still prints its heading). A story already selected by an earlier topic is not repeated in a later one (exact-key match; fuzzy near-duplicate detection runs within each topic), so the topic order in the config sets priority.
 
-`--target-lang` translates all section titles in a single DeepL batch. `--limit`, when explicitly set, overrides every topic's per-topic limit for the run.
+`--target-lang` translates all section titles in a single DeepL batch. `--limit`, when given, overrides every topic's per-topic limit for the run.
 
 The example `query` strings above are starting points, not optimal — iterate them against real Google News output.
 
-### Topics-mode JSON output
+### JSON output
 
 ```json
 {
   "tool": "uae-news-digest",
   "version": "...",
-  "mode": "topics",
-  "query": { "hours": 36, "targetLang": null },
+  "generatedAt": "2026-09-05T06:00:00.000Z",
+  "query": { "hours": 36, "limit": null, "targetLang": null },
   "topics": [
     { "slug": "economy", "name": "UAE economy", "count": 5 },
     { "slug": "realty",  "name": "Real estate", "count": 4 },
@@ -218,17 +215,30 @@ The example `query` strings above are starting points, not optimal — iterate t
   "count": 10,
   "warnings": [],
   "items": [
-    { "topic": "economy", "title": "...", "source": "...", "score": 0, "publishedAt": "...", "hoursAgo": 4 }
+    {
+      "topic": "economy",
+      "title": "...",
+      "translatedTitle": null,
+      "source": "...",
+      "url": "...",
+      "publishedAt": "...",
+      "hoursAgo": 4,
+      "score": 0,
+      "importance": 0,
+      "tier": "neutral",
+      "signals": [],
+      "matchedTerms": []
+    }
   ]
 }
 ```
 
-Items are emitted as a flat list in section order; each carries its `topic` slug so consumers can group. Legacy region mode emits the same envelope with `mode: "region"` and without the `topics` array.
+Items are emitted as a flat list in section order; each carries its `topic` slug so consumers can group. `query.limit` is `null` unless `--limit` was passed.
 
 ## Programmatic API
 
 ```typescript
-import { parseRss, buildDigest, runDigest, renderDigest } from "@drakulavich/uae-news-digest/core";
+import { parseRss, buildDigest, runDigest, renderText, toJson } from "@drakulavich/uae-news-digest/core";
 ```
 
 Use the core API when you already have RSS XML and want the same filtering, scoring, deduplication, translation fallback, and rendering logic without spawning the CLI.
@@ -236,21 +246,21 @@ Use the core API when you already have RSS XML and want the same filtering, scor
 ## How It Works
 
 ```
-uae-news-digest --region us --hours 12 --limit 10
+uae-news-digest --hours 12 --limit 10
   │
-  ├── Region ────── resolve RSS URL from preset (or --rss-url override)
+  ├── Config ──────── topics (query + locale) → one Google News RSS URL each (or feedUrl)
   │
-  ├── Fetch RSS ─── Google News RSS feed
+  ├── Fetch RSS ───── Google News RSS feed per topic
   │
-  ├── Filter ────── skip: opinion, tabloids, sports, travel
+  ├── Filter ──────── skip: opinion, tabloids, sports, travel
   │
-  ├── Score ─────── +3 preferred source, +2 UAE mention, +2 priority topic
+  ├── Score ───────── +3 preferred source, +2 UAE mention, +2 priority topic
   │
-  ├── Deduplicate ─ exact key match + Jaccard fuzzy (threshold 0.45)
+  ├── Deduplicate ─── exact key match + Jaccard fuzzy (threshold 0.45)
   │
-  ├── Translate ─── DeepL API (optional, when --target-lang set)
+  ├── Translate ───── DeepL API (optional, when --target-lang set)
   │
-  └── Render ────── region flag + emoji + title + source + hours ago
+  └── Render ──────── display flag/name header + per-item emoji + title + source + hours ago
 ```
 
 State file (`seen_titles.txt`) tracks seen articles so scheduled runs do not repeat the same briefing forever.

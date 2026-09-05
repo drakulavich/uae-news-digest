@@ -13,13 +13,12 @@ verbatim; if you need a new term, add it here first.
 | **Scoring** | Ranking Items by importance and computing title similarity for dedup (`src/scoring.ts`, `src/importance.ts`). |
 | **Title similarity** | The measure used to deduplicate near-identical headlines from different sources (`src/scoring.ts`). |
 | **Signal filter** | The step that surfaces important UAE news and drops PR / promotional noise (`src/importance.ts`; #41). |
-| **Region preset** | A built-in feed scope selected with `--region` — `uae` (default), `us`, `uk`, `de` (`src/region.ts`, `REGION_PRESETS`). |
-| **Topics config** | An optional JSON config (`--topics-config`) that drives topical mode instead of a Region preset; loaded by `src/topics.ts` (`loadTopicsConfig`), orchestrated by `src/pipeline.ts` (`runTopicalDigest`). |
-| **Match terms** | Title keyword requirements in region mode: `--match <terms…>` with `--match-mode all\|any\|<N>` (`src/digest.ts`, `matchTerms`). |
+| **Config** | The JSON file (`--config`, `./digest.config.json`, or XDG) that defines locale, display, topics, and heuristics; `src/config/schema.ts`, loaded by `src/config/load.ts`; built-in default `src/config/default.json`. |
+| **Match terms** | Per-topic `match` / `matchMode` in the config (`src/digest.ts`, `matchTerms`). |
 | **Seen-item state** | The state file (`--state-file`, default `DEFAULT_STATE_FILE`) recording already-shown Items so they are not repeated; bypassed by `--dry-run` (`src/state.ts`). |
 | **DeepL translation** | Optional translation of the Digest via DeepL when `--target-lang` is set and `DEEPL_AUTH_KEY` is present (`src/translate.ts`, `translateDeepL`). |
-| **Output mode** | How the Digest is emitted: human text by default, machine-readable JSON with `--json` (`src/render.ts`). |
+| **Output mode** | How the Digest is emitted: human text by default (`src/render.ts`), machine-readable JSON with `--json` (`src/json.ts`). |
 | **manifest** | The command that prints the tool manifest as JSON for agents (`src/index.ts`, `manifest`). |
 | **healthcheck** | The command that smoke-checks feed reachability and readiness, with `--rss-url` for deterministic testing (`src/index.ts`, `healthcheck`). |
 | **Agent filter prompt** | The text printed by `--prompt` describing how an LLM agent should filter the Digest (`src/index.ts`). |
-| **Core API** | The programmatic interface re-exported from `@drakulavich/uae-news-digest/core` (`src/core.ts`) — `runDigest`, `buildDigest`, `parseRss`, region/state/translate helpers. |
+| **Core API** | The programmatic interface re-exported from `@drakulavich/uae-news-digest/core` (`src/core.ts`) — `runDigest`, `renderText`, `toJson`, `loadConfig`, and other helpers. |

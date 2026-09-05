@@ -62,35 +62,30 @@ describe('translateDeepL', () => {
     expect(result).toEqual([]);
   });
 
-  test('returns null on rate limit (429)', async () => {
+  test('throws on rate limit (429)', async () => {
     setupDeepLStatus(429);
-    const result = await translateDeepL(['test'], 'fake-key', 'RU');
-    expect(result).toBeNull();
+    await expect(translateDeepL(['test'], 'fake-key', 'RU')).rejects.toThrow(/HTTP 429.*rate limited/);
   });
 
-  test('returns null on quota exceeded (456)', async () => {
+  test('throws on quota exceeded (456)', async () => {
     setupDeepLStatus(456);
-    const result = await translateDeepL(['test'], 'fake-key', 'RU');
-    expect(result).toBeNull();
+    await expect(translateDeepL(['test'], 'fake-key', 'RU')).rejects.toThrow(/HTTP 456.*quota/);
   });
 
-  test('returns null on server error (500)', async () => {
+  test('throws on server error (500)', async () => {
     setupDeepLStatus(500);
-    const result = await translateDeepL(['test'], 'fake-key', 'RU');
-    expect(result).toBeNull();
+    await expect(translateDeepL(['test'], 'fake-key', 'RU')).rejects.toThrow(/HTTP 500/);
   });
 
-  test('returns null on network error', async () => {
+  test('throws on network error', async () => {
     setupDeepLNetworkError();
-    const result = await translateDeepL(['test'], 'fake-key', 'RU');
-    expect(result).toBeNull();
+    await expect(translateDeepL(['test'], 'fake-key', 'RU')).rejects.toThrow(/DeepL request failed/);
   });
 
-  test('returns null if response count mismatches', async () => {
+  test('throws if response count mismatches', async () => {
     // Send 2 texts but server returns only 1 translation
     setupDeepLSuccess(['only one']);
-    const result = await translateDeepL(['text one', 'text two'], 'fake-key', 'RU');
-    expect(result).toBeNull();
+    await expect(translateDeepL(['text one', 'text two'], 'fake-key', 'RU')).rejects.toThrow(/1 translations for 2 texts/);
   });
 
   test('passes targetLang to DeepL API', async () => {
