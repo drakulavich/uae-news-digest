@@ -1,14 +1,13 @@
 import { normalizeTitle, normalizeSource, makeKey } from './normalize';
 import { scoreItem, titleSimilarity } from './scoring';
 import { scoreImportance, type ImportanceTier } from './importance';
-import { escapeRegExp } from './terms';
+import { matchesTerm } from './terms';
 import type { RssItem } from './rss';
 import type { Heuristics, MatchMode } from './config/schema';
 
 export type { MatchMode } from './config/schema';
 
-const DEFAULT_SKIP_RE = /(opinion|daily mail|travel and tour world|tradingview|cycling|horse|football|msn|substack|influencer|hotel room|fitness journey|baskin-robbins)/i;
-const FUZZY_SIMILARITY_THRESHOLD = 0.45;
+const DEFAULT_SIMILARITY_THRESHOLD = 0.45;
 
 export type DigestItem = {
   score: number;
@@ -28,12 +27,7 @@ export function matchTerms(
   match: string[],
   mode: MatchMode,
 ): { ok: boolean; matchedTerms: string[] } {
-  const hay = title.toLowerCase();
-  const matchedTerms = match.filter((t) =>
-    // Whole word + optional plural: "school" matches "school"/"schools"
-    // but not "schooling"; "fee" matches "fee"/"fees".
-    new RegExp('\\b' + escapeRegExp(t.toLowerCase()) + '(?:e?s)?\\b').test(hay),
-  );
+  const matchedTerms = match.filter((t) => matchesTerm(title, t));
   let need: number;
   if (mode === 'all') need = match.length;
   else if (mode === 'any') need = 1;
@@ -46,7 +40,6 @@ export type BuildDigestOptions = {
   hours: number;
   limit: number;
   now?: Date;
-  skipRe?: RegExp;
   match?: string[];
   matchMode?: MatchMode;
   heuristics: Heuristics;
@@ -61,7 +54,9 @@ export function parsePubDate(pubDate: string | undefined): Date | null {
 }
 
 export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptions): BuildDigestResult {
-  const { seenKeys, hours, limit, now = new Date(), skipRe = DEFAULT_SKIP_RE, match, matchMode = 'all', heuristics } = options;
+  const { seenKeys, hours, limit, now = new Date(), match, matchMode = 'all', heuristics } = options;
+  const skip = heuristics.skip ?? [];
+  const similarityThreshold = heuristics.dedupe?.similarityThreshold ?? DEFAULT_SIMILARITY_THRESHOLD;
   const cutoff = new Date(now.getTime() - hours * 60 * 60 * 1000);
   const unique = new Map<string, DigestItem>();
   let droppedByMatch = 0;
@@ -70,7 +65,7 @@ export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptio
     const title = normalizeTitle(item.title);
     const source = normalizeSource(item.source);
     if (!title) continue;
-    if (skipRe.test(title) || skipRe.test(source)) continue;
+    if (skip.some((t) => matchesTerm(title, t) || matchesTerm(source, t))) continue;
 
     const publishedAt = parsePubDate(item.pubDate);
     if (!publishedAt) continue;
@@ -109,7 +104,7 @@ export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptio
 
     let fuzzyDup = false;
     for (const [existingKey, existingItem] of unique) {
-      if (titleSimilarity(title, existingItem.title, heuristics.dedupe) >= FUZZY_SIMILARITY_THRESHOLD) {
+      if (titleSimilarity(title, existingItem.title, heuristics.dedupe) >= similarityThreshold) {
         if (digestItem.score > existingItem.score || (digestItem.score === existingItem.score && digestItem.publishedAt > existingItem.publishedAt)) {
           unique.delete(existingKey);
           unique.set(key, digestItem);
