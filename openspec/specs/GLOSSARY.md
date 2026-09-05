@@ -17,7 +17,7 @@ verbatim; if you need a new term, add it here first.
 | **Match terms** | Per-topic `match` / `matchMode` in the config (`src/digest.ts`, `matchTerms`). |
 | **Seen-item state** | The state file (`--state-file`, default `DEFAULT_STATE_FILE`) recording already-shown Items so they are not repeated; bypassed by `--dry-run` (`src/state.ts`). |
 | **DeepL translation** | Optional translation of the Digest via DeepL when `--target-lang` is set and `DEEPL_AUTH_KEY` is present (`src/translate.ts`, `translateDeepL`). |
-| **Output mode** | How the Digest is emitted: human text by default, machine-readable JSON with `--json` (`src/render.ts`). |
+| **Output mode** | How the Digest is emitted: human text by default (`src/render.ts`), machine-readable JSON with `--json` (`src/json.ts`). |
 | **manifest** | The command that prints the tool manifest as JSON for agents (`src/index.ts`, `manifest`). |
 | **healthcheck** | The command that smoke-checks feed reachability and readiness, with `--rss-url` for deterministic testing (`src/index.ts`, `healthcheck`). |
 | **Agent filter prompt** | The text printed by `--prompt` describing how an LLM agent should filter the Digest (`src/index.ts`). |

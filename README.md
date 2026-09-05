@@ -66,12 +66,13 @@ DEEPL_AUTH_KEY=xxx uae-news-digest --target-lang DE  # optional DeepL translatio
 ```
 🇦🇪 UAE digest — 2026-09-05
 
-🛡️ UAE intercepts 79 Iranian strike assets (The National, 2h ago)
-📉 Dubai property sales drop more than 30% (Anadolu Ajansı, 5h ago)
-⛴️ Container ship incident at Khor Fakkan (Reuters, 3h ago)
-✈️ Abu Dhabi airport reopens after rain (Khaleej Times, 1h ago)
-🌧️ Unstable weather hits some emirates (Gulf News, 4h ago)
-🛢️ Oil prices: OPEC+ mulls output increase (CNBC, 6h ago)
+📰 UAE
+  🛡️ UAE intercepts 79 Iranian strike assets (The National, 2h ago)
+  📉 Dubai property sales drop more than 30% (Anadolu Ajansı, 5h ago)
+  ⛴️ Container ship incident at Khor Fakkan (Reuters, 3h ago)
+  ✈️ Abu Dhabi airport reopens after rain (Khaleej Times, 1h ago)
+  🌧️ Unstable weather hits some emirates (Gulf News, 4h ago)
+  🛢️ Oil prices: OPEC+ mulls output increase (CNBC, 6h ago)
 ```
 
 And when you need structured output:
@@ -192,7 +193,7 @@ The CLI looks for the config in this order:
 2. `./digest.config.json` (current working directory)
 3. `$XDG_CONFIG_HOME/uae-news-digest/topics.json` (falls back to `~/.config/uae-news-digest/topics.json`)
 
-Without a config the built-in UAE config runs. The CLI fetches each topic in parallel and renders one section per topic (a single-topic config still prints its heading). Cross-topic dedup is "first topic in config wins" — reorder the array to set priority.
+Without a config the built-in UAE config runs. The CLI fetches each topic in parallel and renders one section per topic (a single-topic config still prints its heading). A story already selected by an earlier topic is not repeated in a later one (exact-key match; fuzzy near-duplicate detection runs within each topic), so the topic order in the config sets priority.
 
 `--target-lang` translates all section titles in a single DeepL batch. `--limit`, when given, overrides every topic's per-topic limit for the run.
 

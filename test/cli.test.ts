@@ -639,6 +639,36 @@ describe('CLI integration', () => {
     // Cleanup
     await Bun.$`rm -f ${stateFile}`.quiet();
   });
+
+  test('state file is not written when zero items were produced (not dry-run)', async () => {
+    const stateFile = tmpStateFile();
+    const { exitCode } = await run([
+      '--config', feedConfig(`${baseUrl}/rss/empty`),
+      '--state-file', stateFile,
+    ]);
+
+    expect(exitCode).toBe(0);
+    const exists = await Bun.file(stateFile).exists();
+    expect(exists).toBe(false);
+  });
+
+  test('--limit caps items per topic', async () => {
+    const stateFile = tmpStateFile();
+    const { stdout, exitCode } = await run([
+      '--json',
+      '--limit', '1',
+      '--config', feedConfig(`${baseUrl}/rss`),
+      '--state-file', stateFile,
+      '--dry-run',
+    ]);
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.query.limit).toBe(1);
+    expect(parsed.count).toBe(1);
+    expect(parsed.items).toHaveLength(1);
+    expect(parsed.topics).toEqual([{ slug: 'uae', name: 'UAE', count: 1 }]);
+  });
 });
 
 describe('config discovery', () => {

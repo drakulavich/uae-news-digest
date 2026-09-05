@@ -95,7 +95,7 @@ OUTPUT
         "matchedTerms":    string[]
       } ]
     }
-  In --json mode warnings go into the "warnings" array (not stderr).
+  In --json mode warnings go into the "warnings" array; they are also echoed to stderr when the run exits 1.
 
 STATE & DEDUP
   Seen article keys are persisted to --state-file (default ./seen_titles.txt) and
@@ -215,7 +215,7 @@ program.action(async (options) => {
     const now = resolveNow(process.env.UAE_NEWS_DIGEST_NOW);
 
     if (options.targetLang && !deeplAuthKey) {
-      console.error(`--target-lang requires DEEPL_AUTH_KEY to be set.`);
+      console.error(`--target-lang requires DEEPL_AUTH_KEY — set it to your DeepL Free API key, or drop --target-lang.`);
       process.exitCode = 1;
       return;
     }
