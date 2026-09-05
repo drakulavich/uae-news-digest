@@ -11,6 +11,17 @@ export type TopicSection = {
   items: DigestItem[];
 };
 
+export type FetchText = (url: string) => Promise<string>;
+export type Translate = (texts: string[], targetLang: string) => Promise<string[]>;
+
+export type DigestResult = {
+  sections: TopicSection[];
+  warnings: string[];
+  nextSeenKeys: Set<string>;
+  /** Topics whose feed was fetched and parsed; 0 means nothing was retrieved. */
+  fetchedTopics: number;
+};
+
 export type RunDigestOptions = {
   xml: string;
   seenKeys: Set<string>;

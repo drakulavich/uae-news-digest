@@ -1,10 +1,11 @@
 import { REGION_PRESETS } from './region';
 import type { DigestItem } from './digest';
-import type { TopicSection } from './pipeline';
+import type { TopicSection, DigestResult } from './pipeline';
 import type { LocaleContext } from './region';
 import { importanceThreshold } from './importance';
 import { matchesTerm } from './terms';
-import type { EmojiRule, Heuristics } from './config/schema';
+import type { EmojiRule, Heuristics, DigestConfig } from './config/schema';
+import { hoursAgo } from './json';
 
 export type RenderHeuristics = Pick<Heuristics, 'importance' | 'emoji'>;
 
@@ -102,6 +103,48 @@ export function renderTopicalDigest(
 
     if (i < sections.length - 1) lines.push('');
   }
+
+  return lines.join('\n');
+}
+
+function itemLine(item: DigestItem, now: Date, showSignals: boolean, emoji: readonly EmojiRule[] | undefined): string {
+  const title = item.translatedTitle ?? item.title;
+  const marker = showSignals && item.signals.length > 0 ? ` [${item.signals.join(', ')}]` : '';
+  return `  ${emojiFor(item.title, emoji)} ${title} (${item.source}, ${hoursAgo(item.publishedAt, now)}h ago)${marker}`;
+}
+
+/** The human-readable digest: header, optional 🚨 Important block, one section per topic in config order. */
+export function renderText(result: DigestResult, config: DigestConfig, now: Date): string {
+  const { display } = config;
+  const dateLabel = new Intl.DateTimeFormat('en-CA', {
+    timeZone: display.timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
+  const lines: string[] = [`${display.flag} ${display.name} digest — ${dateLabel}`, ''];
+
+  const threshold = importanceThreshold(config.importance);
+  const important = result.sections.flatMap((s) =>
+    s.items.filter((i) => i.importance >= threshold).map((item) => ({ item, topic: s.topic })),
+  );
+  const importantKeys = new Set(important.map((e) => e.item.key));
+
+  if (important.length > 0) {
+    lines.push('🚨 Important');
+    for (const { item, topic } of important) {
+      lines.push(`${itemLine(item, now, true, config.emoji)} — ${topic.name}`);
+    }
+    lines.push('');
+  }
+
+  result.sections.forEach((section, i) => {
+    lines.push(`${section.topic.emoji ?? '•'} ${section.topic.name}`);
+    const visible = section.items.filter((item) => !importantKeys.has(item.key));
+    if (visible.length === 0) {
+      lines.push(section.items.length > 0 ? '  (all items are in 🚨 Important)' : '  (no new items)');
+    } else {
+      for (const item of visible) lines.push(itemLine(item, now, false, config.emoji));
+    }
+    if (i < result.sections.length - 1) lines.push('');
+  });
 
   return lines.join('\n');
 }
