@@ -3,31 +3,24 @@ import type { DigestItem } from './digest';
 import type { TopicSection } from './pipeline';
 import type { LocaleContext } from './region';
 import { importanceThreshold } from './importance';
-import type { Heuristics } from './config/schema';
+import { matchesTerm } from './terms';
+import type { EmojiRule, Heuristics } from './config/schema';
 
 export type RenderHeuristics = Pick<Heuristics, 'importance' | 'emoji'>;
 
-export function emojiFor(title: string): string {
-  const t = title.toLowerCase();
-  if (t.includes('rain') || t.includes('weather') || t.includes('погода') || t.includes('дожд')) return '🌧️';
-  if (t.includes('property') || t.includes('market') || t.includes('недвижимост') || t.includes('рынок')) return '📉';
-  if (t.includes('flight') || t.includes('airspace') || t.includes('airport') || t.includes('рейс') || t.includes('аэропорт') || t.includes('воздушн')) return '✈️';
-  if (t.includes('missile') || t.includes('drone') || t.includes('defence') || t.includes('defense') || t.includes('air attack') || t.includes('ракет') || t.includes('бпла') || t.includes('пво')) return '🛡️';
-  if (t.includes('shipping') || t.includes('hormuz') || t.includes('судоход') || t.includes('ормуз')) return '⛴️';
-  if (t.includes('hezbollah') || t.includes('terror') || t.includes('хезболла') || t.includes('террор')) return '🚨';
-  if (t.includes('school') || t.includes('education') || t.includes('школ') || t.includes('образован')) return '🎓';
-  if (t.includes('oil') || t.includes('gas') || t.includes('нефт') || t.includes('газ')) return '🛢️';
-  if (t.includes('visa') || t.includes('виз')) return '🛂';
-  return '•';
+/** First rule whose term appears in the title wins; no rules or no match → "•". */
+export function emojiFor(title: string, rules: readonly EmojiRule[] | undefined): string {
+  const rule = rules?.find((r) => r.terms.some((t) => matchesTerm(title, t)));
+  return rule?.emoji ?? '•';
 }
 
-function formatItemLine(item: DigestItem, translations: Map<string, string> | undefined, now: Date, indent: string, showSignals = false): string {
+function formatItemLine(item: DigestItem, translations: Map<string, string> | undefined, now: Date, indent: string, showSignals: boolean, emoji: readonly EmojiRule[] | undefined): string {
   const title = translations?.get(item.title) ?? item.title;
   const hoursAgo = Math.round((now.getTime() - item.publishedAt.getTime()) / 3_600_000);
   // The [signals] marker is shown only inside the 🚨 Important block; regular-body
   // lines stay byte-identical to the pre-feature output.
   const marker = showSignals && item.signals.length > 0 ? ` [${item.signals.join(', ')}]` : '';
-  return `${indent}${emojiFor(item.title)} ${title} (${item.source}, ${hoursAgo}h ago)${marker}`;
+  return `${indent}${emojiFor(item.title, emoji)} ${title} (${item.source}, ${hoursAgo}h ago)${marker}`;
 }
 
 export function renderDigest(
@@ -52,12 +45,12 @@ export function renderDigest(
   const lines = [`${flag} ${name} Latest News Digest`, ''];
   if (important.length > 0) {
     lines.push('🚨 Important');
-    for (const item of important) lines.push(formatItemLine(item, translations, now, '  ', true));
+    for (const item of important) lines.push(formatItemLine(item, translations, now, '  ', true, heuristics.emoji));
     lines.push('');
   }
   for (const item of items) {
     if (importantKeys.has(item.key)) continue;
-    lines.push(formatItemLine(item, translations, now, ''));
+    lines.push(formatItemLine(item, translations, now, '', false, heuristics.emoji));
   }
   return lines.join('\n');
 }
@@ -86,7 +79,7 @@ export function renderTopicalDigest(
   if (important.length > 0) {
     lines.push('🚨 Important');
     for (const { item, topic } of important) {
-      lines.push(`${formatItemLine(item, translations, now, '  ', true)} — ${topic.name}`);
+      lines.push(`${formatItemLine(item, translations, now, '  ', true, heuristics.emoji)} — ${topic.name}`);
     }
     lines.push('');
   }
@@ -103,7 +96,7 @@ export function renderTopicalDigest(
       lines.push(section.items.length > 0 ? '  (всё в 🚨 Important)' : '  (нет новых материалов)');
     } else {
       for (const item of visible) {
-        lines.push(formatItemLine(item, translations, now, '  '));
+        lines.push(formatItemLine(item, translations, now, '  ', false, heuristics.emoji));
       }
     }
 

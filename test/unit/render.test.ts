@@ -8,49 +8,39 @@ import { DEFAULT_CONFIG } from '../../src/config/load';
 
 const IMPORTANCE_THRESHOLD = importanceThreshold(DEFAULT_CONFIG.importance);
 
-describe('emojiFor', () => {
-  test('weather/rain', () => {
-    expect(emojiFor('Heavy rain expected')).toBe('🌧️');
-    expect(emojiFor('Unstable weather conditions')).toBe('🌧️');
+describe('emojiFor with the default rules', () => {
+  const rules = DEFAULT_CONFIG.emoji;
+  test.each([
+    ['Heavy rain expected', '🌧️'],
+    ['Unstable weather conditions', '🌧️'],
+    ['Property prices surge', '📉'],
+    ['Dubai market overview', '📉'],
+    ['Airport reopens after delays', '✈️'],
+    ['Airspace closed for safety', '✈️'],
+    ['Missile intercepted', '🛡️'],
+    ['Drone attack reported', '🛡️'],
+    ['Hormuz strait tensions', '⛴️'],
+    ['Hezbollah funding traced', '🚨'],
+    ['Terrorism charges filed', '🚨'],
+    ['Schools reopen after break', '🎓'],
+    ['Oil prices drop sharply', '🛢️'],
+    ['Something completely unrelated', '•'],
+  ])('%s → %s', (title, emoji) => {
+    expect(emojiFor(title, rules)).toBe(emoji);
   });
 
-  test('property/market', () => {
-    expect(emojiFor('Property prices surge')).toBe('📉');
-    expect(emojiFor('Dubai market overview')).toBe('📉');
+  test('first matching rule wins', () => {
+    // "rain" (rule 1) beats "airport" (rule 3)
+    expect(emojiFor('Dubai airport reopens after rain', rules)).toBe('🌧️');
   });
+});
 
-  test('aviation', () => {
-    expect(emojiFor('Airport reopens after delays')).toBe('✈️');
-    expect(emojiFor('Airspace closed for safety')).toBe('✈️');
+describe('emojiFor with custom or absent rules', () => {
+  test('Unicode terms work', () => {
+    expect(emojiFor('нестабильная погода обрушивается', [{ emoji: '🌧️', terms: ['погода'] }])).toBe('🌧️');
   });
-
-  test('military', () => {
-    expect(emojiFor('Missile intercepted')).toBe('🛡️');
-    expect(emojiFor('Drone attack reported')).toBe('🛡️');
-  });
-
-  test('shipping', () => {
-    expect(emojiFor('Hormuz strait tensions')).toBe('⛴️');
-  });
-
-  test('terrorism', () => {
-    expect(emojiFor('Hezbollah funding traced')).toBe('🚨');
-  });
-
-  test('education', () => {
-    expect(emojiFor('Schools reopen after break')).toBe('🎓');
-  });
-
-  test('oil/energy', () => {
-    expect(emojiFor('Oil prices drop sharply')).toBe('🛢️');
-  });
-
-  test('default bullet for unmatched', () => {
-    expect(emojiFor('Something completely unrelated')).toBe('•');
-  });
-
-  test('Russian погода', () => {
-    expect(emojiFor('нестабильная погода обрушивается')).toBe('🌧️');
+  test('returns the bullet when no rules are configured', () => {
+    expect(emojiFor('Heavy rain expected', undefined)).toBe('•');
   });
 });
 
