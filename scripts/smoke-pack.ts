@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
     assertPackedFiles(packResults);
     const tarball = join(packDir, packResults[0]!.filename);
 
-    await writeFile(join(consumerDir, 'package.json'), JSON.stringify({ type: 'module' }, null, 2));
+    await Bun.write(join(consumerDir, 'package.json'), JSON.stringify({ type: 'module' }, null, 2));
     await run(['bun', 'add', tarball], consumerDir);
 
     const bin = join(consumerDir, 'node_modules', '.bin', 'uae-news-digest');
@@ -110,7 +110,7 @@ async function main(): Promise<void> {
 
       const stateFile = join(workDir, 'seen_titles.txt');
       const configPath = join(workDir, 'digest.config.json');
-      await writeFile(configPath, JSON.stringify({
+      await Bun.write(configPath, JSON.stringify({
         locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
         topics: [{ slug: 'uae', name: 'UAE', query: 'UAE', feedUrl: rssUrl, limit: 6 }],
       }));
@@ -130,7 +130,7 @@ async function main(): Promise<void> {
     }
 
     const coreSmoke = join(consumerDir, 'core-smoke.ts');
-    await writeFile(coreSmoke, `
+    await Bun.write(coreSmoke, `
 import { buildFeedUrl, runDigest, renderText, DEFAULT_CONFIG } from '@drakulavich/uae-news-digest/core';
 
 if (!buildFeedUrl(DEFAULT_CONFIG.topics[0]).startsWith('https://news.google.com/rss/search')) {
