@@ -3,11 +3,10 @@ import { scoreItem, titleSimilarity } from './scoring';
 import { scoreImportance, type ImportanceTier } from './importance';
 import { matchesTerm } from './terms';
 import type { RssItem } from './rss';
+import { DEFAULT_SIMILARITY_THRESHOLD } from './config/schema';
 import type { Heuristics, MatchMode } from './config/schema';
 
 export type { MatchMode } from './config/schema';
-
-const DEFAULT_SIMILARITY_THRESHOLD = 0.45;
 
 export type DigestItem = {
   score: number;

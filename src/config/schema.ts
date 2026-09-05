@@ -55,10 +55,20 @@ export const ScoringSchema = z.strictObject({
   titleBoosts: z.array(z.strictObject({ weight: Weight, terms: TermList })).default([]),
 });
 
+export const DEFAULT_SIMILARITY_THRESHOLD = 0.45;
+
 export const DedupeSchema = z.strictObject({
-  similarityThreshold: z.number().min(0, 'similarityThreshold must be within 0..1').max(1, 'similarityThreshold must be within 0..1').default(0.45),
+  similarityThreshold: z.number().min(0, 'similarityThreshold must be within 0..1').max(1, 'similarityThreshold must be within 0..1').default(DEFAULT_SIMILARITY_THRESHOLD),
   synonyms: z.record(z.string(), z.string()).default({}),
-  stopWords: z.array(TermSchema).default([]),
+  stopWords: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1, 'stopWords entries must be non-empty strings')
+        .regex(/^[^*]+$/, 'stopWords entries are exact words and may not contain "*"'),
+    )
+    .default([]),
 });
 
 const MarkerGroup = z.strictObject({ weight: Weight, markers: TermList });

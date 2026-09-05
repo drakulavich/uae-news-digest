@@ -145,4 +145,8 @@ describe('parseConfig — heuristics', () => {
   test('rejects an empty term list', () => {
     expect(() => parseConfig({ ...minimal, emoji: [{ emoji: '🌧️', terms: [] }] }, 'test')).toThrow(/terms/);
   });
+
+  test('rejects a stopWords entry containing "*"', () => {
+    expect(() => parseConfig({ ...minimal, dedupe: { stopWords: ['the*'] } }, 'test')).toThrow(/stopWords\[0\]/);
+  });
 });
