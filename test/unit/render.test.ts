@@ -55,6 +55,7 @@ describe('renderDigest', () => {
     title: 'Dubai property sector shows early signs of weakness',
     source: 'Reuters',
     key: makeKey('Dubai property sector shows early signs of weakness', 'Reuters'),
+    matchedTerms: [],
   };
 
   test('prints digest with hours ago suffix', () => {
@@ -125,6 +126,7 @@ function makeItem(over: Partial<DigestItem>): DigestItem {
     title: 'Title',
     source: 'Reuters',
     key: 'k',
+    matchedTerms: [],
     ...over,
   };
 }
@@ -230,9 +232,9 @@ describe('renderDigest 🚨 Important block', () => {
     const now = new Date('2026-03-22T10:00:00Z');
     const items = [
       { score: 7, importance: 8, signals: ['missile', 'airspace'], tier: 'breaking' as const,
-        publishedAt: new Date('2026-03-22T08:00:00Z'), title: 'UAE intercepts missile over Dubai airspace', source: 'Reuters', key: 'k1' },
+        publishedAt: new Date('2026-03-22T08:00:00Z'), title: 'UAE intercepts missile over Dubai airspace', source: 'Reuters', key: 'k1', matchedTerms: [] },
       { score: 5, importance: 0, signals: [], tier: 'neutral' as const,
-        publishedAt: new Date('2026-03-22T09:00:00Z'), title: 'Local council holds routine meeting', source: 'Gulf News', key: 'k2' },
+        publishedAt: new Date('2026-03-22T09:00:00Z'), title: 'Local council holds routine meeting', source: 'Gulf News', key: 'k2', matchedTerms: [] },
     ];
     const out = renderDigest(items, undefined, now, 'uae', DEFAULT_CONFIG);
     expect(out).toContain('🚨 Important');
@@ -247,7 +249,7 @@ describe('renderDigest 🚨 Important block', () => {
     const now = new Date('2026-03-22T10:00:00Z');
     const items = [
       { score: 2, importance: IMPORTANCE_THRESHOLD - 1, signals: [], tier: 'neutral' as const,
-        publishedAt: new Date('2026-03-22T09:00:00Z'), title: 'Routine update', source: 'Gulf News', key: 'k3' },
+        publishedAt: new Date('2026-03-22T09:00:00Z'), title: 'Routine update', source: 'Gulf News', key: 'k3', matchedTerms: [] },
     ];
     const out = renderDigest(items, undefined, now, 'uae', DEFAULT_CONFIG);
     expect(out).not.toContain('🚨 Important');
@@ -258,7 +260,7 @@ describe('renderDigest 🚨 Important block', () => {
     const items = [
       // fluff item: has signals but stays below threshold, so it remains in the body
       { score: 5, importance: -3, signals: ['launches', "world's first"], tier: 'fluff' as const,
-        publishedAt: new Date('2026-03-22T09:00:00Z'), title: 'Dubai hotel launches AI concierge', source: 'Reuters', key: 'f1' },
+        publishedAt: new Date('2026-03-22T09:00:00Z'), title: 'Dubai hotel launches AI concierge', source: 'Reuters', key: 'f1', matchedTerms: [] },
     ];
     const out = renderDigest(items, undefined, now, 'uae', DEFAULT_CONFIG);
     expect(out).not.toContain('🚨 Important');

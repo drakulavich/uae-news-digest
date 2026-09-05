@@ -253,8 +253,8 @@ async function runInTopicsMode(args: TopicsRunArgs): Promise<void> {
         importance: d.importance,
         tier: d.tier,
         signals: d.signals,
-        matchedTerms: d.matchedTerms ?? [],
-        googleUrl: d.link ?? null,
+        matchedTerms: d.matchedTerms,
+        googleUrl: d.url ?? null,
       })),
     );
     process.stdout.write(JSON.stringify({
@@ -412,8 +412,8 @@ program.action(async (options) => {
           importance: d.importance,
           tier: d.tier,
           signals: d.signals,
-          matchedTerms: d.matchedTerms ?? [],
-          googleUrl: d.link ?? null,
+          matchedTerms: d.matchedTerms,
+          googleUrl: d.url ?? null,
         })),
       }, null, 2) + '\n');
     } else {

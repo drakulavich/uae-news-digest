@@ -85,6 +85,17 @@ describe('buildDigest', () => {
     const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 3, now, heuristics: DEFAULT_CONFIG });
     expect(digest).toHaveLength(3);
   });
+
+  test('carries the RSS link as url and always sets matchedTerms', () => {
+    const now = new Date('2026-03-22T08:00:00Z');
+    const items: RssItem[] = [
+      { title: 'Dubai airport reopens after rain', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Reuters', link: 'https://news.google.com/rss/articles/x' },
+    ];
+    const [item] = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now, heuristics: DEFAULT_CONFIG });
+    expect(item!.url).toBe('https://news.google.com/rss/articles/x');
+    expect(item!.matchedTerms).toEqual([]);
+    expect(item!.translatedTitle).toBeUndefined();
+  });
 });
 
 describe('matchTerms', () => {

@@ -15,10 +15,11 @@ export type DigestItem = {
   tier: ImportanceTier;
   publishedAt: Date;
   title: string;
+  translatedTitle?: string;
   source: string;
   key: string;
-  matchedTerms?: string[];
-  link?: string;
+  matchedTerms: string[];
+  url?: string;
 };
 
 export function matchTerms(
@@ -73,7 +74,7 @@ export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptio
     const key = makeKey(title, source);
     if (seenKeys.has(key)) continue;
 
-    let matchedTerms: string[] | undefined;
+    let matchedTerms: string[] = [];
     if (match && match.length > 0) {
       const m = matchTerms(title, match, matchMode);
       if (!m.ok) { droppedByMatch++; continue; }
@@ -91,7 +92,7 @@ export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptio
       source,
       key,
       matchedTerms,
-      link: item.link,
+      url: item.link,
     };
 
     const existing = unique.get(key);
