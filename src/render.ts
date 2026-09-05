@@ -1,110 +1,14 @@
-import { REGION_PRESETS } from './region';
 import type { DigestItem } from './digest';
-import type { TopicSection, DigestResult } from './pipeline';
-import type { LocaleContext } from './region';
+import type { DigestResult } from './pipeline';
 import { importanceThreshold } from './importance';
 import { matchesTerm } from './terms';
-import type { EmojiRule, Heuristics, DigestConfig } from './config/schema';
+import type { EmojiRule, DigestConfig } from './config/schema';
 import { hoursAgo } from './json';
-
-export type RenderHeuristics = Pick<Heuristics, 'importance' | 'emoji'>;
 
 /** First rule whose term appears in the title wins; no rules or no match → "•". */
 export function emojiFor(title: string, rules: readonly EmojiRule[] | undefined): string {
   const rule = rules?.find((r) => r.terms.some((t) => matchesTerm(title, t)));
   return rule?.emoji ?? '•';
-}
-
-function formatItemLine(item: DigestItem, translations: Map<string, string> | undefined, now: Date, indent: string, showSignals: boolean, emoji: readonly EmojiRule[] | undefined): string {
-  const title = translations?.get(item.title) ?? item.title;
-  const hoursAgo = Math.round((now.getTime() - item.publishedAt.getTime()) / 3_600_000);
-  // The [signals] marker is shown only inside the 🚨 Important block; regular-body
-  // lines stay byte-identical to the pre-feature output.
-  const marker = showSignals && item.signals.length > 0 ? ` [${item.signals.join(', ')}]` : '';
-  return `${indent}${emojiFor(item.title, emoji)} ${title} (${item.source}, ${hoursAgo}h ago)${marker}`;
-}
-
-export function renderDigest(
-  items: DigestItem[],
-  translations: Map<string, string> | undefined,
-  now: Date,
-  region: string,
-  heuristics: RenderHeuristics,
-): string {
-  const preset = REGION_PRESETS[region.toLowerCase()];
-  const flag = preset?.flag ?? '📰';
-  const name = preset?.name ?? 'News';
-  const threshold = importanceThreshold(heuristics.importance);
-
-  if (items.length === 0) {
-    return `${flag} ${name} Latest News Digest\n\n• No significant news in the check window.`;
-  }
-
-  const important = items.filter((i) => i.importance >= threshold);
-  const importantKeys = new Set(important.map((i) => i.key));
-
-  const lines = [`${flag} ${name} Latest News Digest`, ''];
-  if (important.length > 0) {
-    lines.push('🚨 Important');
-    for (const item of important) lines.push(formatItemLine(item, translations, now, '  ', true, heuristics.emoji));
-    lines.push('');
-  }
-  for (const item of items) {
-    if (importantKeys.has(item.key)) continue;
-    lines.push(formatItemLine(item, translations, now, '', false, heuristics.emoji));
-  }
-  return lines.join('\n');
-}
-
-export function renderTopicalDigest(
-  sections: TopicSection[],
-  translations: Map<string, string> | undefined,
-  now: Date,
-  locale: LocaleContext,
-  heuristics: RenderHeuristics,
-): string {
-  const dateLabel = new Intl.DateTimeFormat('en-CA', {
-    timeZone: locale.timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
-  const lines: string[] = [`${locale.flag} ${locale.name} digest — ${dateLabel}`, ''];
-  const threshold = importanceThreshold(heuristics.importance);
-
-  const important = sections.flatMap((s) =>
-    s.items.filter((i) => i.importance >= threshold).map((item) => ({ item, topic: s.topic })),
-  );
-  const importantKeys = new Set(important.map((e) => e.item.key));
-
-  if (important.length > 0) {
-    lines.push('🚨 Important');
-    for (const { item, topic } of important) {
-      lines.push(`${formatItemLine(item, translations, now, '  ', true, heuristics.emoji)} — ${topic.name}`);
-    }
-    lines.push('');
-  }
-
-  for (let i = 0; i < sections.length; i++) {
-    const section = sections[i]!;
-    const prefix = section.topic.emoji ?? '•';
-    lines.push(`${prefix} ${section.topic.name}`);
-
-    const visible = section.items.filter((item) => !importantKeys.has(item.key));
-
-    if (visible.length === 0) {
-      // Distinguish "feed was empty" from "everything was promoted to 🚨 Important".
-      lines.push(section.items.length > 0 ? '  (всё в 🚨 Important)' : '  (нет новых материалов)');
-    } else {
-      for (const item of visible) {
-        lines.push(formatItemLine(item, translations, now, '  ', false, heuristics.emoji));
-      }
-    }
-
-    if (i < sections.length - 1) lines.push('');
-  }
-
-  return lines.join('\n');
 }
 
 function itemLine(item: DigestItem, now: Date, showSignals: boolean, emoji: readonly EmojiRule[] | undefined): string {

@@ -1,10 +1,9 @@
+// src/pipeline.ts
 import { parseRss } from './rss';
 import { buildDigestWithStats } from './digest';
-import { renderDigest, renderTopicalDigest } from './render';
-import { translateDeepL } from './translate';
-import { localeContextFor } from './region';
-import type { DigestItem, MatchMode } from './digest';
-import type { DigestConfig, Heuristics, Topic } from './config/schema';
+import { buildFeedUrl } from './url';
+import type { DigestItem } from './digest';
+import type { DigestConfig, Topic } from './config/schema';
 
 export type TopicSection = {
   topic: Topic;
@@ -14,6 +13,18 @@ export type TopicSection = {
 export type FetchText = (url: string) => Promise<string>;
 export type Translate = (texts: string[], targetLang: string) => Promise<string[]>;
 
+export type RunOptions = {
+  config: DigestConfig;
+  seenKeys: Set<string>;
+  hours: number;
+  /** CLI --limit: when given, caps every topic instead of its own `limit`. */
+  limitOverride?: number;
+  now: Date;
+  fetchText: FetchText;
+  translate?: Translate;
+  targetLang?: string;
+};
+
 export type DigestResult = {
   sections: TopicSection[];
   warnings: string[];
@@ -22,151 +33,78 @@ export type DigestResult = {
   fetchedTopics: number;
 };
 
-export type RunDigestOptions = {
-  xml: string;
-  seenKeys: Set<string>;
-  hours: number;
-  limit: number;
-  now?: Date;
-  deeplAuthKey?: string;
-  targetLang?: string;
-  region?: string;
-  match?: string[];
-  matchMode?: MatchMode;
-  heuristics: Heuristics;
-};
-
-export type RunDigestResult = {
-  digest: DigestItem[];
-  output: string;
-  nextSeenKeys: Set<string>;
-  warnings: string[];
-};
-
-export function mergeSeenKeys(seenKeys: Set<string>, digest: DigestItem[]): Set<string> {
-  return new Set([...seenKeys, ...digest.map((item) => item.key)]);
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
-export async function runDigest(options: RunDigestOptions): Promise<RunDigestResult> {
-  const items = parseRss(options.xml);
-  const { items: digest, droppedByMatch } = buildDigestWithStats(items, {
-    seenKeys: options.seenKeys,
-    hours: options.hours,
-    limit: options.limit,
-    now: options.now,
-    match: options.match,
-    matchMode: options.matchMode,
-    heuristics: options.heuristics,
-  });
-
-  let translations: Map<string, string> | undefined;
-  const warnings: string[] = [];
-
-  if (droppedByMatch > 0) {
-    warnings.push(`${droppedByMatch} item(s) dropped — missing required keywords`);
-  }
-
-  if (options.targetLang && options.deeplAuthKey && digest.length > 0) {
-    const titles = digest.map((d) => d.title);
-    try {
-      const translated = await translateDeepL(titles, options.deeplAuthKey, options.targetLang);
-      translations = new Map(titles.map((t, i) => [t, translated[i]!]));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      warnings.push(`DeepL translation to ${options.targetLang} failed (${msg}); using original titles.`);
-    }
-  }
-
-  return {
-    digest,
-    output: renderDigest(digest, translations, options.now ?? new Date(), options.region ?? 'uae', options.heuristics),
-    nextSeenKeys: mergeSeenKeys(options.seenKeys, digest),
-    warnings,
-  };
-}
-
-export type TopicFetcher = (topic: Topic) => Promise<string>;
-
-export type RunTopicalDigestOptions = {
-  config: DigestConfig;
-  seenKeys: Set<string>;
-  hours: number;
-  limitOverride?: number;
-  fetchTopicRss: TopicFetcher;
-  now?: Date;
-  deeplAuthKey?: string;
-  targetLang?: string;
-};
-
-export type RunTopicalDigestResult = {
-  sections: TopicSection[];
-  output: string;
-  nextSeenKeys: Set<string>;
-  warnings: string[];
-};
-
-export async function runTopicalDigest(
-  opts: RunTopicalDigestOptions,
-): Promise<RunTopicalDigestResult> {
-  const now = opts.now ?? new Date();
-  const fetched = await Promise.allSettled(
-    opts.config.topics.map((t) => opts.fetchTopicRss(t)),
-  );
+/**
+ * Fetch every topic's feed (in parallel), select items per topic against a shared
+ * seen-set so an earlier topic claims a story first, then translate titles in one batch.
+ * Network and translation failures become warnings; the caller decides the exit code.
+ */
+export async function runDigest(opts: RunOptions): Promise<DigestResult> {
+  const { config, now } = opts;
+  const fetched = await Promise.allSettled(config.topics.map((topic) => opts.fetchText(buildFeedUrl(topic))));
 
   const seen = new Set(opts.seenKeys);
   const sections: TopicSection[] = [];
   const warnings: string[] = [];
+  let fetchedTopics = 0;
 
-  for (let i = 0; i < opts.config.topics.length; i++) {
-    const topic = opts.config.topics[i]!;
-    const result = fetched[i]!;
-    if (result.status === 'rejected') {
-      const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
-      warnings.push(`Topic "${topic.slug}" failed: ${msg}`);
+  config.topics.forEach((topic, i) => {
+    const outcome = fetched[i]!;
+    if (outcome.status === 'rejected') {
+      warnings.push(`Topic "${topic.slug}" failed: ${errorMessage(outcome.reason)}`);
       sections.push({ topic, items: [] });
-      continue;
+      return;
     }
 
-    const { items, droppedByMatch } = buildDigestWithStats(parseRss(result.value), {
+    let rssItems;
+    try {
+      rssItems = parseRss(outcome.value);
+    } catch (err) {
+      warnings.push(`Topic "${topic.slug}" failed: could not parse RSS (${errorMessage(err)})`);
+      sections.push({ topic, items: [] });
+      return;
+    }
+    fetchedTopics++;
+
+    if (rssItems.length === 0) {
+      warnings.push(`Topic "${topic.slug}": feed returned no items — check the query`);
+    }
+
+    const { items, droppedByMatch } = buildDigestWithStats(rssItems, {
       seenKeys: seen,
       hours: opts.hours,
       limit: opts.limitOverride ?? topic.limit,
       now,
       match: topic.match,
       matchMode: topic.matchMode,
-      heuristics: opts.config,
+      heuristics: config,
     });
-
     if (droppedByMatch > 0) {
       warnings.push(`Topic "${topic.slug}": ${droppedByMatch} item(s) dropped — missing required keywords`);
     }
-
-    if (items.length === 0) {
-      warnings.push(`Topic "${topic.slug}" returned 0 items — check the query syntax`);
-    }
-
-    for (const it of items) seen.add(it.key);
+    for (const item of items) seen.add(item.key);
     sections.push({ topic, items });
-  }
+  });
 
-  let translations: Map<string, string> | undefined;
-  if (opts.targetLang && opts.deeplAuthKey) {
-    const titles = [...new Set(sections.flatMap((s) => s.items.map((i) => i.title)))];
+  if (opts.targetLang && opts.translate) {
+    const all = sections.flatMap((s) => s.items);
+    const titles = [...new Set(all.map((i) => i.title))];
     if (titles.length > 0) {
       try {
-        const translated = await translateDeepL(titles, opts.deeplAuthKey, opts.targetLang);
-        translations = new Map(titles.map((t, i) => [t, translated[i]!]));
+        const translated = await opts.translate(titles, opts.targetLang);
+        if (translated.length !== titles.length) {
+          throw new Error(`expected ${titles.length} translations, got ${translated.length}`);
+        }
+        const byTitle = new Map(titles.map((t, i) => [t, translated[i]!]));
+        for (const item of all) item.translatedTitle = byTitle.get(item.title);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        warnings.push(`DeepL translation to ${opts.targetLang} failed (${msg}); using original titles.`);
+        warnings.push(`DeepL translation to ${opts.targetLang} failed (${errorMessage(err)}); using original titles.`);
       }
     }
   }
 
-  return {
-    sections,
-    output: renderTopicalDigest(sections, translations, now, localeContextFor(opts.config.locale.gl), opts.config),
-    nextSeenKeys: seen,
-    warnings,
-  };
+  return { sections, warnings, nextSeenKeys: seen, fetchedTopics };
 }
