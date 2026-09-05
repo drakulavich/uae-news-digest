@@ -76,10 +76,13 @@ describe('titleSimilarity', () => {
     expect(titleSimilarity('the auto market', 'the automobile market', custom)).toBe(1);
   });
 
-  test('titles with no words never match (empty sets are not "identical")', () => {
+  test('titles with no words match only when they are the same string', () => {
     expect(titleSimilarity('', '', dedupe)).toBe(0);
-    // Non-Latin titles reduce to empty word sets under ASCII extraction; they must not collapse into one item.
+    // Non-Latin titles reduce to empty word sets under ASCII extraction; different ones must not collapse into one item…
     expect(titleSimilarity('الإمارات تطلق قمراً', 'ارتفاع أسعار النفط', dedupe)).toBe(0);
+    // …but the same headline syndicated by two sources is still a duplicate.
+    expect(titleSimilarity('الإمارات تطلق قمراً', 'الإمارات تطلق قمراً', dedupe)).toBe(1);
+    expect(titleSimilarity('الإمارات تطلق قمراً', 'Dubai rents rise', dedupe)).toBe(0);
   });
 
   test('synonym lookup ignores inherited object properties', () => {
