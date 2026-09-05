@@ -3,7 +3,7 @@ import { emojiFor, renderDigest, renderTopicalDigest } from '../../src/render';
 import { importanceThreshold } from '../../src/importance';
 import { makeKey } from '../../src/normalize';
 import type { DigestItem } from '../../src/digest';
-import type { TopicConfig } from '../../src/topics';
+import type { Topic } from '../../src/config/schema';
 import { DEFAULT_CONFIG } from '../../src/config/load';
 
 const IMPORTANCE_THRESHOLD = importanceThreshold(DEFAULT_CONFIG.importance);
@@ -129,13 +129,14 @@ function makeItem(over: Partial<DigestItem>): DigestItem {
   };
 }
 
-function makeTopic(over: Partial<TopicConfig>): TopicConfig {
+function makeTopic(over: Partial<Topic>): Topic {
   return {
     slug: 'topic',
     name: 'Topic',
     emoji: '📌',
     query: 'q',
     limit: 5,
+    matchMode: undefined,
     locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
     ...over,
   };

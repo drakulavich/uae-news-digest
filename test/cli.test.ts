@@ -580,6 +580,7 @@ describe('topics mode', () => {
     writeFileSync(
       join(cwd, 'digest.config.json'),
       JSON.stringify({
+        locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
         topics: [
           { slug: 'a', name: 'Alpha', emoji: '🅰️', query: 'alpha' },
           { slug: 'b', name: 'Beta',  emoji: '🅱️', query: 'beta' },
@@ -670,6 +671,7 @@ describe('topics mode', () => {
     writeFileSync(
       configPath,
       JSON.stringify({
+        locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
         topics: [{ slug: 'x', name: 'Xray', emoji: '❎', query: 'xray' }],
       }),
     );

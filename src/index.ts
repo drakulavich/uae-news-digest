@@ -9,11 +9,10 @@ import {
   runDigest,
   writeSeenKeys,
 } from './lib';
-import { loadTopicsConfig, resolveTopicsConfigPath } from './topics';
 import { runTopicalDigest } from './pipeline';
-import type { TopicConfig, TopicsConfig } from './topics';
 import { BIN_NAME, TOOL_ID, VERSION } from './meta';
-import { DEFAULT_CONFIG } from './config/load';
+import { DEFAULT_CONFIG, loadConfig, resolveConfigPath } from './config/load';
+import type { DigestConfig, Topic } from './config/schema';
 
 function validatePositiveNumber(name: string, raw: string | number): number {
   const value = typeof raw === 'number' ? raw : Number(raw);
@@ -203,7 +202,7 @@ program
 // ── Topics-mode helpers ──
 
 type TopicsRunArgs = {
-  config: TopicsConfig;
+  config: DigestConfig;
   configPath: string;
   options: { region: string; rssUrl?: string; targetLang?: string; json: boolean; dryRun: boolean; stateFile: string };
   hours: number;
@@ -236,7 +235,6 @@ async function runInTopicsMode(args: TopicsRunArgs): Promise<void> {
     now,
     deeplAuthKey,
     targetLang: options.targetLang,
-    heuristics: DEFAULT_CONFIG,
   });
 
   if (!options.json) {
@@ -285,7 +283,7 @@ async function runInTopicsMode(args: TopicsRunArgs): Promise<void> {
 }
 
 function makeFetcher(timeoutMs: number) {
-  return async (topic: TopicConfig): Promise<string> => {
+  return async (topic: Topic): Promise<string> => {
     const fixture = process.env.UAE_NEWS_DIGEST_TOPIC_FIXTURE;
     if (fixture) return await readFile(fixture, 'utf-8');
 
@@ -331,16 +329,16 @@ program.action(async (options) => {
     await Bun.$`mkdir -p ${dirname(options.stateFile)}`.quiet();
     const seenKeys = await readSeenKeys(options.stateFile);
 
-    let topicsConfig: TopicsConfig | null = null;
+    let topicsConfig: DigestConfig | null = null;
     let topicsConfigPath: string | null = null;
     if (options.topics !== false) {
-      topicsConfigPath = await resolveTopicsConfigPath({
+      topicsConfigPath = await resolveConfigPath({
         explicit: options.topicsConfig,
         cwd: process.cwd(),
         env: process.env as Record<string, string | undefined>,
       });
       if (topicsConfigPath) {
-        topicsConfig = await loadTopicsConfig(topicsConfigPath);
+        topicsConfig = await loadConfig(topicsConfigPath);
       }
     }
 

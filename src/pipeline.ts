@@ -4,11 +4,10 @@ import { renderDigest, renderTopicalDigest } from './render';
 import { translateDeepL } from './translate';
 import { localeContextFor } from './region';
 import type { DigestItem, MatchMode } from './digest';
-import type { TopicConfig, TopicsConfig } from './topics';
-import type { Heuristics } from './config/schema';
+import type { DigestConfig, Heuristics, Topic } from './config/schema';
 
 export type TopicSection = {
-  topic: TopicConfig;
+  topic: Topic;
   items: DigestItem[];
 };
 
@@ -77,10 +76,10 @@ export async function runDigest(options: RunDigestOptions): Promise<RunDigestRes
   };
 }
 
-export type TopicFetcher = (topic: TopicConfig) => Promise<string>;
+export type TopicFetcher = (topic: Topic) => Promise<string>;
 
 export type RunTopicalDigestOptions = {
-  config: TopicsConfig;
+  config: DigestConfig;
   seenKeys: Set<string>;
   hours: number;
   limitOverride?: number;
@@ -88,7 +87,6 @@ export type RunTopicalDigestOptions = {
   now?: Date;
   deeplAuthKey?: string;
   targetLang?: string;
-  heuristics: Heuristics;
 };
 
 export type RunTopicalDigestResult = {
@@ -127,7 +125,7 @@ export async function runTopicalDigest(
       now,
       match: topic.match,
       matchMode: topic.matchMode,
-      heuristics: opts.heuristics,
+      heuristics: opts.config,
     });
 
     if (droppedByMatch > 0) {
@@ -160,7 +158,7 @@ export async function runTopicalDigest(
 
   return {
     sections,
-    output: renderTopicalDigest(sections, translations, now, localeContextFor(opts.config.locale.gl), opts.heuristics),
+    output: renderTopicalDigest(sections, translations, now, localeContextFor(opts.config.locale.gl), opts.config),
     nextSeenKeys: seen,
     warnings,
   };
