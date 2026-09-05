@@ -127,6 +127,16 @@ describe('runDigest — warnings and failures', () => {
     expect(result.warnings).toEqual(['Topic "a" failed: boom']);
   });
 
+  test('an HTTP 200 body that is not RSS is a failed topic, not an empty feed', async () => {
+    const cfg = config([{ slug: 'html', name: 'HTML' }]);
+    const html = '<!doctype html><html><body>Service unavailable</body></html>';
+    const result = await runDigest({ config: cfg, seenKeys: new Set(), hours: 36, now: NOW, fetchText: feeds({ html }) });
+    expect(result.fetchedTopics).toBe(0);
+    expect(result.sections[0]!.items).toHaveLength(0);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toStartWith('Topic "html" failed: could not parse RSS');
+  });
+
   test('an empty feed produces the "feed returned no items" warning', async () => {
     const cfg = config([{ slug: 'quiet', name: 'Quiet' }]);
     const result = await runDigest({ config: cfg, seenKeys: new Set(), hours: 36, now: NOW, fetchText: feeds({ quiet: rss([]) }) });

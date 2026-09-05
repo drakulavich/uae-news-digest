@@ -60,6 +60,10 @@ beforeAll(() => {
         return new Response('Internal Server Error', { status: 500 });
       }
 
+      if (url.pathname === '/rss/html') {
+        return new Response('<!doctype html><html><body>Service unavailable</body></html>', { headers: { 'content-type': 'text/html' } });
+      }
+
       if (url.pathname === '/translate' && req.method === 'POST') {
         return new Response(DEEPL_RESPONSE, { headers: { 'content-type': 'application/json' } });
       }
@@ -566,6 +570,18 @@ describe('CLI integration', () => {
     expectExitCode(result, 1);
     expect(result.stderr).toContain('RSS fetch failed');
     expect(result.requests).toEqual([{ method: 'GET', path: '/rss/error', body: null }]);
+  });
+
+  test('HTTP 200 body that is not a feed (HTML error page) exits 1 with a parse message', async () => {
+    const stateFile = tmpStateFile();
+    const result = await run([
+      '--config', feedConfig(`${baseUrl}/rss/html`),
+      '--state-file', stateFile,
+    ]);
+
+    expectExitCode(result, 1);
+    expect(result.stderr).toContain('could not parse RSS');
+    expect(result.requests).toEqual([{ method: 'GET', path: '/rss/html', body: null }]);
   });
 
   test('--json still prints the envelope when every topic fails, and exits 1', async () => {

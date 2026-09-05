@@ -11,7 +11,11 @@ export type RssItem = {
 export function parseRss(xml: string): RssItem[] {
   const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
   const parsed = parser.parse(xml) as any;
-  const rawItems = parsed?.rss?.channel?.item;
+  const channel = parsed?.rss?.channel;
+  if (channel === undefined || channel === null) {
+    throw new Error('not an RSS document — no <rss><channel> element (an HTML error page or another feed format?)');
+  }
+  const rawItems = channel.item;
   const items = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
 
   return items.map((item: any) => ({
