@@ -568,6 +568,23 @@ describe('CLI integration', () => {
     expect(result.requests).toEqual([{ method: 'GET', path: '/rss/error', body: null }]);
   });
 
+  test('--json still prints the envelope when every topic fails, and exits 1', async () => {
+    const stateFile = tmpStateFile();
+    const result = await run([
+      '--json',
+      '--config', feedConfig(`${baseUrl}/rss/error`),
+      '--state-file', stateFile,
+    ]);
+
+    expectExitCode(result, 1);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.count).toBe(0);
+    expect(parsed.items).toEqual([]);
+    expect(parsed.warnings[0]).toContain('RSS fetch failed');
+    // in JSON mode warnings live in the envelope, but the exit-1 path also echoes them
+    expect(result.stderr).toContain('RSS fetch failed');
+  });
+
   test('one failing topic is a warning, not a failure: exit 0 and the other section still renders', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'cli-partial-'));
     tempDirs.push(dir);

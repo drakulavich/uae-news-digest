@@ -118,6 +118,17 @@ describe('renderText', () => {
     expect(out.split('Missile intercepted').length - 1).toBe(1);
   });
 
+  test('signal markers never leak into regular body lines (below-threshold item with signals)', () => {
+    const c = cfg();
+    const out = renderText(result(c, {
+      // fluff: carries signals but stays under the threshold, so it renders in the body
+      economy: [item({ title: 'Dubai hotel launches AI concierge', importance: -3, tier: 'fluff', signals: ['launches'] })],
+    }), c, now);
+    expect(out).not.toContain('🚨 Important');
+    expect(out).toContain('Dubai hotel launches AI concierge');
+    expect(out).not.toContain('[launches');
+  });
+
   test('uses translatedTitle when present and the config emoji rules for the marker', () => {
     const c = cfg();
     const out = renderText(result(c, { economy: [item({ title: 'Heavy rain expected', translatedTitle: 'Ожидается сильный дождь' })] }), c, now);

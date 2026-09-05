@@ -85,6 +85,18 @@ describe('runDigest — dedupe and state', () => {
     expect(result.sections[1]!.items).toHaveLength(0);
   });
 
+  test("carries the caller's pre-existing keys forward into nextSeenKeys", async () => {
+    const cfg = config([{ slug: 'a', name: 'A' }]);
+    const result = await runDigest({
+      config: cfg, seenKeys: new Set(['preexisting']), hours: 36, now: NOW,
+      fetchText: feeds({ a: rss([{ title: 'GDP up' }, { title: 'Rents climb' }]) }),
+    });
+    expect(result.sections[0]!.items).toHaveLength(2);
+    expect(result.nextSeenKeys.has('preexisting')).toBe(true);
+    // the carried-over key plus one per selected item
+    expect(result.nextSeenKeys.size).toBe(1 + result.sections[0]!.items.length);
+  });
+
   test('respects persisted seenKeys and advances nextSeenKeys with every selected item', async () => {
     const cfg = config([{ slug: 'a', name: 'A' }]);
     const first = await runDigest({ config: cfg, seenKeys: new Set(), hours: 36, now: NOW, fetchText: feeds({ a: rss([{ title: 'GDP up' }, { title: 'Rents climb' }]) }) });
