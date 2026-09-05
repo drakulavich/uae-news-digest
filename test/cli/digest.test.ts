@@ -1,268 +1,24 @@
-import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:test';
+import { describe, expect, test, afterAll, beforeEach } from 'bun:test';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Server } from 'bun';
-import defaultConfig from '../src/config/default.json';
+import {
+  startCliHarness, tmpStateFile, feedConfig, cleanupTempDirs, expectExitCode, formatRunResult,
+  CLI, TEXT_GOLDEN, PACKAGE_JSON, TEST_NOW,
+} from '../helpers/cli';
+import defaultConfig from '../../src/config/default.json';
 
-// ── Canned responses ──────────────────────────────────────────
+const cli = startCliHarness();
+afterAll(() => { cli.stop(); cleanupTempDirs(); });
+beforeEach(() => cli.reset());
 
-const TEST_NOW = new Date('2026-03-22T08:00:00Z');
 const oneHourAgo = new Date(TEST_NOW.getTime() - 3_600_000).toUTCString();
 const twoHoursAgo = new Date(TEST_NOW.getTime() - 7_200_000).toUTCString();
-
-const RSS_XML = `<?xml version="1.0"?><rss><channel>
-  <item><title>Dubai airport reopens after rain</title><link>https://news.google.com/rss/articles/dubai-airport</link><pubDate>${oneHourAgo}</pubDate><source url="https://example.com">Reuters</source></item>
-  <item><title>Abu Dhabi market overview</title><pubDate>${twoHoursAgo}</pubDate><source url="https://example.com">Gulf News</source></item>
-</channel></rss>`;
-
-const RSS_EMPTY = `<?xml version="1.0"?><rss><channel></channel></rss>`;
-
-const DEEPL_RESPONSE = JSON.stringify({
-  translations: [
-    { detected_source_language: 'EN', text: 'Flughafen Dubai öffnet nach Regen wieder' },
-    { detected_source_language: 'EN', text: 'Marktübersicht Abu Dhabi' },
-  ],
-});
-
-// ── Test server ───────────────────────────────────────────────
-
-let server: Server<undefined>;
-let baseUrl: string;
-type CapturedRequest = {
-  method: string;
-  path: string;
-  body: unknown;
-};
-let requestHistory: CapturedRequest[] = [];
-
-beforeAll(() => {
-  server = Bun.serve({
-    port: 0,
-    async fetch(req) {
-      const url = new URL(req.url);
-      const body = req.method === 'POST' ? await req.clone().json().catch(() => null) : null;
-      requestHistory.push({ method: req.method, path: url.pathname, body });
-
-      if (url.pathname === '/rss') {
-        return new Response(RSS_XML, { headers: { 'content-type': 'application/xml' } });
-      }
-
-      if (url.pathname === '/rss/fixture') {
-        return new Response(await Bun.file(join(import.meta.dir, 'fixtures', 'sample-feed.xml')).text(), { headers: { 'content-type': 'application/xml' } });
-      }
-
-      if (url.pathname === '/rss/empty') {
-        return new Response(RSS_EMPTY, { headers: { 'content-type': 'application/xml' } });
-      }
-
-      if (url.pathname === '/rss/error') {
-        return new Response('Internal Server Error', { status: 500 });
-      }
-
-      if (url.pathname === '/rss/html') {
-        return new Response('<!doctype html><html><body>Service unavailable</body></html>', { headers: { 'content-type': 'text/html' } });
-      }
-
-      if (url.pathname === '/translate' && req.method === 'POST') {
-        return new Response(DEEPL_RESPONSE, { headers: { 'content-type': 'application/json' } });
-      }
-
-      if (url.pathname === '/translate/error' && req.method === 'POST') {
-        return new Response('DeepL unavailable', { status: 500 });
-      }
-
-      if (url.pathname === '/rss/hang') {
-        return new Promise<Response>(() => {
-          // Intentionally never resolves — the CLI's timeout must fire.
-        });
-      }
-
-      return new Response('Not Found', { status: 404 });
-    },
-  });
-  baseUrl = `http://localhost:${server.port}`;
-});
-
-afterAll(() => {
-  server.stop(true);
-});
-
-beforeEach(() => {
-  requestHistory = [];
-});
-
-// ── Helpers ───────────────────────────────────────────────────
-
-const CLI = join(import.meta.dir, '..', 'src', 'index.ts');
-const PACKAGE_JSON = join(import.meta.dir, '..', 'package.json');
-const TEXT_GOLDEN = join(import.meta.dir, 'fixtures', 'cli-default-output.txt');
-
-type CliRunResult = {
-  command: string[];
-  stdout: string;
-  stderr: string;
-  exitCode: number | 'unknown';
-  requests: CapturedRequest[];
-};
-
-const CLI_TIMEOUT_CLEANUP_MS = 1_000;
-
-function formatRunResult(result: CliRunResult): string {
-  return [
-    `command: ${result.command.join(' ')}`,
-    `exitCode: ${result.exitCode}`,
-    `stdout:\n${result.stdout}`,
-    `stderr:\n${result.stderr}`,
-    `requests:\n${formatRequests(result.requests)}`,
-  ].join('\n');
-}
-
-function formatRequests(requests: CapturedRequest[]): string {
-  if (requests.length === 0) return '(none)';
-  return requests.map((req) => {
-    const body = req.body === null ? '' : ` body=${JSON.stringify(req.body)}`;
-    return `${req.method} ${req.path}${body}`;
-  }).join('\n');
-}
-
-function expectExitCode(result: CliRunResult, expected: number): void {
-  if (result.exitCode !== expected) {
-    throw new Error(`Expected exit code ${expected}\n${formatRunResult(result)}`);
-  }
-}
-
-async function run(
-  args: string[],
-  env?: Record<string, string>,
-  options: { timeoutMs?: number } = {},
-): Promise<CliRunResult> {
-  const command = ['bun', CLI, ...args];
-  const timeoutMs = options.timeoutMs ?? 5_000;
-  // Neutralize HOME/XDG so the user's real ~/.config/uae-news-digest/topics.json
-  // can't bleed into legacy-mode CLI tests via auto-detect.
-  const proc = Bun.spawn(command, {
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: {
-      ...process.env,
-      HOME: '/nonexistent',
-      XDG_CONFIG_HOME: '/nonexistent',
-      UAE_NEWS_DIGEST_NOW: TEST_NOW.toISOString(),
-      ...env,
-    },
-  });
-
-  const stdoutPromise = new Response(proc.stdout).text();
-  const stderrPromise = new Response(proc.stderr).text();
-  let timeout: Timer | undefined;
-
-  const timedOut = new Promise<'timeout'>((resolve) => {
-    timeout = setTimeout(() => resolve('timeout'), timeoutMs);
-  });
-
-  const exitOrTimeout = await Promise.race([proc.exited, timedOut]);
-  if (timeout) clearTimeout(timeout);
-
-  if (exitOrTimeout === 'timeout') {
-    proc.kill();
-    const result = await Promise.race<CliRunResult>([
-      Promise.all([
-        stdoutPromise,
-        stderrPromise,
-        proc.exited,
-      ]).then(([stdout, stderr, exitCode]) => ({ command, stdout, stderr, exitCode, requests: [...requestHistory] })),
-      new Promise<CliRunResult>((resolve) => {
-        setTimeout(() => resolve({
-          command,
-          stdout: '<unavailable: process did not exit after kill>',
-          stderr: '<unavailable: process did not exit after kill>',
-          exitCode: 'unknown',
-          requests: [...requestHistory],
-        }), CLI_TIMEOUT_CLEANUP_MS);
-      }),
-    ]);
-    throw new Error(`CLI command timed out after ${timeoutMs}ms\n${formatRunResult(result)}`);
-  }
-
-  const [stdout, stderr] = await Promise.all([stdoutPromise, stderrPromise]);
-  return { command, stdout, stderr, exitCode: exitOrTimeout, requests: [...requestHistory] };
-}
-
-async function runFromCwd(
-  args: string[],
-  opts: { cwd: string; env?: Record<string, string> },
-  options: { timeoutMs?: number } = {},
-): Promise<CliRunResult> {
-  const command = ['bun', CLI, ...args];
-  const timeoutMs = options.timeoutMs ?? 10_000;
-  const proc = Bun.spawn(command, {
-    stdout: 'pipe',
-    stderr: 'pipe',
-    cwd: opts.cwd,
-    env: { ...process.env, ...opts.env },
-  });
-
-  const stdoutPromise = new Response(proc.stdout).text();
-  const stderrPromise = new Response(proc.stderr).text();
-  let timeout: Timer | undefined;
-
-  const timedOut = new Promise<'timeout'>((resolve) => {
-    timeout = setTimeout(() => resolve('timeout'), timeoutMs);
-  });
-
-  const exitOrTimeout = await Promise.race([proc.exited, timedOut]);
-  if (timeout) clearTimeout(timeout);
-
-  if (exitOrTimeout === 'timeout') {
-    proc.kill();
-    const result = await Promise.race<CliRunResult>([
-      Promise.all([stdoutPromise, stderrPromise, proc.exited]).then(([stdout, stderr, exitCode]) => ({
-        command,
-        stdout,
-        stderr,
-        exitCode,
-        requests: [...requestHistory],
-      })),
-      new Promise<CliRunResult>((resolve) => {
-        setTimeout(() => resolve({
-          command,
-          stdout: '<unavailable: process did not exit after kill>',
-          stderr: '<unavailable: process did not exit after kill>',
-          exitCode: 'unknown',
-          requests: [...requestHistory],
-        }), CLI_TIMEOUT_CLEANUP_MS);
-      }),
-    ]);
-    throw new Error(`CLI command timed out after ${timeoutMs}ms\n${formatRunResult(result)}`);
-  }
-
-  const [stdout, stderr] = await Promise.all([stdoutPromise, stderrPromise]);
-  return { command, stdout, stderr, exitCode: exitOrTimeout, requests: [...requestHistory] };
-}
-
-function tmpStateFile(): string {
-  return join(tmpdir(), `uae-cli-test-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
-}
 
 const tempDirs: string[] = [];
 afterAll(() => { for (const d of tempDirs) rmSync(d, { recursive: true, force: true }); });
 
-/** A config identical to the built-in UAE one, except the topic fetches `feedUrl`. Returns the `--config` path. */
-function feedConfig(feedUrl: string, topicOverrides: Record<string, unknown> = {}): string {
-  const dir = mkdtempSync(join(tmpdir(), 'cli-feed-'));
-  tempDirs.push(dir);
-  const path = join(dir, 'digest.config.json');
-  writeFileSync(path, JSON.stringify({
-    ...defaultConfig,
-    topics: [{ ...defaultConfig.topics[0], feedUrl, ...topicOverrides }],
-  }));
-  return path;
-}
-
-// ── Tests ─────────────────────────────────────────────────────
-
-describe('CLI integration', () => {
+describe('CLI digest', () => {
   test('CLI diagnostics include mock request history', () => {
     const diagnostic = formatRunResult({
       command: ['bun', CLI, '--config', '/tmp/digest.config.json'],
@@ -276,17 +32,10 @@ describe('CLI integration', () => {
     expect(diagnostic).toContain('GET /rss');
   });
 
-  test('--version prints version string and exits 0', async () => {
-    const { stdout, exitCode } = await run(['--version']);
-    const packageJson = await Bun.file(PACKAGE_JSON).json();
-    expect(exitCode).toBe(0);
-    expect(stdout.trim()).toBe(packageJson.version);
-  });
-
   test('default text output with items', async () => {
     const stateFile = tmpStateFile();
-    const { stdout, exitCode } = await run([
-      '--config', feedConfig(`${baseUrl}/rss`),
+    const { stdout, exitCode } = await cli.run([
+      '--config', feedConfig(`${cli.baseUrl}/rss`),
       '--state-file', stateFile,
       '--dry-run',
     ]);
@@ -298,9 +47,9 @@ describe('CLI integration', () => {
   test('--json produces agent-friendly envelope', async () => {
     const stateFile = tmpStateFile();
     const packageJson = await Bun.file(PACKAGE_JSON).json();
-    const { stdout, stderr, exitCode } = await run([
+    const { stdout, stderr, exitCode } = await cli.run([
       '--json',
-      '--config', feedConfig(`${baseUrl}/rss`),
+      '--config', feedConfig(`${cli.baseUrl}/rss`),
       '--state-file', stateFile,
       '--dry-run',
     ]);
@@ -348,17 +97,10 @@ describe('CLI integration', () => {
     });
   });
 
-  test('--prompt prints the filter criterion and exits 0', async () => {
-    const proc = Bun.spawn(['bun', CLI, '--prompt'], { stdout: 'pipe', stderr: 'pipe' });
-    const out = await new Response(proc.stdout).text();
-    expect(await proc.exited).toBe(0);
-    expect(out).toContain('news filter for an expat family in the UAE');
-  });
-
   test('--json enriches items with importance, signals, and tier', async () => {
     const stateFile = tmpStateFile();
-    const result = await run(
-      ['--json', '--config', feedConfig(`${baseUrl}/rss/fixture`), '--state-file', stateFile, '--dry-run'],
+    const result = await cli.run(
+      ['--json', '--config', feedConfig(`${cli.baseUrl}/rss/fixture`), '--state-file', stateFile, '--dry-run'],
       { UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z' },
     );
     expect(result.exitCode).toBe(0);
@@ -373,45 +115,10 @@ describe('CLI integration', () => {
     }
   });
 
-  test('manifest reports package version and bin name', async () => {
-    const packageJson = await Bun.file(PACKAGE_JSON).json();
-    const { stdout, exitCode } = await run(['manifest']);
-
-    expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
-    expect(parsed.id).toBe('uae-news-digest');
-    expect(parsed.version).toBe(packageJson.version);
-    expect(parsed.bin).toBe('uae-news-digest');
-  });
-
-  test('healthcheck supports deterministic RSS URL', async () => {
-    const packageJson = await Bun.file(PACKAGE_JSON).json();
-    const result = await run(['healthcheck', '--rss-url', `${baseUrl}/rss`]);
-
-    expectExitCode(result, 0);
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.ok).toBe(true);
-    expect(parsed.version).toBe(packageJson.version);
-    expect(typeof parsed.latencyMs).toBe('number');
-    expect(result.requests).toEqual([{ method: 'GET', path: '/rss', body: null }]);
-  });
-
-  test('healthcheck reports non-200 RSS URL as unhealthy', async () => {
-    const packageJson = await Bun.file(PACKAGE_JSON).json();
-    const result = await run(['healthcheck', '--rss-url', `${baseUrl}/rss/error`]);
-
-    expectExitCode(result, 1);
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.ok).toBe(false);
-    expect(parsed.version).toBe(packageJson.version);
-    expect(typeof parsed.latencyMs).toBe('number');
-    expect(result.requests).toEqual([{ method: 'GET', path: '/rss/error', body: null }]);
-  });
-
   test('--dry-run does not write state file', async () => {
     const stateFile = tmpStateFile();
-    const { stderr, exitCode } = await run([
-      '--config', feedConfig(`${baseUrl}/rss`),
+    const { stderr, exitCode } = await cli.run([
+      '--config', feedConfig(`${cli.baseUrl}/rss`),
       '--state-file', stateFile,
       '--dry-run',
     ]);
@@ -424,16 +131,16 @@ describe('CLI integration', () => {
 
   test('translation via DeepL with --target-lang', async () => {
     const stateFile = tmpStateFile();
-    const result = await run(
+    const result = await cli.run(
       [
-        '--config', feedConfig(`${baseUrl}/rss`),
+        '--config', feedConfig(`${cli.baseUrl}/rss`),
         '--state-file', stateFile,
         '--target-lang', 'DE',
         '--dry-run',
       ],
       {
         DEEPL_AUTH_KEY: 'fake-key',
-        DEEPL_API_URL: `${baseUrl}/translate`,
+        DEEPL_API_URL: `${cli.baseUrl}/translate`,
       },
     );
 
@@ -459,16 +166,16 @@ describe('CLI integration', () => {
 
   test('translation failure warns and falls back to original titles', async () => {
     const stateFile = tmpStateFile();
-    const { stdout, stderr, exitCode } = await run(
+    const { stdout, stderr, exitCode } = await cli.run(
       [
-        '--config', feedConfig(`${baseUrl}/rss`),
+        '--config', feedConfig(`${cli.baseUrl}/rss`),
         '--state-file', stateFile,
         '--target-lang', 'DE',
         '--dry-run',
       ],
       {
         DEEPL_AUTH_KEY: 'fake-key',
-        DEEPL_API_URL: `${baseUrl}/translate/error`,
+        DEEPL_API_URL: `${cli.baseUrl}/translate/error`,
       },
     );
 
@@ -479,17 +186,17 @@ describe('CLI integration', () => {
 
   test('--json includes warnings when translation falls back', async () => {
     const stateFile = tmpStateFile();
-    const { stdout, exitCode } = await run(
+    const { stdout, exitCode } = await cli.run(
       [
         '--json',
-        '--config', feedConfig(`${baseUrl}/rss`),
+        '--config', feedConfig(`${cli.baseUrl}/rss`),
         '--state-file', stateFile,
         '--target-lang', 'DE',
         '--dry-run',
       ],
       {
         DEEPL_AUTH_KEY: 'fake-key',
-        DEEPL_API_URL: `${baseUrl}/translate/error`,
+        DEEPL_API_URL: `${cli.baseUrl}/translate/error`,
       },
     );
 
@@ -500,9 +207,9 @@ describe('CLI integration', () => {
 
   test('--target-lang without DEEPL_AUTH_KEY exits with error', async () => {
     const stateFile = tmpStateFile();
-    const { stderr, exitCode } = await run(
+    const { stderr, exitCode } = await cli.run(
       [
-        '--config', feedConfig(`${baseUrl}/rss`),
+        '--config', feedConfig(`${cli.baseUrl}/rss`),
         '--state-file', stateFile,
         '--target-lang', 'DE',
       ],
@@ -515,8 +222,8 @@ describe('CLI integration', () => {
 
   test('invalid test clock exits with error', async () => {
     const stateFile = tmpStateFile();
-    const { stderr, exitCode } = await run([
-      '--config', feedConfig(`${baseUrl}/rss`),
+    const { stderr, exitCode } = await cli.run([
+      '--config', feedConfig(`${cli.baseUrl}/rss`),
       '--state-file', stateFile,
       '--dry-run',
     ], { UAE_NEWS_DIGEST_NOW: 'not-a-date' });
@@ -527,8 +234,8 @@ describe('CLI integration', () => {
 
   test('RSS timeout shows timeout message and exits 1', async () => {
     const stateFile = tmpStateFile();
-    const result = await run([
-      '--config', feedConfig(`${baseUrl}/rss/hang`),
+    const result = await cli.run([
+      '--config', feedConfig(`${cli.baseUrl}/rss/hang`),
       '--state-file', stateFile,
       '--timeout-ms', '200',
     ]);
@@ -541,8 +248,8 @@ describe('CLI integration', () => {
   test('CLI helper times out hung commands with diagnostics', async () => {
     const stateFile = tmpStateFile();
 
-    await expect(run([
-      '--config', feedConfig(`${baseUrl}/rss/hang`),
+    await expect(cli.run([
+      '--config', feedConfig(`${cli.baseUrl}/rss/hang`),
       '--state-file', stateFile,
       '--timeout-ms', '5000',
     ], undefined, { timeoutMs: 100 })).rejects.toThrow(/CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*exitCode:[\s\S]*stdout:[\s\S]*stderr:[\s\S]*requests:/);
@@ -550,7 +257,7 @@ describe('CLI integration', () => {
 
   test('RSS network failure shows network message and exits 1', async () => {
     const stateFile = tmpStateFile();
-    const { stderr, exitCode } = await run([
+    const { stderr, exitCode } = await cli.run([
       '--config', feedConfig('http://localhost:1/rss'),
       '--state-file', stateFile,
       '--timeout-ms', '2000',
@@ -562,8 +269,8 @@ describe('CLI integration', () => {
 
   test('RSS HTTP error shows message and exits 1', async () => {
     const stateFile = tmpStateFile();
-    const result = await run([
-      '--config', feedConfig(`${baseUrl}/rss/error`),
+    const result = await cli.run([
+      '--config', feedConfig(`${cli.baseUrl}/rss/error`),
       '--state-file', stateFile,
     ]);
 
@@ -574,8 +281,8 @@ describe('CLI integration', () => {
 
   test('HTTP 200 body that is not a feed (HTML error page) exits 1 with a parse message', async () => {
     const stateFile = tmpStateFile();
-    const result = await run([
-      '--config', feedConfig(`${baseUrl}/rss/html`),
+    const result = await cli.run([
+      '--config', feedConfig(`${cli.baseUrl}/rss/html`),
       '--state-file', stateFile,
     ]);
 
@@ -586,9 +293,9 @@ describe('CLI integration', () => {
 
   test('--json still prints the envelope when every topic fails, and exits 1', async () => {
     const stateFile = tmpStateFile();
-    const result = await run([
+    const result = await cli.run([
       '--json',
-      '--config', feedConfig(`${baseUrl}/rss/error`),
+      '--config', feedConfig(`${cli.baseUrl}/rss/error`),
       '--state-file', stateFile,
     ]);
 
@@ -608,13 +315,13 @@ describe('CLI integration', () => {
     writeFileSync(configPath, JSON.stringify({
       ...defaultConfig,
       topics: [
-        { ...defaultConfig.topics[0], slug: 'good', name: 'Good', emoji: '✅', feedUrl: `${baseUrl}/rss` },
-        { ...defaultConfig.topics[0], slug: 'bad', name: 'Bad', emoji: '❌', feedUrl: `${baseUrl}/rss/error` },
+        { ...defaultConfig.topics[0], slug: 'good', name: 'Good', emoji: '✅', feedUrl: `${cli.baseUrl}/rss` },
+        { ...defaultConfig.topics[0], slug: 'bad', name: 'Bad', emoji: '❌', feedUrl: `${cli.baseUrl}/rss/error` },
       ],
     }));
 
     const stateFile = tmpStateFile();
-    const { stdout, stderr, exitCode } = await run([
+    const { stdout, stderr, exitCode } = await cli.run([
       '--config', configPath,
       '--state-file', stateFile,
       '--dry-run',
@@ -628,8 +335,8 @@ describe('CLI integration', () => {
 
   test('empty RSS feed shows no-news message', async () => {
     const stateFile = tmpStateFile();
-    const { stdout, stderr, exitCode } = await run([
-      '--config', feedConfig(`${baseUrl}/rss/empty`),
+    const { stdout, stderr, exitCode } = await cli.run([
+      '--config', feedConfig(`${cli.baseUrl}/rss/empty`),
       '--state-file', stateFile,
       '--dry-run',
     ]);
@@ -641,8 +348,8 @@ describe('CLI integration', () => {
 
   test('state file is written when not dry-run', async () => {
     const stateFile = tmpStateFile();
-    const { exitCode } = await run([
-      '--config', feedConfig(`${baseUrl}/rss`),
+    const { exitCode } = await cli.run([
+      '--config', feedConfig(`${cli.baseUrl}/rss`),
       '--state-file', stateFile,
     ]);
 
@@ -658,8 +365,8 @@ describe('CLI integration', () => {
 
   test('state file is not written when zero items were produced (not dry-run)', async () => {
     const stateFile = tmpStateFile();
-    const { exitCode } = await run([
-      '--config', feedConfig(`${baseUrl}/rss/empty`),
+    const { exitCode } = await cli.run([
+      '--config', feedConfig(`${cli.baseUrl}/rss/empty`),
       '--state-file', stateFile,
     ]);
 
@@ -670,10 +377,10 @@ describe('CLI integration', () => {
 
   test('--limit caps items per topic', async () => {
     const stateFile = tmpStateFile();
-    const { stdout, exitCode } = await run([
+    const { stdout, exitCode } = await cli.run([
       '--json',
       '--limit', '1',
-      '--config', feedConfig(`${baseUrl}/rss`),
+      '--config', feedConfig(`${cli.baseUrl}/rss`),
       '--state-file', stateFile,
       '--dry-run',
     ]);
@@ -695,8 +402,8 @@ describe('config discovery', () => {
       JSON.stringify({
         locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
         topics: [
-          { slug: 'a', name: 'Alpha', emoji: '🅰️', query: 'alpha', feedUrl: `${baseUrl}/rss/fixture` },
-          { slug: 'b', name: 'Beta',  emoji: '🅱️', query: 'beta', feedUrl: `${baseUrl}/rss/fixture` },
+          { slug: 'a', name: 'Alpha', emoji: '🅰️', query: 'alpha', feedUrl: `${cli.baseUrl}/rss/fixture` },
+          { slug: 'b', name: 'Beta',  emoji: '🅱️', query: 'beta', feedUrl: `${cli.baseUrl}/rss/fixture` },
         ],
       }),
     );
@@ -707,7 +414,7 @@ describe('config discovery', () => {
     const { cwd, cleanup } = writeTopicsCwd();
     try {
       const stateFile = tmpStateFile();
-      const { stdout, exitCode } = await runFromCwd(
+      const { stdout, exitCode } = await cli.runFromCwd(
         ['--json', '--hours', '99999', '--state-file', stateFile],
         { cwd, env: { UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z' } },
       );
@@ -734,7 +441,7 @@ describe('config discovery', () => {
       configPath,
       JSON.stringify({
         locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-        topics: [{ slug: 'x', name: 'Xray', emoji: '❎', query: 'xray', feedUrl: `${baseUrl}/rss/fixture` }],
+        topics: [{ slug: 'x', name: 'Xray', emoji: '❎', query: 'xray', feedUrl: `${cli.baseUrl}/rss/fixture` }],
       }),
     );
     // The auto-detect candidate that --config must beat.
@@ -742,12 +449,12 @@ describe('config discovery', () => {
       join(cwd, 'digest.config.json'),
       JSON.stringify({
         locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-        topics: [{ slug: 'ignored', name: 'Ignored', query: 'ignored', feedUrl: `${baseUrl}/rss/fixture` }],
+        topics: [{ slug: 'ignored', name: 'Ignored', query: 'ignored', feedUrl: `${cli.baseUrl}/rss/fixture` }],
       }),
     );
     try {
       const stateFile = tmpStateFile();
-      const { stdout, exitCode } = await runFromCwd(
+      const { stdout, exitCode } = await cli.runFromCwd(
         ['--json', '--config', configPath, '--hours', '99999', '--state-file', stateFile],
         { cwd, env: { UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z' } },
       );
@@ -766,7 +473,7 @@ describe('config discovery', () => {
       join(cwd, 'digest.config.json'),
       JSON.stringify({
         locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' },
-        topics: [{ slug: 'space', name: 'Space', emoji: '🚀', query: 'satellite', feedUrl: `${baseUrl}/rss/fixture` }],
+        topics: [{ slug: 'space', name: 'Space', emoji: '🚀', query: 'satellite', feedUrl: `${cli.baseUrl}/rss/fixture` }],
         emoji: [{ emoji: '🛰️', terms: ['satellite'] }],
         importance: { threshold: 1, impact: { weight: 2, markers: ['satellite'] } },
         // The fixture carries two near-duplicate satellite headlines; disable fuzzy
@@ -776,7 +483,7 @@ describe('config discovery', () => {
     );
     try {
       const stateFile = tmpStateFile();
-      const { stdout, exitCode } = await runFromCwd(
+      const { stdout, exitCode } = await cli.runFromCwd(
         ['--hours', '99999', '--dry-run', '--state-file', stateFile],
         { cwd, env: { UAE_NEWS_DIGEST_NOW: '2026-04-15T12:00:00Z' } },
       );
