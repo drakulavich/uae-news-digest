@@ -4,7 +4,20 @@ import { loadConfig, resolveConfigPath } from '../config/load';
 import { buildFeedUrl } from '../url';
 import { BIN_NAME, DESCRIPTION, TOOL_ID, VERSION } from '../meta';
 import { CliError } from './errors';
+import { makeFetchText } from './adapters';
 import { resolveConfig, type CliEnv } from './run';
+
+type ManifestCommand = { name: string; description: string; flags: string[]; commands: ManifestCommand[] };
+
+/** Describe one Commander command and, recursively, its subcommands and their own flags. */
+function describeCommand(c: Command): ManifestCommand {
+  return {
+    name: c.name(),
+    description: c.description(),
+    flags: c.options.map((o) => o.flags),
+    commands: c.commands.map(describeCommand),
+  };
+}
 
 /** `manifest`: machine-readable tool descriptor on stdout; flags and subcommands come from the program itself. */
 export function manifest(program: Command): number {
@@ -22,7 +35,7 @@ export function manifest(program: Command): number {
         flags,
         examples: ['uae-news-digest --hours 12 --limit 10'],
       },
-      ...program.commands.map((c) => ({ name: c.name(), description: c.description() })),
+      ...program.commands.map(describeCommand),
     ],
     envVars: ['DEEPL_AUTH_KEY'],
   }, null, 2));
@@ -34,10 +47,10 @@ export async function healthcheck(opts: { rssUrl?: string; config?: string }, en
   const start = performance.now();
   try {
     const rssUrl = opts.rssUrl ?? buildFeedUrl((await resolveConfig(opts.config, env, cwd)).config.topics[0]!);
-    const res = await fetch(rssUrl, { signal: AbortSignal.timeout(10_000) });
-    const result = { ok: res.ok, version: VERSION, latencyMs: Math.round(performance.now() - start) };
+    await makeFetchText(10_000)(rssUrl);
+    const result = { ok: true, version: VERSION, latencyMs: Math.round(performance.now() - start) };
     console.log(JSON.stringify(result));
-    return result.ok ? 0 : 1;
+    return 0;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.log(JSON.stringify({ ok: false, version: VERSION, latencyMs: Math.round(performance.now() - start), error: message }));

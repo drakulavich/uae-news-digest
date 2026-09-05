@@ -32,8 +32,9 @@ export function validatePositiveNumber(name: string, raw: string | number): numb
 }
 
 export function validatePositiveInteger(name: string, raw: string | number): number {
+  const isStrictInteger = typeof raw === 'number' ? Number.isInteger(raw) : /^\d+$/.test(String(raw).trim());
   const value = typeof raw === 'number' ? raw : Number(raw);
-  if (!Number.isInteger(value) || value <= 0) {
+  if (!isStrictInteger || !Number.isInteger(value) || value <= 0) {
     throw new CliError('usage', `Invalid --${name}: ${raw} — expected a positive integer`);
   }
   return value;
@@ -61,6 +62,12 @@ export async function resolveConfig(explicit: string | undefined, env: CliEnv, c
 
 /** The default command. Returns the exit code; throws CliError for usage/config problems. */
 export async function runDefault(flags: RunFlags, env: CliEnv, cwd: string): Promise<number> {
+  const hours = validatePositiveNumber('hours', flags.hours);
+  const limitOverride = flags.limit === undefined ? undefined : validatePositiveInteger('limit', flags.limit);
+  const timeoutMs = validatePositiveNumber('timeout-ms', flags.timeoutMs);
+  const deeplAuthKey = env.DEEPL_AUTH_KEY;
+  const now = resolveNow(env.UAE_NEWS_DIGEST_NOW);
+
   if (flags.prompt) {
     const { config, source } = await resolveConfig(flags.config, env, cwd);
     if (!config.agentPrompt) {
@@ -69,12 +76,6 @@ export async function runDefault(flags: RunFlags, env: CliEnv, cwd: string): Pro
     process.stdout.write(config.agentPrompt + '\n');
     return 0;
   }
-
-  const hours = validatePositiveNumber('hours', flags.hours);
-  const limitOverride = flags.limit === undefined ? undefined : validatePositiveInteger('limit', flags.limit);
-  const timeoutMs = validatePositiveNumber('timeout-ms', flags.timeoutMs);
-  const deeplAuthKey = env.DEEPL_AUTH_KEY;
-  const now = resolveNow(env.UAE_NEWS_DIGEST_NOW);
 
   if (flags.targetLang && !deeplAuthKey) {
     throw new CliError('usage', '--target-lang requires DEEPL_AUTH_KEY — set it to your DeepL Free API key, or drop --target-lang.');

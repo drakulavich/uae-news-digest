@@ -3,6 +3,7 @@ import { DEFAULT_STATE_FILE } from '../state';
 import { DESCRIPTION, TOOL_ID, VERSION } from '../meta';
 import { runDefault, type CliEnv, type RunFlags } from './run';
 import { configPrintDefault, configValidate, healthcheck, manifest } from './commands';
+import { CliError } from './errors';
 
 const HELP = `
 WHAT IT DOES
@@ -126,6 +127,9 @@ export function buildProgram(onExit: (code: number) => void, env: CliEnv, cwd: s
     .description('Validate a config file, or the one auto-detected when no path is given')
     .action(async function (this: Command, path: string | undefined) {
       const opts = this.optsWithGlobals() as { config?: string };
+      if (path !== undefined && opts.config !== undefined && path !== opts.config) {
+        throw new CliError('usage', 'Pass the config as either a positional path or --config, not both.');
+      }
       onExit(await configValidate(path ?? opts.config, env, cwd));
     });
 
@@ -133,16 +137,29 @@ export function buildProgram(onExit: (code: number) => void, env: CliEnv, cwd: s
 }
 
 /** Parse argv and run; the only place that decides the exit code. Never throws. */
-export async function main(argv: string[], env: CliEnv = process.env, cwd: string = process.cwd()): Promise<number> {
-  let exitCode = 0;
-  const program = buildProgram((code) => { exitCode = code; }, env, cwd);
+export async function main(
+  argv: string[],
+  env: CliEnv = process.env,
+  cwd: string = process.cwd(),
+  build: typeof buildProgram = buildProgram,
+): Promise<number> {
+  let exitCode: number | undefined;
+  const program = build((code) => { exitCode = code; }, env, cwd);
   try {
     await program.parseAsync(argv);
+    if (exitCode === undefined) {
+      console.error('internal error: the command finished without reporting an exit code');
+      return 1;
+    }
     return exitCode;
   } catch (err) {
     // --help / --version (exitCode 0) and usage errors (exitCode 1, message already printed by commander)
     if (err instanceof CommanderError) return err.exitCode;
-    console.error(err instanceof Error ? err.message : String(err));
+    if (err instanceof CliError) {
+      console.error(err.message);
+    } else {
+      console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
+    }
     return 1;
   }
 }

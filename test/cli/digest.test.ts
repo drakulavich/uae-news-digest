@@ -399,6 +399,13 @@ describe('CLI digest', () => {
     expect(result.stderr).toContain('Invalid --limit: 2.5 — expected a positive integer');
     expect(result.requests).toEqual([]);
   });
+
+  test('--limit rejects non-decimal-digit numeric forms with a usage error', async () => {
+    const result = await cli.run(['--config', feedConfig(`${cli.baseUrl}/rss`), '--state-file', tmpStateFile(), '--limit', '1e3', '--dry-run']);
+    expectExitCode(result, 1);
+    expect(result.stderr).toContain('Invalid --limit: 1e3 — expected a positive integer');
+    expect(result.requests).toEqual([]);
+  });
 });
 
 describe('config discovery', () => {

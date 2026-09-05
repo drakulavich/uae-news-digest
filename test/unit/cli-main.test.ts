@@ -1,7 +1,26 @@
 import { describe, expect, test } from 'bun:test';
+import { Command } from 'commander';
 import { main } from '../../src/cli/program';
 
 const NOISE = ['bun', 'index.ts'];
+
+/** A minimal program whose default action throws, to exercise main's catch branches without the real CLI. */
+function buildThrowingProgram(_onExit: (code: number) => void, _env: Record<string, string | undefined>, _cwd: string): Command {
+  const program = new Command();
+  program.exitOverride();
+  program.action(() => {
+    throw new TypeError('boom');
+  });
+  return program;
+}
+
+/** A minimal program whose default action never calls onExit, simulating an action that forgot to report a code. */
+function buildForgetfulProgram(_onExit: (code: number) => void, _env: Record<string, string | undefined>, _cwd: string): Command {
+  const program = new Command();
+  program.exitOverride();
+  program.action(() => {});
+  return program;
+}
 
 describe('main', () => {
   test('--version and --help exit 0 through the single exit path', async () => {
@@ -23,5 +42,31 @@ describe('main', () => {
       console.error = original;
     }
     expect(lines.join('\n')).toContain('Invalid --hours: abc');
+  });
+
+  test('an unexpected (non-CliError) exception exits 1 and prints its stack', async () => {
+    const original = console.error;
+    const lines: string[] = [];
+    console.error = (...args: unknown[]) => { lines.push(args.join(' ')); };
+    try {
+      expect(await main([...NOISE], {}, '/', buildThrowingProgram)).toBe(1);
+    } finally {
+      console.error = original;
+    }
+    const output = lines.join('\n');
+    expect(output).toContain('TypeError: boom');
+    expect(output).toContain('at ');
+  });
+
+  test('an action that never reports an exit code exits 1 with an internal-error message', async () => {
+    const original = console.error;
+    const lines: string[] = [];
+    console.error = (...args: unknown[]) => { lines.push(args.join(' ')); };
+    try {
+      expect(await main([...NOISE], {}, '/', buildForgetfulProgram)).toBe(1);
+    } finally {
+      console.error = original;
+    }
+    expect(lines.join('\n')).toContain('internal error: the command finished without reporting an exit code');
   });
 });

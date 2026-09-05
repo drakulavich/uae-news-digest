@@ -9,7 +9,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - Config schema (validated with `zod`) now carries every heuristic: `skip`, `scoring` (source tiers, title boosts), `dedupe` (similarity threshold, synonyms, stop words), `importance` (markers, weights, threshold), `emoji` rules, `display`, and `agentPrompt`. A built-in UAE config (`src/config/default.json`) reproduces the previous hard-coded behaviour.
 - Programmatic API: `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, `DigestConfigSchema`, and the `DigestConfig` / `Topic` / `Heuristics` types.
-- `topics[].feedUrl`: fetch an explicit RSS URL instead of a Google News search (used by tests and the packed-package smoke; replaces `--rss-url`).
+- `topics[].feedUrl`: fetch an explicit RSS URL instead of a Google News search (used by tests and the packed-package smoke; replaces the main command's `--rss-url`; `healthcheck --rss-url` stays).
 - `config print-default` prints the built-in config as JSON; `config validate [path]` runs a file (or the auto-detected config) through the schema and prints `ok` or every issue with its JSON path (exit 1).
 - `manifest` now lists the subcommands and derives the default command's flags from the CLI definition instead of a hand-kept list.
 

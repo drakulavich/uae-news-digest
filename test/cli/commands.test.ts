@@ -3,7 +3,6 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import defaultConfig from '../../src/config/default.json';
-import { buildProgram } from '../../src/cli/program';
 import { startCliHarness, cleanupTempDirs, expectExitCode, PACKAGE_JSON, feedConfig } from '../helpers/cli';
 
 const cli = startCliHarness();
@@ -50,7 +49,17 @@ describe('CLI commands', () => {
     expect(parsed.ok).toBe(false);
     expect(parsed.version).toBe(packageJson.version);
     expect(typeof parsed.latencyMs).toBe('number');
+    expect(parsed.error).toBe('RSS fetch failed: HTTP 500 Internal Server Error');
     expect(result.requests).toEqual([{ method: 'GET', path: '/rss/error', body: null }]);
+  });
+
+  test('healthcheck reports a connection failure through the fetch adapter', async () => {
+    const result = await cli.run(['healthcheck', '--rss-url', 'http://localhost:1/rss']);
+
+    expectExitCode(result, 1);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error).toStartWith('Unable to connect to localhost:1');
   });
 
   test('--prompt prints the filter criterion and exits 0', async () => {
@@ -63,10 +72,26 @@ describe('CLI commands', () => {
     const { stdout, exitCode } = await cli.run(['manifest']);
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
-    const expectedFlags = buildProgram(() => {}, {}, '/').options.filter((o) => o.long !== '--version').map((o) => o.flags);
+    const expectedFlags = [
+      '--json',
+      '--config <path>',
+      '--state-file <path>',
+      '--hours <number>',
+      '--limit <number>',
+      '--timeout-ms <number>',
+      '--target-lang <code>',
+      '--dry-run',
+      '--prompt',
+    ];
     expect(parsed.commands[0].name).toBe('(default)');
     expect(parsed.commands[0].flags).toEqual(expectedFlags);
     expect(parsed.commands.slice(1).map((c: { name: string }) => c.name)).toEqual(['manifest', 'healthcheck', 'config']);
+
+    const healthcheck = parsed.commands.find((c: { name: string }) => c.name === 'healthcheck');
+    expect(healthcheck.flags).toEqual(['--rss-url <url>']);
+
+    const config = parsed.commands.find((c: { name: string }) => c.name === 'config');
+    expect(config.commands.map((c: { name: string }) => c.name)).toEqual(['print-default', 'validate']);
   });
 
   test('healthcheck without --rss-url probes the first topic of the resolved config', async () => {
@@ -81,6 +106,12 @@ describe('CLI commands', () => {
     const { stdout, exitCode } = await cli.run(['--prompt', '--config', config]);
     expect(exitCode).toBe(0);
     expect(stdout).toBe('Custom prompt for tests\n');
+  });
+
+  test('--prompt runs after flag validation, so a bad --hours still fails', async () => {
+    const result = await cli.run(['--prompt', '--hours', 'abc']);
+    expectExitCode(result, 1);
+    expect(result.stderr).toContain('Invalid --hours: abc');
   });
 
   test('--prompt fails cleanly when the config has no agentPrompt', async () => {
@@ -119,6 +150,13 @@ describe('CLI commands', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  test('config validate rejects a positional path plus a different --config', async () => {
+    const config = feedConfig(`${cli.baseUrl}/rss`);
+    const result = await cli.run(['config', 'validate', config, '--config', '/nope/x.json']);
+    expectExitCode(result, 1);
+    expect(result.stderr).toContain('Pass the config as either a positional path or --config, not both.');
   });
 
   test('config validate with a missing explicit path exits 1', async () => {
