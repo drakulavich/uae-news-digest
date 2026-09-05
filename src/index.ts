@@ -7,13 +7,11 @@ import { runDigest } from './pipeline';
 import { renderText } from './render';
 import { toJson } from './json';
 import { buildFeedUrl } from './url';
-import { translateDeepL } from './translate';
+import { makeFetchText, makeTranslate } from './cli/adapters';
 import { BIN_NAME, TOOL_ID, VERSION } from './meta';
 import type { DigestConfig } from './config/schema';
-import type { FetchText, Translate } from './pipeline';
 
 const DESCRIPTION = 'Daily UAE news digest from Google News RSS with optional DeepL translation';
-const USER_AGENT = 'Mozilla/5.0 (uae-news-digest)';
 
 function validatePositiveNumber(name: string, raw: string | number): number {
   const value = typeof raw === 'number' ? raw : Number(raw);
@@ -30,32 +28,6 @@ function resolveNow(raw: string | undefined): Date {
     throw new Error(`Invalid UAE_NEWS_DIGEST_NOW: ${raw}`);
   }
   return now;
-}
-
-/** fetch with a timeout and human-readable failures; one call per topic feed. */
-function makeFetchText(timeoutMs: number): FetchText {
-  return async (url) => {
-    let response: Response;
-    try {
-      response = await fetch(url, { headers: { 'user-agent': USER_AGENT }, signal: AbortSignal.timeout(timeoutMs) });
-    } catch (err) {
-      const e = err as { name?: string; code?: string; message?: string };
-      if (e.name === 'TimeoutError' || e.name === 'AbortError') {
-        throw new Error(`RSS request timed out after ${timeoutMs}ms — retry, or pass --timeout-ms 30000`);
-      }
-      const detail = e.code ?? e.message ?? String(err);
-      throw new Error(`Unable to connect to ${new URL(url).host} — check your connection (${detail})`);
-    }
-    if (!response.ok) {
-      throw new Error(`RSS fetch failed: HTTP ${response.status} ${response.statusText}`);
-    }
-    return await response.text();
-  };
-}
-
-function makeTranslate(deeplAuthKey: string | undefined): Translate | undefined {
-  if (!deeplAuthKey) return undefined;
-  return (texts, targetLang) => translateDeepL(texts, deeplAuthKey, targetLang);
 }
 
 const HELP = `
