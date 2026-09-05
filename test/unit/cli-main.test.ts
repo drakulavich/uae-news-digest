@@ -18,7 +18,7 @@ describe('main', () => {
     const lines: string[] = [];
     console.error = (...args: unknown[]) => { lines.push(args.join(' ')); };
     try {
-      expect(await main([...NOISE, '--hours', 'abc', '--config', '/nonexistent/config.json'], { HOME: '/nonexistent' }, '/')).toBe(1);
+      expect(await main([...NOISE, '--hours', 'abc'], { HOME: '/nonexistent' }, '/')).toBe(1);
     } finally {
       console.error = original;
     }

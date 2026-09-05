@@ -2,7 +2,7 @@ import { Command, CommanderError } from 'commander';
 import { DEFAULT_STATE_FILE } from '../state';
 import { DESCRIPTION, TOOL_ID, VERSION } from '../meta';
 import { runDefault, type CliEnv, type RunFlags } from './run';
-import { healthcheck, manifest } from './commands';
+import { configPrintDefault, configValidate, healthcheck, manifest } from './commands';
 
 const HELP = `
 WHAT IT DOES
@@ -49,8 +49,8 @@ STATE & DEDUP
   --dry-run is absent. Use --dry-run for any throwaway/inspection run.
 
 AGENT FILTER (key-free smart pass)
-  --prompt PRINTS a ready-made filter instruction and exits. Pipe the JSON items
-  into an LLM with that instruction as the prompt:
+  --prompt PRINTS the "agentPrompt" from the resolved config and exits. Pipe the
+  JSON items into an LLM with that instruction as the prompt:
     uae-news-digest --json --dry-run | claude "$(uae-news-digest --prompt)"
 
 ENV VARS
@@ -60,8 +60,11 @@ ENV VARS
 
 SUBCOMMANDS
   manifest                 Print a machine-readable tool descriptor as JSON.
-  healthcheck [--rss-url]  Smoke-test the feed; prints {ok,version,latencyMs};
-                           exits 0 on success, 1 on failure.
+  healthcheck [--rss-url]  Smoke-test the first topic's feed (or --rss-url); prints
+                           {ok,version,latencyMs}; exits 0 on success, 1 on failure.
+  config print-default     Print the built-in config as JSON to copy and edit.
+  config validate [path]   Validate a config file (default: the auto-detected one);
+                           prints "ok" or every issue with its JSON path.
 
 EXIT CODES
   0 success (a topic may still have failed — see warnings)
@@ -107,8 +110,23 @@ export function buildProgram(onExit: (code: number) => void, env: CliEnv, cwd: s
     .description('Run smoke test and report status')
     .option('--rss-url <url>', 'RSS URL for deterministic smoke testing')
     .action(async function (this: Command) {
-      const opts = this.optsWithGlobals() as { rssUrl?: string };
+      const opts = this.optsWithGlobals() as { rssUrl?: string; config?: string };
       onExit(await healthcheck(opts, env, cwd));
+    });
+
+  const config = program
+    .command('config')
+    .description('Print or validate the digest config');
+  config
+    .command('print-default')
+    .description('Print the built-in config as JSON (copy it to ./digest.config.json and edit)')
+    .action(() => onExit(configPrintDefault()));
+  config
+    .command('validate [path]')
+    .description('Validate a config file, or the one auto-detected when no path is given')
+    .action(async function (this: Command, path: string | undefined) {
+      const opts = this.optsWithGlobals() as { config?: string };
+      onExit(await configValidate(path ?? opts.config, env, cwd));
     });
 
   return program;

@@ -62,9 +62,11 @@ export async function resolveConfig(explicit: string | undefined, env: CliEnv, c
 /** The default command. Returns the exit code; throws CliError for usage/config problems. */
 export async function runDefault(flags: RunFlags, env: CliEnv, cwd: string): Promise<number> {
   if (flags.prompt) {
-    const prompt = DEFAULT_CONFIG.agentPrompt;
-    if (!prompt) throw new CliError('config', 'The built-in config has no agentPrompt; nothing to print.');
-    process.stdout.write(prompt + '\n');
+    const { config, source } = await resolveConfig(flags.config, env, cwd);
+    if (!config.agentPrompt) {
+      throw new CliError('config', `Config at ${source} has no "agentPrompt" — add an "agentPrompt" string to the config to use --prompt.`);
+    }
+    process.stdout.write(config.agentPrompt + '\n');
     return 0;
   }
 
