@@ -57,19 +57,29 @@ export const ScoringSchema = z.strictObject({
 
 export const DEFAULT_SIMILARITY_THRESHOLD = 0.45;
 
-export const DedupeSchema = z.strictObject({
-  similarityThreshold: z.number().min(0, 'similarityThreshold must be within 0..1').max(1, 'similarityThreshold must be within 0..1').default(DEFAULT_SIMILARITY_THRESHOLD),
-  synonyms: z.record(z.string(), z.string()).default({}),
-  stopWords: z
-    .array(
-      z
-        .string()
-        .trim()
-        .min(1, 'stopWords entries must be non-empty strings')
-        .regex(/^[^*]+$/, 'stopWords entries are exact words and may not contain "*"'),
-    )
-    .default([]),
-});
+/**
+ * A dedupe token: compared by exact equality against title words, which are
+ * lower-cased and stripped of everything but ASCII letters and digits. Anything
+ * else (spaces, punctuation, "*") could never match, so it is rejected up front;
+ * case is normalised in the transform below.
+ */
+const DedupeToken = z
+  .string()
+  .trim()
+  .min(1, 'dedupe tokens must be non-empty strings')
+  .regex(/^[A-Za-z0-9]+$/, 'dedupe tokens are single words: ASCII letters and digits only');
+
+export const DedupeSchema = z
+  .strictObject({
+    similarityThreshold: z.number().min(0, 'similarityThreshold must be within 0..1').max(1, 'similarityThreshold must be within 0..1').default(DEFAULT_SIMILARITY_THRESHOLD),
+    synonyms: z.record(DedupeToken, DedupeToken).default({}),
+    stopWords: z.array(DedupeToken).default([]),
+  })
+  .transform((d) => ({
+    ...d,
+    synonyms: Object.fromEntries(Object.entries(d.synonyms).map(([k, v]) => [k.toLowerCase(), v.toLowerCase()])),
+    stopWords: d.stopWords.map((w) => w.toLowerCase()),
+  }));
 
 const MarkerGroup = z.strictObject({ weight: Weight, markers: TermList });
 const PenaltyGroup = z.strictObject({ penalty: z.number().nonnegative('penalty must be >= 0'), markers: TermList });

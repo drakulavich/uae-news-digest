@@ -20,7 +20,8 @@ function extractWords(title: string, dedupe: DedupeConfig | undefined): string[]
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '')
     .split(/\s+/)
-    .map((w) => synonyms[w] ?? w)
+    // hasOwn: a plain object inherits keys like "constructor" that must not act as synonyms.
+    .map((w) => (Object.hasOwn(synonyms, w) ? synonyms[w]! : w))
     .filter((w) => w.length > 1 && !stop.has(w));
 }
 

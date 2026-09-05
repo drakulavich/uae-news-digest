@@ -79,4 +79,11 @@ describe('titleSimilarity', () => {
   test('empty titles return 1', () => {
     expect(titleSimilarity('', '', dedupe)).toBe(1);
   });
+
+  test('synonym lookup ignores inherited object properties', () => {
+    // "constructor" is a real word and also an inherited key of every plain object;
+    // it must survive as a token, not be replaced by Object's constructor function.
+    const custom: DedupeConfig = { similarityThreshold: 0.5, synonyms: {}, stopWords: [] };
+    expect(titleSimilarity('constructor plan', 'constructor scheme', custom)).toBeCloseTo(1 / 3);
+  });
 });

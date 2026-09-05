@@ -727,7 +727,8 @@ describe('topics mode', () => {
       expect(stdout).toContain('🚨 Important');
       expect(stdout).toContain('🛰️ UAE launches new satellite');
       expect(stdout).toContain('[satellite]');
-      expect(stdout).not.toContain('📰');
+      // If the file's emoji rules were ignored the line would fall back to the bullet.
+      expect(stdout).not.toContain('• UAE launches new satellite');
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }

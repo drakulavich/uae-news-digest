@@ -149,4 +149,16 @@ describe('parseConfig — heuristics', () => {
   test('rejects a stopWords entry containing "*"', () => {
     expect(() => parseConfig({ ...minimal, dedupe: { stopWords: ['the*'] } }, 'test')).toThrow(/stopWords\[0\]/);
   });
+
+  test('lower-cases dedupe synonyms and stop words so they match title tokens', () => {
+    const cfg = parseConfig({ ...minimal, dedupe: { synonyms: { Drone: 'UAV', Drones: 'uav' }, stopWords: ['The', 'says'] } }, 'test');
+    expect(cfg.dedupe!.synonyms).toEqual({ drone: 'uav', drones: 'uav' });
+    expect(cfg.dedupe!.stopWords).toEqual(['the', 'says']);
+  });
+
+  test('rejects dedupe tokens with spaces or punctuation (they can never match a title token)', () => {
+    expect(() => parseConfig({ ...minimal, dedupe: { synonyms: { 'air space': 'airport' } } }, 'test')).toThrow(/synonyms/);
+    expect(() => parseConfig({ ...minimal, dedupe: { synonyms: { airspace: 'air-port' } } }, 'test')).toThrow(/synonyms/);
+    expect(() => parseConfig({ ...minimal, dedupe: { stopWords: ["world's"] } }, 'test')).toThrow(/stopWords\[0\]/);
+  });
 });
