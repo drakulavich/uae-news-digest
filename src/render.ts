@@ -3,12 +3,9 @@ import type { DigestItem } from './digest';
 import type { TopicSection } from './pipeline';
 import type { LocaleContext } from './region';
 import { IMPORTANCE_THRESHOLD } from './importance';
+import type { Heuristics } from './config/schema';
 
-const DEFAULT_LOCALE_CONTEXT: LocaleContext = {
-  flag: '🇦🇪',
-  name: 'UAE',
-  timezone: 'Asia/Dubai',
-};
+export type RenderHeuristics = Pick<Heuristics, 'importance' | 'emoji'>;
 
 export function emojiFor(title: string): string {
   const t = title.toLowerCase();
@@ -33,7 +30,13 @@ function formatItemLine(item: DigestItem, translations: Map<string, string> | un
   return `${indent}${emojiFor(item.title)} ${title} (${item.source}, ${hoursAgo}h ago)${marker}`;
 }
 
-export function renderDigest(items: DigestItem[], translations?: Map<string, string>, now: Date = new Date(), region: string = 'uae'): string {
+export function renderDigest(
+  items: DigestItem[],
+  translations: Map<string, string> | undefined,
+  now: Date,
+  region: string,
+  heuristics: RenderHeuristics,
+): string {
   const preset = REGION_PRESETS[region.toLowerCase()];
   const flag = preset?.flag ?? '📰';
   const name = preset?.name ?? 'News';
@@ -60,9 +63,10 @@ export function renderDigest(items: DigestItem[], translations?: Map<string, str
 
 export function renderTopicalDigest(
   sections: TopicSection[],
-  translations?: Map<string, string>,
-  now: Date = new Date(),
-  locale: LocaleContext = DEFAULT_LOCALE_CONTEXT,
+  translations: Map<string, string> | undefined,
+  now: Date,
+  locale: LocaleContext,
+  heuristics: RenderHeuristics,
 ): string {
   const dateLabel = new Intl.DateTimeFormat('en-CA', {
     timeZone: locale.timezone,

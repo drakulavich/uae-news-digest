@@ -2,6 +2,7 @@ import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:tes
 import type { Server } from 'bun';
 import { runTopicalDigest } from '../../src/pipeline';
 import type { TopicConfig, TopicsConfig } from '../../src/topics';
+import { DEFAULT_CONFIG } from '../../src/config/load';
 
 type DeepLHandler = (req: Request) => Response | Promise<Response>;
 let deeplHandler: DeepLHandler = () => new Response('Not configured', { status: 500 });
@@ -78,6 +79,7 @@ describe('runTopicalDigest', () => {
       hours: 36,
       fetchTopicRss: async (t) => fetchByQuery.get(t.slug)!,
       now: NOW,
+      heuristics: DEFAULT_CONFIG,
     });
 
     expect(result.sections).toHaveLength(2);
@@ -107,6 +109,7 @@ describe('runTopicalDigest', () => {
       hours: 36,
       fetchTopicRss: async () => shared,
       now: NOW,
+      heuristics: DEFAULT_CONFIG,
     });
 
     const economyTitles = result.sections[0]!.items.map((i) => i.title);
@@ -131,6 +134,7 @@ describe('runTopicalDigest', () => {
       hours: 36,
       fetchTopicRss: async () => xml,
       now: NOW,
+      heuristics: DEFAULT_CONFIG,
     });
     const seenKey = seed.sections[0]!.items.find((i) => i.title === 'Old news')?.key;
     expect(seenKey).toBeDefined();
@@ -141,6 +145,7 @@ describe('runTopicalDigest', () => {
       hours: 36,
       fetchTopicRss: async () => xml,
       now: NOW,
+      heuristics: DEFAULT_CONFIG,
     });
     const titles = result.sections[0]!.items.map((i) => i.title);
     expect(titles).not.toContain('Old news');
@@ -164,6 +169,7 @@ describe('runTopicalDigest', () => {
         return rssXml([{ title: 'works', source: 'Reuters', pubDate: 'Fri, 22 May 2026 11:00:00 GMT' }]);
       },
       now: NOW,
+      heuristics: DEFAULT_CONFIG,
     });
     expect(result.sections).toHaveLength(2);
     expect(result.sections[1]!.items).toEqual([]);
@@ -181,6 +187,7 @@ describe('runTopicalDigest', () => {
       hours: 36,
       fetchTopicRss: async () => rssXml([]),
       now: NOW,
+      heuristics: DEFAULT_CONFIG,
     });
     expect(result.warnings.some((w) => w.includes('silent') && /0 items/i.test(w))).toBe(true);
   });
@@ -197,6 +204,7 @@ describe('runTopicalDigest', () => {
       fetchTopicRss: async () =>
         rssXml([{ title: 'Fresh', source: 'Reuters', pubDate: 'Fri, 22 May 2026 11:00:00 GMT' }]),
       now: NOW,
+      heuristics: DEFAULT_CONFIG,
     });
     expect(result.nextSeenKeys.has('preexisting')).toBe(true);
     for (const item of result.sections[0]!.items) {
@@ -220,6 +228,7 @@ describe('runTopicalDigest', () => {
       hours: 36,
       fetchTopicRss: async () => xml,
       now,
+      heuristics: DEFAULT_CONFIG,
     });
 
     expect(result.sections[0]!.items).toHaveLength(1);
@@ -255,6 +264,7 @@ describe('runTopicalDigest with DeepL', () => {
       now: NOW,
       deeplAuthKey: 'fake',
       targetLang: 'RU',
+      heuristics: DEFAULT_CONFIG,
     });
 
     expect(deeplRequests).toHaveLength(1);
@@ -280,6 +290,7 @@ describe('runTopicalDigest with DeepL', () => {
       now: NOW,
       deeplAuthKey: 'fake',
       targetLang: 'RU',
+      heuristics: DEFAULT_CONFIG,
     });
     expect(result.output).toContain('Story (Reuters');
     expect(result.warnings.some((w) => /DeepL/.test(w) && /RU/.test(w))).toBe(true);
@@ -306,6 +317,7 @@ describe('runTopicalDigest with DeepL', () => {
       hours: 36,
       fetchTopicRss: async (t) => (t.slug === 'realestate' ? realEstateXml : calmXml),
       now,
+      heuristics: DEFAULT_CONFIG,
     });
 
     const importantIdx = result.output.indexOf('🚨 Important');
@@ -351,6 +363,7 @@ describe('runTopicalDigest with DeepL', () => {
       now: NOW,
       deeplAuthKey: 'fake',
       targetLang: 'RU',
+      heuristics: DEFAULT_CONFIG,
     });
 
     expect(deeplRequests).toHaveLength(1);

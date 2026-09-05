@@ -5,6 +5,7 @@ import { translateDeepL } from './translate';
 import { localeContextFor } from './region';
 import type { DigestItem, MatchMode } from './digest';
 import type { TopicConfig, TopicsConfig } from './topics';
+import type { Heuristics } from './config/schema';
 
 export type TopicSection = {
   topic: TopicConfig;
@@ -22,6 +23,7 @@ export type RunDigestOptions = {
   region?: string;
   match?: string[];
   matchMode?: MatchMode;
+  heuristics: Heuristics;
 };
 
 export type RunDigestResult = {
@@ -44,6 +46,7 @@ export async function runDigest(options: RunDigestOptions): Promise<RunDigestRes
     now: options.now,
     match: options.match,
     matchMode: options.matchMode,
+    heuristics: options.heuristics,
   });
 
   let translations: Map<string, string> | undefined;
@@ -68,7 +71,7 @@ export async function runDigest(options: RunDigestOptions): Promise<RunDigestRes
 
   return {
     digest,
-    output: renderDigest(digest, translations, options.now ?? new Date(), options.region ?? 'uae'),
+    output: renderDigest(digest, translations, options.now ?? new Date(), options.region ?? 'uae', options.heuristics),
     nextSeenKeys: mergeSeenKeys(options.seenKeys, digest),
     warnings,
   };
@@ -85,6 +88,7 @@ export type RunTopicalDigestOptions = {
   now?: Date;
   deeplAuthKey?: string;
   targetLang?: string;
+  heuristics: Heuristics;
 };
 
 export type RunTopicalDigestResult = {
@@ -123,6 +127,7 @@ export async function runTopicalDigest(
       now,
       match: topic.match,
       matchMode: topic.matchMode,
+      heuristics: opts.heuristics,
     });
 
     if (droppedByMatch > 0) {
@@ -155,7 +160,7 @@ export async function runTopicalDigest(
 
   return {
     sections,
-    output: renderTopicalDigest(sections, translations, now, localeContextFor(opts.config.locale.gl)),
+    output: renderTopicalDigest(sections, translations, now, localeContextFor(opts.config.locale.gl), opts.heuristics),
     nextSeenKeys: seen,
     warnings,
   };

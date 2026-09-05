@@ -14,6 +14,7 @@ import { runTopicalDigest } from './pipeline';
 import type { TopicConfig, TopicsConfig } from './topics';
 import { BIN_NAME, TOOL_ID, VERSION } from './meta';
 import { FILTER_PROMPT } from './importance';
+import { DEFAULT_CONFIG } from './config/load';
 
 function validatePositiveNumber(name: string, raw: string | number): number {
   const value = typeof raw === 'number' ? raw : Number(raw);
@@ -236,6 +237,7 @@ async function runInTopicsMode(args: TopicsRunArgs): Promise<void> {
     now,
     deeplAuthKey,
     targetLang: options.targetLang,
+    heuristics: DEFAULT_CONFIG,
   });
 
   if (!options.json) {
@@ -385,6 +387,7 @@ program.action(async (options) => {
       now,
       match: options.match,
       matchMode: options.match ? parseMatchMode(options.matchMode) : undefined,
+      heuristics: DEFAULT_CONFIG,
     });
 
     if (!options.json) {

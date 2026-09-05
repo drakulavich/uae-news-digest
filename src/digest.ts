@@ -3,6 +3,9 @@ import { scoreItem, titleSimilarity } from './scoring';
 import { scoreImportance, type ImportanceTier } from './importance';
 import { escapeRegExp } from './terms';
 import type { RssItem } from './rss';
+import type { Heuristics, MatchMode } from './config/schema';
+
+export type { MatchMode } from './config/schema';
 
 const DEFAULT_SKIP_RE = /(opinion|daily mail|travel and tour world|tradingview|cycling|horse|football|msn|substack|influencer|hotel room|fitness journey|baskin-robbins)/i;
 const FUZZY_SIMILARITY_THRESHOLD = 0.45;
@@ -19,8 +22,6 @@ export type DigestItem = {
   matchedTerms?: string[];
   link?: string;
 };
-
-export type MatchMode = 'all' | 'any' | number;
 
 export function matchTerms(
   title: string,
@@ -48,6 +49,7 @@ export type BuildDigestOptions = {
   skipRe?: RegExp;
   match?: string[];
   matchMode?: MatchMode;
+  heuristics: Heuristics;
 };
 
 export type BuildDigestResult = { items: DigestItem[]; droppedByMatch: number };

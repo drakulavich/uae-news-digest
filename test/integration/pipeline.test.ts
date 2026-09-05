@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Server } from 'bun';
 import { runDigest } from '../../src/pipeline';
+import { DEFAULT_CONFIG } from '../../src/config/load';
 
 type DeepLHandler = (req: Request) => Response | Promise<Response>;
 type CapturedDeepLRequest = {
@@ -71,6 +72,7 @@ describe('runDigest', () => {
       now: new Date('2026-03-22T08:00:00Z'),
       deeplAuthKey: 'fake-key',
       targetLang: 'RU',
+      heuristics: DEFAULT_CONFIG,
     });
 
     expect(result.output).toContain('Аэропорт Дубая возобновил работу после дождя');
@@ -104,6 +106,7 @@ describe('runDigest', () => {
       now: new Date('2026-03-22T08:00:00Z'),
       deeplAuthKey: 'fake-key',
       targetLang: 'RU',
+      heuristics: DEFAULT_CONFIG,
     });
 
     expect(result.output).toContain('🇦🇪 UAE Latest News Digest');
@@ -121,6 +124,7 @@ describe('runDigest', () => {
       limit: 6,
       now: new Date('2026-03-22T08:00:00Z'),
       deeplAuthKey: 'fake-key',
+      heuristics: DEFAULT_CONFIG,
     });
 
     // Output should be in English (DeepL not called without targetLang)
@@ -135,6 +139,7 @@ describe('runDigest', () => {
       hours: 36,
       limit: 6,
       now: new Date('2026-03-22T08:00:00Z'),
+      heuristics: DEFAULT_CONFIG,
     });
 
     expect(result.output).toContain('🇦🇪 UAE Latest News Digest');
@@ -157,6 +162,7 @@ describe('runDigest end-to-end fixture', () => {
       limit: 5,
       now: new Date('2026-04-15T12:00:00Z'),
       region: 'uae',
+      heuristics: DEFAULT_CONFIG,
     });
 
     // Contract: the output is a non-empty rendered digest
