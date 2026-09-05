@@ -445,7 +445,7 @@ describe('CLI integration', () => {
     );
 
     expect(exitCode).toBe(0);
-    expect(stderr).toContain('DeepL translation to DE failed; using original titles.');
+    expect(stderr).toContain('DeepL translation to DE failed (DeepL returned HTTP 500 Internal Server Error); using original titles.');
     expect(stdout).toContain('Dubai airport reopens after rain');
   });
 
@@ -467,7 +467,7 @@ describe('CLI integration', () => {
 
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
-    expect(parsed.warnings).toEqual(['DeepL translation to DE failed; using original titles.']);
+    expect(parsed.warnings).toEqual(['DeepL translation to DE failed (DeepL returned HTTP 500 Internal Server Error); using original titles.']);
   });
 
   test('--target-lang without DEEPL_AUTH_KEY exits with error', async () => {

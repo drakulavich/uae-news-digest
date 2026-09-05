@@ -113,7 +113,7 @@ describe('runDigest', () => {
     expect(result.output).toContain('Dubai airport reopens after rain');
     expect(result.output).toContain('Reuters, 1h ago');
     expect(result.digest).toHaveLength(2);
-    expect(result.warnings).toEqual(['DeepL translation to RU failed; using original titles.']);
+    expect(result.warnings).toEqual(['DeepL translation to RU failed (DeepL returned HTTP 500 Internal Server Error); using original titles.']);
   });
 
   test('skips DeepL when no targetLang', async () => {

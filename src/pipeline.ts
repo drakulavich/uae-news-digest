@@ -57,14 +57,12 @@ export async function runDigest(options: RunDigestOptions): Promise<RunDigestRes
 
   if (options.targetLang && options.deeplAuthKey && digest.length > 0) {
     const titles = digest.map((d) => d.title);
-    const translated = await translateDeepL(titles, options.deeplAuthKey, options.targetLang);
-    if (translated) {
-      translations = new Map();
-      for (let i = 0; i < titles.length; i++) {
-        translations.set(titles[i]!, translated[i]!);
-      }
-    } else {
-      warnings.push(`DeepL translation to ${options.targetLang} failed; using original titles.`);
+    try {
+      const translated = await translateDeepL(titles, options.deeplAuthKey, options.targetLang);
+      translations = new Map(titles.map((t, i) => [t, translated[i]!]));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      warnings.push(`DeepL translation to ${options.targetLang} failed (${msg}); using original titles.`);
     }
   }
 
@@ -144,14 +142,12 @@ export async function runTopicalDigest(
   if (opts.targetLang && opts.deeplAuthKey) {
     const titles = [...new Set(sections.flatMap((s) => s.items.map((i) => i.title)))];
     if (titles.length > 0) {
-      const translated = await translateDeepL(titles, opts.deeplAuthKey, opts.targetLang);
-      if (translated) {
-        translations = new Map();
-        for (let i = 0; i < titles.length; i++) {
-          translations.set(titles[i]!, translated[i]!);
-        }
-      } else {
-        warnings.push(`DeepL translation to ${opts.targetLang} failed; using original titles.`);
+      try {
+        const translated = await translateDeepL(titles, opts.deeplAuthKey, opts.targetLang);
+        translations = new Map(titles.map((t, i) => [t, translated[i]!]));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        warnings.push(`DeepL translation to ${opts.targetLang} failed (${msg}); using original titles.`);
       }
     }
   }
