@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { emojiFor, renderDigest, renderTopicalDigest } from '../../src/render';
-import { IMPORTANCE_THRESHOLD } from '../../src/importance';
+import { importanceThreshold } from '../../src/importance';
 import { makeKey } from '../../src/normalize';
 import type { DigestItem } from '../../src/digest';
 import type { TopicConfig } from '../../src/topics';
 import { DEFAULT_CONFIG } from '../../src/config/load';
+
+const IMPORTANCE_THRESHOLD = importanceThreshold(DEFAULT_CONFIG.importance);
 
 describe('emojiFor', () => {
   test('weather/rain', () => {

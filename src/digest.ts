@@ -86,7 +86,7 @@ export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptio
       matchedTerms = m.matchedTerms;
     }
 
-    const imp = scoreImportance(title);
+    const imp = scoreImportance(title, heuristics.importance);
     const digestItem: DigestItem = {
       score: scoreItem(title, source, heuristics.scoring),
       importance: imp.importance,

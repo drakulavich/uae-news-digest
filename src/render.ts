@@ -2,7 +2,7 @@ import { REGION_PRESETS } from './region';
 import type { DigestItem } from './digest';
 import type { TopicSection } from './pipeline';
 import type { LocaleContext } from './region';
-import { IMPORTANCE_THRESHOLD } from './importance';
+import { importanceThreshold } from './importance';
 import type { Heuristics } from './config/schema';
 
 export type RenderHeuristics = Pick<Heuristics, 'importance' | 'emoji'>;
@@ -40,12 +40,13 @@ export function renderDigest(
   const preset = REGION_PRESETS[region.toLowerCase()];
   const flag = preset?.flag ?? '📰';
   const name = preset?.name ?? 'News';
+  const threshold = importanceThreshold(heuristics.importance);
 
   if (items.length === 0) {
     return `${flag} ${name} Latest News Digest\n\n• No significant news in the check window.`;
   }
 
-  const important = items.filter((i) => i.importance >= IMPORTANCE_THRESHOLD);
+  const important = items.filter((i) => i.importance >= threshold);
   const importantKeys = new Set(important.map((i) => i.key));
 
   const lines = [`${flag} ${name} Latest News Digest`, ''];
@@ -75,9 +76,10 @@ export function renderTopicalDigest(
     day: '2-digit',
   }).format(now);
   const lines: string[] = [`${locale.flag} ${locale.name} digest — ${dateLabel}`, ''];
+  const threshold = importanceThreshold(heuristics.importance);
 
   const important = sections.flatMap((s) =>
-    s.items.filter((i) => i.importance >= IMPORTANCE_THRESHOLD).map((item) => ({ item, topic: s.topic })),
+    s.items.filter((i) => i.importance >= threshold).map((item) => ({ item, topic: s.topic })),
   );
   const importantKeys = new Set(important.map((e) => e.item.key));
 

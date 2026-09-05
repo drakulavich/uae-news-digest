@@ -11,7 +11,7 @@ export { runDigest, mergeSeenKeys, runTopicalDigest } from './pipeline';
 export type { RunDigestOptions, RunDigestResult, RunTopicalDigestOptions, RunTopicalDigestResult, TopicFetcher, TopicSection } from './pipeline';
 export { renderDigest, emojiFor, renderTopicalDigest } from './render';
 export { scoreItem, titleSimilarity } from './scoring';
-export { scoreImportance, IMPORTANCE_THRESHOLD, FILTER_PROMPT } from './importance';
+export { scoreImportance, importanceThreshold } from './importance';
 export type { ImportanceTier, ImportanceResult } from './importance';
 export { normalizeTitle, normalizeSource, makeKey } from './normalize';
 export { loadTopicsConfig, resolveTopicsConfigPath } from './topics';

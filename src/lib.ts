@@ -5,7 +5,7 @@ export { normalizeWhitespace, normalizeTitle, normalizeSource, makeKey } from '.
 export { parseRss } from './rss';
 export type { RssItem } from './rss';
 export { scoreItem, titleSimilarity } from './scoring';
-export { scoreImportance, IMPORTANCE_THRESHOLD, FILTER_PROMPT } from './importance';
+export { scoreImportance, importanceThreshold } from './importance';
 export type { ImportanceTier, ImportanceResult } from './importance';
 export { escapeRegExp } from './terms';
 export { buildDigest, buildDigestWithStats, matchTerms, parsePubDate } from './digest';

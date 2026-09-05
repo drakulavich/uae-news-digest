@@ -13,7 +13,6 @@ import { loadTopicsConfig, resolveTopicsConfigPath } from './topics';
 import { runTopicalDigest } from './pipeline';
 import type { TopicConfig, TopicsConfig } from './topics';
 import { BIN_NAME, TOOL_ID, VERSION } from './meta';
-import { FILTER_PROMPT } from './importance';
 import { DEFAULT_CONFIG } from './config/load';
 
 function validatePositiveNumber(name: string, raw: string | number): number {
@@ -312,7 +311,9 @@ function makeFetcher(timeoutMs: number) {
 program.action(async (options) => {
   try {
     if (options.prompt) {
-      process.stdout.write(FILTER_PROMPT + '\n');
+      const prompt = DEFAULT_CONFIG.agentPrompt;
+      if (!prompt) throw new Error('The built-in config has no agentPrompt; nothing to print.');
+      process.stdout.write(prompt + '\n');
       return;
     }
 
