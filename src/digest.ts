@@ -61,7 +61,7 @@ export function parsePubDate(pubDate: string | undefined): Date | null {
 }
 
 export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptions): BuildDigestResult {
-  const { seenKeys, hours, limit, now = new Date(), skipRe = DEFAULT_SKIP_RE, match, matchMode = 'all' } = options;
+  const { seenKeys, hours, limit, now = new Date(), skipRe = DEFAULT_SKIP_RE, match, matchMode = 'all', heuristics } = options;
   const cutoff = new Date(now.getTime() - hours * 60 * 60 * 1000);
   const unique = new Map<string, DigestItem>();
   let droppedByMatch = 0;
@@ -88,7 +88,7 @@ export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptio
 
     const imp = scoreImportance(title);
     const digestItem: DigestItem = {
-      score: scoreItem(title, source),
+      score: scoreItem(title, source, heuristics.scoring),
       importance: imp.importance,
       signals: imp.signals,
       tier: imp.tier,
@@ -109,7 +109,7 @@ export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptio
 
     let fuzzyDup = false;
     for (const [existingKey, existingItem] of unique) {
-      if (titleSimilarity(title, existingItem.title) >= FUZZY_SIMILARITY_THRESHOLD) {
+      if (titleSimilarity(title, existingItem.title, heuristics.dedupe) >= FUZZY_SIMILARITY_THRESHOLD) {
         if (digestItem.score > existingItem.score || (digestItem.score === existingItem.score && digestItem.publishedAt > existingItem.publishedAt)) {
           unique.delete(existingKey);
           unique.set(key, digestItem);
