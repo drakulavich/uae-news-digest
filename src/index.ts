@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 import { Command } from 'commander';
-import { dirname } from 'node:path';
 import { DEFAULT_STATE_FILE, readSeenKeys, writeSeenKeys } from './state';
 import { DEFAULT_CONFIG, loadConfig, resolveConfigPath } from './config/load';
 import { runDigest } from './pipeline';
@@ -8,15 +7,21 @@ import { renderText } from './render';
 import { toJson } from './json';
 import { buildFeedUrl } from './url';
 import { makeFetchText, makeTranslate } from './cli/adapters';
-import { BIN_NAME, TOOL_ID, VERSION } from './meta';
+import { BIN_NAME, DESCRIPTION, TOOL_ID, VERSION } from './meta';
 import type { DigestConfig } from './config/schema';
-
-const DESCRIPTION = 'Daily UAE news digest from Google News RSS with optional DeepL translation';
 
 function validatePositiveNumber(name: string, raw: string | number): number {
   const value = typeof raw === 'number' ? raw : Number(raw);
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`Invalid --${name}: ${raw}`);
+  }
+  return value;
+}
+
+function validatePositiveInteger(name: string, raw: string | number): number {
+  const value = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid --${name}: ${raw} — expected a positive integer`);
   }
   return value;
 }
@@ -181,7 +186,7 @@ program.action(async (options) => {
     }
 
     const hours = validatePositiveNumber('hours', options.hours);
-    const limitOverride = options.limit === undefined ? undefined : validatePositiveNumber('limit', options.limit);
+    const limitOverride = options.limit === undefined ? undefined : validatePositiveInteger('limit', options.limit);
     const timeoutMs = validatePositiveNumber('timeout-ms', options.timeoutMs);
     const deeplAuthKey = process.env.DEEPL_AUTH_KEY;
     const now = resolveNow(process.env.UAE_NEWS_DIGEST_NOW);
@@ -199,7 +204,6 @@ program.action(async (options) => {
     });
     const config: DigestConfig = configPath ? await loadConfig(configPath) : DEFAULT_CONFIG;
 
-    await Bun.$`mkdir -p ${dirname(options.stateFile)}`.quiet();
     const seenKeys = await readSeenKeys(options.stateFile);
 
     if (options.targetLang && deeplAuthKey) {

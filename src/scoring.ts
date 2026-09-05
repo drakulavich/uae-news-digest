@@ -29,7 +29,6 @@ function extractWords(title: string, dedupe: DedupeConfig | undefined): string[]
 export function titleSimilarity(a: string, b: string, dedupe: DedupeConfig | undefined): number {
   const wa = new Set(extractWords(a, dedupe));
   const wb = new Set(extractWords(b, dedupe));
-  if (wa.size === 0 && wb.size === 0) return 1;
   if (wa.size === 0 || wb.size === 0) return 0;
   let intersection = 0;
   for (const w of wa) if (wb.has(w)) intersection++;

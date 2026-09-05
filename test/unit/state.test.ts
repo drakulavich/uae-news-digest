@@ -1,4 +1,5 @@
 import { describe, expect, test, afterAll } from 'bun:test';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -38,5 +39,13 @@ describe('readSeenKeys / writeSeenKeys', () => {
     const files = await readdir(dirname(testFile));
     const tempPrefix = `.${basename(testFile)}.`;
     expect(files.filter((file) => file.startsWith(tempPrefix) && file.endsWith('.tmp'))).toEqual([]);
+  });
+
+  test('writeSeenKeys creates missing parent directories', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'state-nested-'));
+    const file = join(dir, 'a', 'b', 'seen.txt');
+    await writeSeenKeys(file, new Set(['k1', 'k2']));
+    expect(await readSeenKeys(file)).toEqual(new Set(['k1', 'k2']));
+    rmSync(dir, { recursive: true, force: true });
   });
 });

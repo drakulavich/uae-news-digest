@@ -392,6 +392,13 @@ describe('CLI digest', () => {
     expect(parsed.items).toHaveLength(1);
     expect(parsed.topics).toEqual([{ slug: 'uae', name: 'UAE', count: 1 }]);
   });
+
+  test('--limit rejects non-integers with a usage error', async () => {
+    const result = await cli.run(['--config', feedConfig(`${cli.baseUrl}/rss`), '--state-file', tmpStateFile(), '--limit', '2.5', '--dry-run']);
+    expectExitCode(result, 1);
+    expect(result.stderr).toContain('Invalid --limit: 2.5 — expected a positive integer');
+    expect(result.requests).toEqual([]);
+  });
 });
 
 describe('config discovery', () => {

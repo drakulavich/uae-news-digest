@@ -76,8 +76,10 @@ describe('titleSimilarity', () => {
     expect(titleSimilarity('the auto market', 'the automobile market', custom)).toBe(1);
   });
 
-  test('empty titles return 1', () => {
-    expect(titleSimilarity('', '', dedupe)).toBe(1);
+  test('titles with no words never match (empty sets are not "identical")', () => {
+    expect(titleSimilarity('', '', dedupe)).toBe(0);
+    // Non-Latin titles reduce to empty word sets under ASCII extraction; they must not collapse into one item.
+    expect(titleSimilarity('الإمارات تطلق قمراً', 'ارتفاع أسعار النفط', dedupe)).toBe(0);
   });
 
   test('synonym lookup ignores inherited object properties', () => {
