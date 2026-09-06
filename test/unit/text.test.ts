@@ -1,46 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { emojiFor, renderText } from '../../src/render';
+import { renderText } from '../../src/output/text';
 import type { DigestItem } from '../../src/pipeline/select';
 import { DEFAULT_CONFIG } from '../../src/config/load';
 import type { DigestResult } from '../../src/pipeline/run';
 import type { DigestConfig } from '../../src/config/schema';
 import { parseConfig } from '../../src/config/schema';
-
-describe('emojiFor with the default rules', () => {
-  const rules = DEFAULT_CONFIG.emoji;
-  test.each([
-    ['Heavy rain expected', '🌧️'],
-    ['Unstable weather conditions', '🌧️'],
-    ['Property prices surge', '📉'],
-    ['Dubai market overview', '📉'],
-    ['Airport reopens after delays', '✈️'],
-    ['Airspace closed for safety', '✈️'],
-    ['Missile intercepted', '🛡️'],
-    ['Drone attack reported', '🛡️'],
-    ['Hormuz strait tensions', '⛴️'],
-    ['Hezbollah funding traced', '🚨'],
-    ['Terrorism charges filed', '🚨'],
-    ['Schools reopen after break', '🎓'],
-    ['Oil prices drop sharply', '🛢️'],
-    ['Something completely unrelated', '•'],
-  ])('%s → %s', (title, emoji) => {
-    expect(emojiFor(title, rules)).toBe(emoji);
-  });
-
-  test('first matching rule wins', () => {
-    // "rain" (rule 1) beats "airport" (rule 3)
-    expect(emojiFor('Dubai airport reopens after rain', rules)).toBe('🌧️');
-  });
-});
-
-describe('emojiFor with custom or absent rules', () => {
-  test('Unicode terms work', () => {
-    expect(emojiFor('нестабильная погода обрушивается', [{ emoji: '🌧️', terms: ['погода'] }])).toBe('🌧️');
-  });
-  test('returns the bullet when no rules are configured', () => {
-    expect(emojiFor('Heavy rain expected', undefined)).toBe('•');
-  });
-});
 
 const LOCALE = { hl: 'en', gl: 'AE', ceid: 'AE:en' };
 

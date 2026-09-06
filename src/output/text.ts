@@ -1,15 +1,9 @@
-import type { DigestItem } from './pipeline/select';
-import type { DigestResult } from './pipeline/run';
-import { importanceThreshold } from './pipeline/importance';
-import { matchesTerm } from './pipeline/terms';
-import type { EmojiRule, DigestConfig } from './config/schema';
-import { hoursAgo } from './json';
-
-/** First rule whose term appears in the title wins; no rules or no match → "•". */
-export function emojiFor(title: string, rules: readonly EmojiRule[] | undefined): string {
-  const rule = rules?.find((r) => r.terms.some((t) => matchesTerm(title, t)));
-  return rule?.emoji ?? '•';
-}
+import type { DigestItem } from '../pipeline/select';
+import type { DigestResult } from '../pipeline/run';
+import { importanceThreshold } from '../pipeline/importance';
+import type { EmojiRule, DigestConfig } from '../config/schema';
+import { emojiFor } from './emoji';
+import { hoursAgo } from './time';
 
 function itemLine(item: DigestItem, now: Date, showSignals: boolean, emoji: readonly EmojiRule[] | undefined): string {
   const title = item.translatedTitle ?? item.title;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { hoursAgo, toJson } from '../../src/json';
+import { toJson } from '../../src/output/json';
 import { parseConfig } from '../../src/config/schema';
 import type { DigestItem } from '../../src/pipeline/select';
 import type { DigestResult } from '../../src/pipeline/run';
@@ -31,13 +31,6 @@ const result: DigestResult = {
   nextSeenKeys: new Set(['k1', 'k2']),
   fetchedTopics: 2,
 };
-
-describe('hoursAgo', () => {
-  test('rounds to the nearest hour', () => {
-    expect(hoursAgo(new Date('2026-05-22T09:31:00Z'), now)).toBe(0);
-    expect(hoursAgo(new Date('2026-05-22T09:29:00Z'), now)).toBe(1);
-  });
-});
 
 describe('toJson', () => {
   test('builds the envelope with topics, counts, and nulls for absent values', () => {
