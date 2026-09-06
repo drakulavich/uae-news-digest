@@ -5,7 +5,7 @@ import { buildFeedUrl } from '../pipeline/url';
 import { BIN_NAME, DESCRIPTION, TOOL_ID, VERSION } from '../meta';
 import { CliError } from './errors';
 import { makeFetchText } from './adapters';
-import { resolveConfig, type CliEnv } from './run';
+import { resolveConfig, type CliEnv } from './config';
 
 type ManifestCommand = { name: string; description: string; flags: string[]; commands: ManifestCommand[] };
 

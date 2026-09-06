@@ -1,14 +1,11 @@
 import { readSeenKeys, writeSeenKeys } from '../state';
-import { DEFAULT_CONFIG, loadConfig, resolveConfigPath } from '../config/load';
-import type { DigestConfig } from '../config/schema';
 import { runDigest } from '../pipeline/run';
 import { renderText } from '../output/text';
 import { toJson } from '../output/json';
 import { TOOL_ID, VERSION } from '../meta';
 import { makeFetchText, makeTranslate } from './adapters';
 import { CliError } from './errors';
-
-export type CliEnv = Record<string, string | undefined>;
+import { resolveConfig, type CliEnv } from './config';
 
 /** Commander's option object for the default command (camelCased flag names). */
 export type RunFlags = {
@@ -47,17 +44,6 @@ export function resolveNow(raw: string | undefined): Date {
     throw new CliError('usage', `Invalid UAE_NEWS_DIGEST_NOW: ${raw}`);
   }
   return now;
-}
-
-/** The config to run with, plus a label for messages: the file path, or "built-in default config". */
-export async function resolveConfig(explicit: string | undefined, env: CliEnv, cwd: string): Promise<{ config: DigestConfig; source: string }> {
-  try {
-    const path = await resolveConfigPath({ explicit, cwd, env });
-    if (!path) return { config: DEFAULT_CONFIG, source: 'built-in default config' };
-    return { config: await loadConfig(path), source: path };
-  } catch (err) {
-    throw new CliError('config', err instanceof Error ? err.message : String(err));
-  }
 }
 
 /** The default command. Returns the exit code; throws CliError for usage/config problems. */

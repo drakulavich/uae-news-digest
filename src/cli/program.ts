@@ -1,7 +1,8 @@
 import { Command, CommanderError } from 'commander';
 import { DEFAULT_STATE_FILE } from '../state';
 import { DESCRIPTION, TOOL_ID, VERSION } from '../meta';
-import { runDefault, type CliEnv, type RunFlags } from './run';
+import { runDefault, type RunFlags } from './run';
+import { type CliEnv } from './config';
 import { configPrintDefault, configValidate, healthcheck, manifest } from './commands';
 import { CliError } from './errors';
 
