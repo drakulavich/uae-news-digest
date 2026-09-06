@@ -1,5 +1,4 @@
-// src/url.ts
-import type { Topic } from './config/schema';
+import type { Topic } from '../config/schema';
 
 const GOOGLE_NEWS_RSS_SEARCH = 'https://news.google.com/rss/search';
 

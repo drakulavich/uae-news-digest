@@ -1,12 +1,13 @@
 import { normalizeTitle, normalizeSource, makeKey } from './normalize';
-import { scoreItem, titleSimilarity } from './scoring';
+import { scoreItem } from './scoring';
+import { titleSimilarity } from './similarity';
 import { scoreImportance, type ImportanceTier } from './importance';
 import { matchesTerm } from './terms';
 import type { RssItem } from './rss';
-import { DEFAULT_SIMILARITY_THRESHOLD } from './config/schema';
-import type { Heuristics, MatchMode } from './config/schema';
+import { DEFAULT_SIMILARITY_THRESHOLD } from '../config/schema';
+import type { Heuristics, MatchMode, Topic } from '../config/schema';
 
-export type { MatchMode } from './config/schema';
+export type { MatchMode } from '../config/schema';
 
 export type DigestItem = {
   score: number;
@@ -35,17 +36,16 @@ export function matchTerms(
   return { ok: matchedTerms.length >= need, matchedTerms };
 }
 
-export type BuildDigestOptions = {
+export type SelectContext = {
   seenKeys: Set<string>;
   hours: number;
-  limit: number;
-  now?: Date;
-  match?: string[];
-  matchMode?: MatchMode;
+  now: Date;
   heuristics: Heuristics;
+  /** CLI --limit: when given, caps this topic instead of its own `limit`. */
+  limitOverride?: number;
 };
 
-export type BuildDigestResult = { items: DigestItem[]; droppedByMatch: number };
+export type SelectResult = { items: DigestItem[]; droppedByMatch: number };
 
 export function parsePubDate(pubDate: string | undefined): Date | null {
   if (!pubDate) return null;
@@ -53,15 +53,29 @@ export function parsePubDate(pubDate: string | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptions): BuildDigestResult {
-  const { seenKeys, hours, limit, now = new Date(), match, matchMode = 'all', heuristics } = options;
+/**
+ * One topic's selection: window, skip list, match filter, scoring, exact + fuzzy dedupe, limit.
+ * `topic` supplies match/matchMode/limit; `ctx` supplies the run-wide state and heuristics.
+ */
+export function selectItems(
+  rssItems: RssItem[],
+  // `match`/`matchMode` as Partial: Topic's `matchMode` is a required key typed `MatchMode | undefined`
+  // (the config transform always sets it, even to undefined), so a bare `Pick` would force callers to
+  // pass `matchMode: undefined` explicitly even when omitting `match` entirely.
+  topic: Pick<Topic, 'limit'> & Partial<Pick<Topic, 'match' | 'matchMode'>>,
+  ctx: SelectContext,
+): SelectResult {
+  const { seenKeys, hours, now, heuristics } = ctx;
+  const limit = ctx.limitOverride ?? topic.limit;
+  const match = topic.match;
+  const matchMode = topic.matchMode ?? 'all';
   const skip = heuristics.skip ?? [];
   const similarityThreshold = heuristics.dedupe?.similarityThreshold ?? DEFAULT_SIMILARITY_THRESHOLD;
   const cutoff = new Date(now.getTime() - hours * 60 * 60 * 1000);
   const unique = new Map<string, DigestItem>();
   let droppedByMatch = 0;
 
-  for (const item of items) {
+  for (const item of rssItems) {
     const title = normalizeTitle(item.title);
     const source = normalizeSource(item.source);
     if (!title) continue;
@@ -123,8 +137,4 @@ export function buildDigestWithStats(items: RssItem[], options: BuildDigestOptio
     .sort((a, b) => b.score - a.score || b.publishedAt.getTime() - a.publishedAt.getTime() || a.title.localeCompare(b.title))
     .slice(0, limit);
   return { items: result, droppedByMatch };
-}
-
-export function buildDigest(items: RssItem[], options: BuildDigestOptions): DigestItem[] {
-  return buildDigestWithStats(items, options).items;
 }

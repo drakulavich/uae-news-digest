@@ -10,10 +10,11 @@ const server = Bun.serve({
     seenUserAgent = req.headers.get('user-agent');
     if (path === '/ok') return new Response('<rss/>');
     if (path === '/error') return new Response('nope', { status: 503, statusText: 'Service Unavailable' });
-    return new Promise<Response>(() => { /* hang */ });
+    // "Hang" long enough for the 50 ms timeout test, but resolve eventually so server.stop() never waits on a dangling request (flaky on macOS CI otherwise).
+    return Bun.sleep(1_000).then(() => new Response('late'));
   },
 });
-afterAll(() => server.stop(true));
+afterAll(async () => { await server.stop(true); });
 const base = `http://localhost:${server.port}`;
 
 async function rejection(p: Promise<unknown>): Promise<CliError> {

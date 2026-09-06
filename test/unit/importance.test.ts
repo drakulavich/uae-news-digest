@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { importanceThreshold, scoreImportance } from '../../src/importance';
+import { importanceThreshold, scoreImportance } from '../../src/pipeline/importance';
 import { DEFAULT_CONFIG } from '../../src/config/load';
 import type { ImportanceConfig } from '../../src/config/schema';
 

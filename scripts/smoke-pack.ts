@@ -140,14 +140,11 @@ async function main(): Promise<void> {
 
     const coreSmoke = join(consumerDir, 'core-smoke.ts');
     await Bun.write(coreSmoke, `
-import { buildFeedUrl, runDigest, renderText, DEFAULT_CONFIG } from '@drakulavich/uae-news-digest/core';
-
-if (!buildFeedUrl(DEFAULT_CONFIG.topics[0]).startsWith('https://news.google.com/rss/search')) {
-  throw new Error('buildFeedUrl did not return a Google News RSS URL');
-}
+import { runDigest, renderText, DEFAULT_CONFIG } from '@drakulavich/uae-news-digest/core';
 
 const xml = ${JSON.stringify(RSS_XML)};
 const now = new Date('2026-03-22T08:00:00Z');
+let requestedUrl = '';
 
 const result = await runDigest({
   config: DEFAULT_CONFIG,
@@ -155,8 +152,12 @@ const result = await runDigest({
   hours: 36,
   limitOverride: 1,
   now,
-  fetchText: async () => xml,
+  fetchText: async (url) => { requestedUrl = url; return xml; },
 });
+
+if (!requestedUrl.startsWith('https://news.google.com/rss/search')) {
+  throw new Error('runDigest did not request a Google News RSS URL for the built-in topic: ' + requestedUrl);
+}
 
 const text = renderText(result, DEFAULT_CONFIG, now);
 if (result.sections[0].items.length !== 1 || !text.includes('Dubai airport reopens after rain')) {

@@ -1,5 +1,5 @@
 import { describe, expect, test, afterAll } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -39,6 +39,18 @@ describe('readSeenKeys / writeSeenKeys', () => {
     const files = await readdir(dirname(testFile));
     const tempPrefix = `.${basename(testFile)}.`;
     expect(files.filter((file) => file.startsWith(tempPrefix) && file.endsWith('.tmp'))).toEqual([]);
+  });
+
+  test('an unwritable state directory is reported against the state file', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'state-ro-'));
+    chmodSync(dir, 0o500);
+    const file = join(dir, 'seen.txt');
+    try {
+      await expect(writeSeenKeys(file, new Set(['k']))).rejects.toThrow(`Cannot write state file ${file}`);
+    } finally {
+      chmodSync(dir, 0o700);
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('writeSeenKeys creates missing parent directories', async () => {

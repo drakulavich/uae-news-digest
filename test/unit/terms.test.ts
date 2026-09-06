@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { displayTerm, escapeRegExp, findTerms, matchesTerm, termRegExp } from '../../src/terms';
+import { displayTerm, escapeRegExp, findTerms, matchesTerm, termRegExp } from '../../src/pipeline/terms';
 
 describe('matchesTerm', () => {
   test('matches whole words case-insensitively', () => {

@@ -28,7 +28,7 @@ Every spec follows the same shape:
 - **Open Issues** — known gaps, tracked by GitHub issue where one exists.
 
 Terminology is canonical: every term of art (Digest, Pipeline, Signal filter,
-Region preset, …) is defined once in [GLOSSARY.md](GLOSSARY.md) and used verbatim
+Config, …) is defined once in [GLOSSARY.md](GLOSSARY.md) and used verbatim
 everywhere else.
 
 ## Personas
@@ -43,17 +43,17 @@ Specs reference these named personas instead of a generic "user":
   `healthcheck` / `manifest`.
 - **Sana, the agent author** — consumes the Digest via the programmatic API
   (`@drakulavich/uae-news-digest/core`). Cares about the typed Pipeline exports
-  (`runDigest`, `buildDigest`, `DigestItem`) and the `--prompt` agent filter prompt.
+  (`runDigest`, `renderText`, `toJson`, `DigestItem`) and the `--prompt` agent filter prompt.
 
 ## Capabilities
 
 | Spec | Covers |
 |---|---|
 | digest | The default command: fetch → score → dedup → Signal filter → limit → render (text / `--json`) |
-| sources | Region presets (`uae`/`us`/`uk`/`de`), `--rss-url`, topics config, `--match` / `--match-mode` |
+| sources | Config file (`--config`, `./digest.config.json`, XDG, built-in UAE default): topics, `feedUrl`, per-topic `match` / `matchMode`, heuristics |
 | state | Seen-item state file, `--dry-run`, repeat suppression across runs |
 | translation | Optional DeepL translation (`--target-lang`, `DEEPL_AUTH_KEY`) |
-| agent-surface | `manifest`, `healthcheck`, `--prompt`, and the `/core` programmatic API |
+| agent-surface | `manifest`, `healthcheck`, `config print-default`, `config validate`, `--prompt`, and the `/core` programmatic API |
 
 *(Links are added as each `spec.md` is written; rows without a link are not yet
 extracted — see Status above.)*

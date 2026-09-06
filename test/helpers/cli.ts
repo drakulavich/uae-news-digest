@@ -114,9 +114,8 @@ export function startCliHarness(): CliHarness {
         return new Response('DeepL unavailable', { status: 500 });
       }
       if (url.pathname === '/rss/hang') {
-        return new Promise<Response>(() => {
-          // Intentionally never resolves — the CLI's timeout must fire.
-        });
+        // Slow enough that every CLI timeout under test fires first, but bounded so server.stop() never waits on a dangling request.
+        return Bun.sleep(3_000).then(() => new Response(RSS_XML, { headers: { 'content-type': 'application/xml' } }));
       }
       return new Response('Not Found', { status: 404 });
     },

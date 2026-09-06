@@ -6,9 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-06
+
+**Breaking release.** One config file (`digest.config.json`, built-in UAE default) drives topics and every heuristic; region mode and its flags are gone; there is one text and one JSON output format; the `/core` API is reduced to a documented set. Migration: run `uae-news-digest config print-default > digest.config.json`, edit, `uae-news-digest config validate`; replace `--region`/`--rss-url`/`--match*`/`--topics-config` with `--config`; in code, replace `buildDigest*`/`runTopicalDigest`/`renderDigest*` with `runDigest` + `renderText`/`toJson`.
+
 ### Added
 - Config schema (validated with `zod`) now carries every heuristic: `skip`, `scoring` (source tiers, title boosts), `dedupe` (similarity threshold, synonyms, stop words), `importance` (markers, weights, threshold), `emoji` rules, `display`, and `agentPrompt`. A built-in UAE config (`src/config/default.json`) reproduces the previous hard-coded behaviour.
-- Programmatic API: `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, `DigestConfigSchema`, and the `DigestConfig` / `Topic` / `Heuristics` types.
+- Programmatic API: `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, and the `DigestConfig` / `Topic` types.
 - `topics[].feedUrl`: fetch an explicit RSS URL instead of a Google News search (used by tests and the packed-package smoke; replaces the main command's `--rss-url`; `healthcheck --rss-url` stays).
 - `config print-default` prints the built-in config as JSON; `config validate [path]` runs a file (or the auto-detected config) through the schema and prints `ok` or every issue with its JSON path (exit 1).
 - `manifest` now lists the subcommands and derives the default command's flags from the CLI definition instead of a hand-kept list.
@@ -21,7 +25,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - CLI internals moved to `src/cli/*` (`program.ts`, `run.ts`, `commands.ts`, `adapters.ts`, `errors.ts`); `src/index.ts` is a three-line bin calling `main(argv)`. Failures are typed `CliError`s (`usage` / `config` / `network` / `timeout`) classified where they occur; every command returns its exit code through one path — no `process.exit` inside commands.
 - **Breaking (config):** `locale` is required in a topics config; unknown keys are rejected.
 - **Breaking (behaviour):** a topics config without heuristic sections now runs with neutral heuristics (no source/keyword boosts, no 🚨 Important block, `•` emoji, no skip list). Copy the sections you want from `src/config/default.json`.
-- **Breaking (API):** `loadTopicsConfig` → `loadConfig`, `resolveTopicsConfigPath` → `resolveConfigPath`, `TopicConfig` → `Topic`, `TopicsConfig` → `DigestConfig`; `scoreItem`, `titleSimilarity`, `scoreImportance`, `emojiFor`, `buildDigest*` take a config slice, and `runTopicalDigest` reads heuristics from its `config`. Removed: `IMPORTANCE_THRESHOLD`, `FILTER_PROMPT`, `BREAKING_MARKERS`, `IMPACT_MARKERS`, `FLUFF_MARKERS`, `TIER_*_RE`. `escapeRegExp` moved from `importance` to `terms` (still re-exported from `lib`).
+- **Breaking (API):** `loadTopicsConfig` → `loadConfig`, `resolveTopicsConfigPath` → `resolveConfigPath`, `TopicConfig` → `Topic`, `TopicsConfig` → `DigestConfig`; `scoreItem`, `titleSimilarity`, `scoreImportance`, `emojiFor`, `buildDigest*` take a config slice, and `runTopicalDigest` reads heuristics from its `config`. Removed: `IMPORTANCE_THRESHOLD`, `FILTER_PROMPT`, `BREAKING_MARKERS`, `IMPACT_MARKERS`, `FLUFF_MARKERS`, `TIER_*_RE`. `escapeRegExp` moved from `importance` to `terms`.
 - Term lists match whole words (with `s`/`es` plural) and support a trailing `*` for stem matching; previously scoring, emoji and skip matched raw substrings (e.g. "rain" fired on "Ukraine").
 - `dedupe.synonyms` keys/values and `dedupe.stopWords` are lower-cased at load and must be single ASCII words (letters and digits), since they are compared against normalised title tokens; anything else is rejected with the offending path.
 - Per-topic `match` terms go through the same matcher as the other config lists, so a trailing `*` is a stem wildcard rather than a literal.
@@ -30,9 +34,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Breaking (API):** `runDigest(options)` now takes `{ config, seenKeys, hours, limitOverride?, now, fetchText, translate?, targetLang? }` and returns `{ sections, warnings, nextSeenKeys, fetchedTopics }`; rendering is `renderText(result, config, now)` and `toJson(result, meta)`. Removed: `runTopicalDigest`, `renderDigest`, `renderTopicalDigest`, `mergeSeenKeys`, `buildRssUrl`, `REGION_PRESETS`, `localeContextFor`, and the `RegionPreset`/`RssLocale`/`LocaleContext` types. `translateDeepL` throws on failure instead of returning `null`. `DigestItem.link` → `url`; `matchedTerms` is always an array; `translatedTitle` added.
 - Partial failures stay warnings; the CLI exits 1 only when no topic could be fetched. The "feed returned no items — check the query" warning fires only when the feed itself was empty, not when every item was already seen. A response that is not an RSS document (an HTML error page, an Atom feed) is a failed topic (`could not parse RSS`), not an empty feed — so an outage across every topic exits 1.
 - `display` from the config now drives the text header (flag, name, timezone).
+- **Breaking (API):** `@drakulavich/uae-news-digest/core` now exports exactly `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, `runDigest`, `renderText`, `toJson`, `parseRss`, `readSeenKeys`, `writeSeenKeys`, `DEFAULT_STATE_FILE`, `translateDeepL`, `DEEPL_API_URL` and the types `DigestConfig`, `Topic`, `ResolveConfigOptions`, `RunOptions`, `DigestResult`, `TopicSection`, `FetchText`, `Translate`, `DigestItem`, `DigestJson`, `DigestJsonItem`, `JsonMeta`, `ImportanceTier`, `RssItem`. Removed from the public surface: `buildDigest`, `buildDigestWithStats`, `matchTerms`, `parsePubDate`, `buildFeedUrl`, `emojiFor`, `hoursAgo`, `scoreItem`, `titleSimilarity`, `scoreImportance`, `importanceThreshold`, `normalizeTitle`, `normalizeSource`, `makeKey`, `DigestConfigSchema`, and the types `BuildDigestOptions`, `Heuristics`, `Locale`, `Display`, `MatchMode`, `ScoringConfig`, `DedupeConfig`, `ImportanceConfig`, `EmojiRule`, `ImportanceResult`, `DeepLTranslation`, `DeepLResponse`. `src/lib.ts` is deleted.
+- Source layout: pipeline modules live under `src/pipeline/` (`run`, `select`, `scoring`, `similarity`, `importance`, `normalize`, `rss`, `url`, `terms`), renderers under `src/output/` (`text`, `json`, `emoji`, `time`); `buildDigestWithStats` is now the internal `selectItems(rssItems, topic, ctx)`.
+- `healthcheck` honours `--timeout-ms` (default 15000) and reports failures with the same messages as the digest run.
+- CI runs on every pull request, not only those targeting `main`.
 
 ### Fixed
-- Two titles that reduce to no words (for example non-Latin titles under the ASCII word extraction) no longer count as identical, so a non-Latin feed is not collapsed into a single item.
+- Two different non-Latin titles (for example under the ASCII word extraction, which reduces them to no words) no longer collapse into one item, while a verbatim repeat of the same wordless title still dedupes.
+- `translateDeepL` reports a non-JSON 200 body as `DeepL returned a non-JSON response` instead of a raw parse error.
+- Fetch failures whose rejection value is `null`/`undefined` are classified as network errors instead of crashing the classifier.
 
 ### Chores
 - `bunfig.toml` preloads the test fetch guard so plain `bun test` is safe.

@@ -88,6 +88,11 @@ describe('translateDeepL', () => {
     await expect(translateDeepL(['text one', 'text two'], 'fake-key', 'RU')).rejects.toThrow(/1 translations for 2 texts/);
   });
 
+  test('a non-JSON 200 body is reported as such', async () => {
+    deeplHandler = async () => new Response('not json', { status: 200, headers: { 'content-type': 'application/json' } });
+    await expect(translateDeepL(['x'], 'key', 'DE')).rejects.toThrow('DeepL returned a non-JSON response');
+  });
+
   test('passes targetLang to DeepL API', async () => {
     let capturedBody: any;
     deeplHandler = async (req) => {

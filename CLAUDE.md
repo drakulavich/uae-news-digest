@@ -6,13 +6,13 @@ UAE News Digest is a daily UAE news digest CLI: fetches Google News RSS, scores 
 
 Heuristics (skip, scoring, dedupe, importance, emoji) come from the config — never hard-code region knowledge in `src/*.ts`; the built-in UAE set lives in `src/config/default.json`.
 
-Two interfaces: the CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core` — exports `runDigest`, `renderText`, `toJson`, `loadConfig`, `DEFAULT_CONFIG` among others).
+Two interfaces: the CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core` — exports `runDigest`, `renderText`, `toJson`, `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, `parseRss`, plus Seen-item state and DeepL helpers). That is exactly what `src/core.ts` re-exports; `test/unit/core-surface.test.ts` pins the list.
 
 ```
 src/index.ts → cli/program.ts main(argv) → cli/run.ts (default command)
-  → config (default.json or digest.config.json) → url.ts buildFeedUrl → cli/adapters.ts fetchText
-  → rss.ts parseRss → digest.ts buildDigestWithStats (score, dedupe) → translate (optional)
-  → render.ts renderText | json.ts toJson
+  → cli/config.ts resolveConfig (default.json or digest.config.json) → pipeline/url.ts buildFeedUrl → cli/adapters.ts fetchText
+  → pipeline/rss.ts parseRss → pipeline/select.ts selectItems (window, skip, match, score, dedupe, limit) → translate (optional)
+  → output/text.ts renderText | output/json.ts toJson
 ```
 
 ## Critical Development Rules
@@ -54,5 +54,5 @@ bun run dev                    # Run CLI in development
 
 ## Code Style
 
-- **TypeScript**: strict mode; relative imports (`./lib`, not `src/lib`).
+- **TypeScript**: strict mode; relative imports (`./pipeline/run`, not `src/pipeline/run`); internal code never imports `./core`.
 - **Output**: `console.log()` for results, `console.error()` for progress and errors — stdout stays pipe-friendly.

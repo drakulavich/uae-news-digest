@@ -1,7 +1,8 @@
 import { Command, CommanderError } from 'commander';
 import { DEFAULT_STATE_FILE } from '../state';
 import { DESCRIPTION, TOOL_ID, VERSION } from '../meta';
-import { runDefault, type CliEnv, type RunFlags } from './run';
+import { runDefault, type RunFlags } from './run';
+import { type CliEnv } from './config';
 import { configPrintDefault, configValidate, healthcheck, manifest } from './commands';
 import { CliError } from './errors';
 
@@ -61,8 +62,8 @@ ENV VARS
 
 SUBCOMMANDS
   manifest                 Print a machine-readable tool descriptor as JSON.
-  healthcheck [--rss-url]  Smoke-test the first topic's feed (or --rss-url); prints
-                           {ok,version,latencyMs}; exits 0 on success, 1 on failure.
+  healthcheck [--rss-url]  Smoke-test the first topic's feed (or --rss-url) with --timeout-ms;
+                           prints {ok,version,latencyMs}; exits 0 on success, 1 on failure.
   config print-default     Print the built-in config as JSON to copy and edit.
   config validate [path]   Validate a config file (default: the auto-detected one);
                            prints "ok" or every issue with its JSON path.
@@ -110,8 +111,9 @@ export function buildProgram(onExit: (code: number) => void, env: CliEnv, cwd: s
     .command('healthcheck')
     .description('Run smoke test and report status')
     .option('--rss-url <url>', 'RSS URL for deterministic smoke testing')
+    .option('--timeout-ms <number>', 'fetch timeout in milliseconds')
     .action(async function (this: Command) {
-      const opts = this.optsWithGlobals() as { rssUrl?: string; config?: string };
+      const opts = this.optsWithGlobals() as { rssUrl?: string; config?: string; timeoutMs?: string | number };
       onExit(await healthcheck(opts, env, cwd));
     });
 

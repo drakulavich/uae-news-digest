@@ -62,6 +62,14 @@ describe('CLI commands', () => {
     expect(parsed.error).toStartWith('Unable to connect to localhost:1');
   });
 
+  test('healthcheck honours --timeout-ms', async () => {
+    const result = await cli.run(['healthcheck', '--rss-url', `${cli.baseUrl}/rss/hang`, '--timeout-ms', '100']);
+    expectExitCode(result, 1);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error).toBe('RSS request timed out after 100ms — retry, or pass --timeout-ms 30000');
+  });
+
   test('--prompt prints the filter criterion and exits 0', async () => {
     const { stdout, exitCode } = await cli.run(['--prompt']);
     expect(exitCode).toBe(0);
@@ -88,7 +96,7 @@ describe('CLI commands', () => {
     expect(parsed.commands.slice(1).map((c: { name: string }) => c.name)).toEqual(['manifest', 'healthcheck', 'config']);
 
     const healthcheck = parsed.commands.find((c: { name: string }) => c.name === 'healthcheck');
-    expect(healthcheck.flags).toEqual(['--rss-url <url>']);
+    expect(healthcheck.flags).toEqual(['--rss-url <url>', '--timeout-ms <number>']);
 
     const config = parsed.commands.find((c: { name: string }) => c.name === 'config');
     expect(config.commands.map((c: { name: string }) => c.name)).toEqual(['print-default', 'validate']);
