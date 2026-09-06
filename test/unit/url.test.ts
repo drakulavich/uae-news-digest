@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildFeedUrl } from '../../src/url';
+import { buildFeedUrl } from '../../src/pipeline/url';
 import { parseConfig } from '../../src/config/schema';
 
 const locale = { hl: 'en', gl: 'AE', ceid: 'AE:en' };

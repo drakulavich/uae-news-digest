@@ -1,5 +1,5 @@
 import { displayTerm, findTerms } from './terms';
-import type { ImportanceConfig } from './config/schema';
+import type { ImportanceConfig } from '../config/schema';
 
 export type ImportanceTier = 'breaking' | 'impact' | 'neutral' | 'fluff';
 

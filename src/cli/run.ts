@@ -1,7 +1,7 @@
 import { readSeenKeys, writeSeenKeys } from '../state';
 import { DEFAULT_CONFIG, loadConfig, resolveConfigPath } from '../config/load';
 import type { DigestConfig } from '../config/schema';
-import { runDigest } from '../pipeline';
+import { runDigest } from '../pipeline/run';
 import { renderText } from '../render';
 import { toJson } from '../json';
 import { TOOL_ID, VERSION } from '../meta';

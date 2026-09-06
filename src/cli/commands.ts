@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import defaultJson from '../config/default.json';
 import { loadConfig, resolveConfigPath } from '../config/load';
-import { buildFeedUrl } from '../url';
+import { buildFeedUrl } from '../pipeline/url';
 import { BIN_NAME, DESCRIPTION, TOOL_ID, VERSION } from '../meta';
 import { CliError } from './errors';
 import { makeFetchText } from './adapters';

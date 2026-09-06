@@ -1,7 +1,7 @@
-import type { DigestItem } from './digest';
-import type { DigestResult } from './pipeline';
-import { importanceThreshold } from './importance';
-import { matchesTerm } from './terms';
+import type { DigestItem } from './pipeline/select';
+import type { DigestResult } from './pipeline/run';
+import { importanceThreshold } from './pipeline/importance';
+import { matchesTerm } from './pipeline/terms';
 import type { EmojiRule, DigestConfig } from './config/schema';
 import { hoursAgo } from './json';
 

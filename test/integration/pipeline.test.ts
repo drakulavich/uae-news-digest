@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { runDigest } from '../../src/pipeline';
+import { runDigest } from '../../src/pipeline/run';
 import { parseConfig } from '../../src/config/schema';
 import { DEFAULT_CONFIG } from '../../src/config/load';
 import type { DigestConfig } from '../../src/config/schema';
-import type { FetchText, Translate } from '../../src/pipeline';
+import type { FetchText, Translate } from '../../src/pipeline/run';
 
 const LOCALE = { hl: 'en', gl: 'AE', ceid: 'AE:en' };
 const NOW = new Date('2026-05-22T12:00:00Z');

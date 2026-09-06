@@ -1,5 +1,5 @@
-import type { DigestResult } from './pipeline';
-import type { ImportanceTier } from './importance';
+import type { DigestResult } from './pipeline/run';
+import type { ImportanceTier } from './pipeline/importance';
 
 export function hoursAgo(publishedAt: Date, now: Date): number {
   return Math.round((now.getTime() - publishedAt.getTime()) / 3_600_000);

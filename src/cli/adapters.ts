@@ -1,4 +1,4 @@
-import type { FetchText, Translate } from '../pipeline';
+import type { FetchText, Translate } from '../pipeline/run';
 import { translateDeepL } from '../translate';
 import { CliError, classifyFetchError } from './errors';
 

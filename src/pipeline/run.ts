@@ -1,9 +1,9 @@
-// src/pipeline.ts
+// src/pipeline/run.ts
 import { parseRss } from './rss';
-import { buildDigestWithStats } from './digest';
+import { selectItems } from './select';
 import { buildFeedUrl } from './url';
-import type { DigestItem } from './digest';
-import type { DigestConfig, Topic } from './config/schema';
+import type { DigestItem } from './select';
+import type { DigestConfig, Topic } from '../config/schema';
 
 export type TopicSection = {
   topic: Topic;
@@ -73,14 +73,12 @@ export async function runDigest(opts: RunOptions): Promise<DigestResult> {
       warnings.push(`Topic "${topic.slug}": feed returned no items — check the query`);
     }
 
-    const { items, droppedByMatch } = buildDigestWithStats(rssItems, {
+    const { items, droppedByMatch } = selectItems(rssItems, topic, {
       seenKeys: seen,
       hours: opts.hours,
-      limit: opts.limitOverride ?? topic.limit,
       now,
-      match: topic.match,
-      matchMode: topic.matchMode,
       heuristics: config,
+      limitOverride: opts.limitOverride,
     });
     if (droppedByMatch > 0) {
       warnings.push(`Topic "${topic.slug}": ${droppedByMatch} item(s) dropped — missing required keywords`);

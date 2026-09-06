@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { emojiFor, renderText } from '../../src/render';
-import type { DigestItem } from '../../src/digest';
+import type { DigestItem } from '../../src/pipeline/select';
 import { DEFAULT_CONFIG } from '../../src/config/load';
-import type { DigestResult } from '../../src/pipeline';
+import type { DigestResult } from '../../src/pipeline/run';
 import type { DigestConfig } from '../../src/config/schema';
 import { parseConfig } from '../../src/config/schema';
 

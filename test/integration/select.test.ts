@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { buildDigest, buildDigestWithStats, matchTerms } from '../../src/digest';
-import { makeKey } from '../../src/normalize';
-import type { RssItem } from '../../src/rss';
+import { selectItems, matchTerms } from '../../src/pipeline/select';
+import { makeKey } from '../../src/pipeline/normalize';
+import type { RssItem } from '../../src/pipeline/rss';
 import { DEFAULT_CONFIG } from '../../src/config/load';
 import { parseConfig } from '../../src/config/schema';
 
-describe('buildDigest', () => {
+describe('selectItems', () => {
   test('filters seen, old, and low-signal items deterministically', () => {
     const now = new Date('2026-03-22T08:00:00Z');
     const items: RssItem[] = [
@@ -16,13 +16,12 @@ describe('buildDigest', () => {
       { title: 'Dubai flight status updates after rain', pubDate: 'Sun, 22 Mar 2026 06:45:00 GMT', source: 'Khaleej Times' },
     ];
 
-    const digest = buildDigest(items, {
+    const digest = selectItems(items, { limit: 6 }, {
       seenKeys: new Set([makeKey('Dubai flight status updates after rain', 'Khaleej Times')]),
       hours: 36,
-      limit: 6,
       now,
       heuristics: DEFAULT_CONFIG,
-    });
+    }).items;
 
     expect(digest).toHaveLength(1);
     expect(digest[0]?.title).toContain('Dubai property sector');
@@ -36,7 +35,7 @@ describe('buildDigest', () => {
       { title: 'UAE air defences engage 5 ballistic missiles, 17 UAVs on March 24', pubDate: 'Sun, 22 Mar 2026 07:30:00 GMT', source: 'Gulf News' },
     ];
 
-    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now, heuristics: DEFAULT_CONFIG });
+    const digest = selectItems(items, { limit: 6 }, { seenKeys: new Set(), hours: 36, now, heuristics: DEFAULT_CONFIG }).items;
     expect(digest).toHaveLength(1);
   });
 
@@ -48,7 +47,7 @@ describe('buildDigest', () => {
       { title: 'ارتفاع أسعار النفط', pubDate: 'Sun, 22 Mar 2026 07:45:00 GMT', source: 'Reuters' },
     ];
 
-    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now, heuristics: DEFAULT_CONFIG });
+    const digest = selectItems(items, { limit: 6 }, { seenKeys: new Set(), hours: 36, now, heuristics: DEFAULT_CONFIG }).items;
     expect(digest.map((d) => d.title).sort()).toEqual(['ارتفاع أسعار النفط', 'الإمارات تطلق قمراً'].sort());
   });
 
@@ -57,7 +56,7 @@ describe('buildDigest', () => {
     const items: RssItem[] = [
       { title: 'UAE football roundup', pubDate: 'Sun, 22 Mar 2026 07:30:00 GMT', source: 'MSN' },
     ];
-    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now, heuristics: DEFAULT_CONFIG });
+    const digest = selectItems(items, { limit: 6 }, { seenKeys: new Set(), hours: 36, now, heuristics: DEFAULT_CONFIG }).items;
     expect(digest).toHaveLength(0);
   });
 
@@ -69,7 +68,7 @@ describe('buildDigest', () => {
       { title: 'UAE oil prices rise', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Reuters' },
     ];
 
-    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now, heuristics: DEFAULT_CONFIG });
+    const digest = selectItems(items, { limit: 6 }, { seenKeys: new Set(), hours: 36, now, heuristics: DEFAULT_CONFIG }).items;
     expect(digest).toHaveLength(1);
     expect(digest[0]?.title).toBe('UAE oil prices rise');
   });
@@ -79,7 +78,7 @@ describe('buildDigest', () => {
     const items: RssItem[] = [
       { title: 'UAE intercepts missile over Dubai airspace', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Reuters' },
     ];
-    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now, heuristics: DEFAULT_CONFIG });
+    const digest = selectItems(items, { limit: 6 }, { seenKeys: new Set(), hours: 36, now, heuristics: DEFAULT_CONFIG }).items;
     expect(digest).toHaveLength(1);
     expect(digest[0]!.tier).toBe('breaking');
     expect(digest[0]!.importance).toBeGreaterThan(0);
@@ -94,7 +93,7 @@ describe('buildDigest', () => {
       pubDate: `Sun, 22 Mar 2026 0${Math.min(7, i)}:00:00 GMT`,
       source: 'Reuters',
     }));
-    const digest = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 3, now, heuristics: DEFAULT_CONFIG });
+    const digest = selectItems(items, { limit: 3 }, { seenKeys: new Set(), hours: 36, now, heuristics: DEFAULT_CONFIG }).items;
     expect(digest).toHaveLength(3);
   });
 
@@ -103,7 +102,7 @@ describe('buildDigest', () => {
     const items: RssItem[] = [
       { title: 'Dubai airport reopens after rain', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Reuters', link: 'https://news.google.com/rss/articles/x' },
     ];
-    const [item] = buildDigest(items, { seenKeys: new Set(), hours: 36, limit: 6, now, heuristics: DEFAULT_CONFIG });
+    const [item] = selectItems(items, { limit: 6 }, { seenKeys: new Set(), hours: 36, now, heuristics: DEFAULT_CONFIG }).items;
     expect(item!.url).toBe('https://news.google.com/rss/articles/x');
     expect(item!.matchedTerms).toEqual([]);
     expect(item!.translatedTitle).toBeUndefined();
@@ -132,20 +131,20 @@ describe('matchTerms', () => {
     expect(matchTerms('Dubai SCHOOL fees rise', ['School'], 'any').ok).toBe(true);
   });
   test('empty match array means no filtering at matchTerms level', () => {
-    // buildDigestWithStats guards empty arrays; matchTerms with [] requires 0 terms
+    // selectItems guards empty arrays; matchTerms with [] requires 0 terms
     expect(matchTerms('anything', [], 'all').ok).toBe(true);
   });
 });
 
-describe('buildDigestWithStats match filter', () => {
+describe('selectItems match filter', () => {
   test('drops off-keyword items and counts them; annotates matchedTerms', () => {
     const now = new Date('2026-03-22T08:00:00Z');
     const items: RssItem[] = [
       { title: 'Dubai school fees increase for 2026', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Gulf News' },
       { title: 'Dubai weather stays warm this week', pubDate: 'Sun, 22 Mar 2026 07:10:00 GMT', source: 'Khaleej Times' },
     ];
-    const { items: digest, droppedByMatch } = buildDigestWithStats(items, {
-      seenKeys: new Set(), hours: 36, limit: 6, now, match: ['school', 'fees'], matchMode: 'all', heuristics: DEFAULT_CONFIG,
+    const { items: digest, droppedByMatch } = selectItems(items, { match: ['school', 'fees'], matchMode: 'all', limit: 6 }, {
+      seenKeys: new Set(), hours: 36, now, heuristics: DEFAULT_CONFIG,
     });
     expect(digest).toHaveLength(1);
     expect(digest[0]!.matchedTerms).toEqual(['school', 'fees']);
@@ -157,17 +156,17 @@ describe('buildDigestWithStats match filter', () => {
     const items: RssItem[] = [
       { title: 'Dubai property sector update', pubDate: 'Sun, 22 Mar 2026 07:00:00 GMT', source: 'Reuters' },
     ];
-    const { items: digest, droppedByMatch } = buildDigestWithStats(items, {
-      seenKeys: new Set(), hours: 36, limit: 6, now, heuristics: DEFAULT_CONFIG,
+    const { items: digest, droppedByMatch } = selectItems(items, { limit: 6 }, {
+      seenKeys: new Set(), hours: 36, now, heuristics: DEFAULT_CONFIG,
     });
     expect(digest).toHaveLength(1);
     expect(droppedByMatch).toBe(0);
   });
 });
 
-describe('buildDigest heuristics come from the config', () => {
+describe('selectItems heuristics come from the config', () => {
   const now = new Date('2026-03-22T08:00:00Z');
-  const base = { seenKeys: new Set<string>(), hours: 36, limit: 6, now };
+  const base = { seenKeys: new Set<string>(), hours: 36, now };
   const items: RssItem[] = [
     { title: 'UAE football roundup', pubDate: 'Sun, 22 Mar 2026 07:30:00 GMT', source: 'MSN' },
     { title: 'Dubai flight status updates after rain', pubDate: 'Sun, 22 Mar 2026 06:45:00 GMT', source: 'Khaleej Times' },
@@ -175,7 +174,7 @@ describe('buildDigest heuristics come from the config', () => {
 
   test('skip list drops matching titles and sources', () => {
     const cfg = parseConfig({ locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' }, topics: [{ slug: 'a', name: 'A', query: 'q' }], skip: ['football'] }, 'test');
-    const digest = buildDigest(items, { ...base, heuristics: cfg });
+    const digest = selectItems(items, { limit: 6 }, { ...base, heuristics: cfg }).items;
     expect(digest.map((d) => d.title)).toEqual(['Dubai flight status updates after rain']);
 
     // Source arm: a clean title from a skipped source must be dropped too.
@@ -183,15 +182,15 @@ describe('buildDigest heuristics come from the config', () => {
       { title: 'Abu Dhabi weekend guide', pubDate: 'Sun, 22 Mar 2026 07:20:00 GMT', source: 'MSN' },
     ];
     const skipSourceCfg = parseConfig({ locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' }, topics: [{ slug: 'a', name: 'A', query: 'q' }], skip: ['msn'] }, 'test');
-    expect(buildDigest(sourceItems, { ...base, heuristics: skipSourceCfg })).toHaveLength(0);
+    expect(selectItems(sourceItems, { limit: 6 }, { ...base, heuristics: skipSourceCfg }).items).toHaveLength(0);
 
     const noSkipCfg = parseConfig({ locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' }, topics: [{ slug: 'a', name: 'A', query: 'q' }] }, 'test');
-    expect(buildDigest(sourceItems, { ...base, heuristics: noSkipCfg })).toHaveLength(1);
+    expect(selectItems(sourceItems, { limit: 6 }, { ...base, heuristics: noSkipCfg }).items).toHaveLength(1);
   });
 
   test('no skip list keeps everything, and neutral heuristics score 0', () => {
     const cfg = parseConfig({ locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' }, topics: [{ slug: 'a', name: 'A', query: 'q' }] }, 'test');
-    const digest = buildDigest(items, { ...base, heuristics: cfg });
+    const digest = selectItems(items, { limit: 6 }, { ...base, heuristics: cfg }).items;
     expect(digest).toHaveLength(2);
     expect(digest.every((d) => d.score === 0 && d.importance === 0 && d.tier === 'neutral')).toBe(true);
   });
@@ -202,7 +201,7 @@ describe('buildDigest heuristics come from the config', () => {
       { title: 'UAE air defences engage 5 ballistic missiles, 17 UAVs on March 24', pubDate: 'Sun, 22 Mar 2026 07:30:00 GMT', source: 'Gulf News' },
     ];
     const strict = parseConfig({ locale: { hl: 'en', gl: 'AE', ceid: 'AE:en' }, topics: [{ slug: 'a', name: 'A', query: 'q' }], dedupe: { ...DEFAULT_CONFIG.dedupe, similarityThreshold: 0.99 } }, 'test');
-    expect(buildDigest(pair, { ...base, heuristics: DEFAULT_CONFIG })).toHaveLength(1);
-    expect(buildDigest(pair, { ...base, heuristics: strict })).toHaveLength(2);
+    expect(selectItems(pair, { limit: 6 }, { ...base, heuristics: DEFAULT_CONFIG }).items).toHaveLength(1);
+    expect(selectItems(pair, { limit: 6 }, { ...base, heuristics: strict }).items).toHaveLength(2);
   });
 });

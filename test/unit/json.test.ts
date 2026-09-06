@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { hoursAgo, toJson } from '../../src/json';
 import { parseConfig } from '../../src/config/schema';
-import type { DigestItem } from '../../src/digest';
-import type { DigestResult } from '../../src/pipeline';
+import type { DigestItem } from '../../src/pipeline/select';
+import type { DigestResult } from '../../src/pipeline/run';
 
 const now = new Date('2026-05-22T10:00:00Z');
 const config = parseConfig({

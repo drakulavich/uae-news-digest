@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { parseRss } from '../../src/rss';
+import { parseRss } from '../../src/pipeline/rss';
 
 describe('parseRss', () => {
   test('extracts items and source text', () => {
