@@ -253,10 +253,20 @@ Items are emitted as a flat list in section order; each carries its `topic` slug
 ## Programmatic API
 
 ```typescript
-import { parseRss, buildDigest, runDigest, renderText, toJson } from "@drakulavich/uae-news-digest/core";
+import { loadConfig, DEFAULT_CONFIG, runDigest, renderText, toJson } from "@drakulavich/uae-news-digest/core";
+
+const config = await loadConfig("./digest.config.json").catch(() => DEFAULT_CONFIG);
+const result = await runDigest({
+  config,
+  seenKeys: new Set(),
+  hours: 36,
+  now: new Date(),
+  fetchText: (url) => fetch(url).then((r) => r.text()),
+});
+console.log(renderText(result, config, new Date()));
 ```
 
-Use the core API when you already have RSS XML and want the same filtering, scoring, deduplication, translation fallback, and rendering logic without spawning the CLI.
+The `/core` entry point exports `runDigest`, `renderText`, `toJson`, `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, `parseRss`, plus the Seen-item state helpers (`readSeenKeys`, `writeSeenKeys`, `DEFAULT_STATE_FILE`) and DeepL helpers (`translateDeepL`, `DEEPL_API_URL`) — the same filtering, scoring, deduplication, translation fallback, and rendering logic the CLI uses, without spawning a process.
 
 ## How It Works
 
@@ -280,7 +290,7 @@ uae-news-digest --hours 12 --limit 10
 
 State file (`seen_titles.txt`) tracks seen articles so scheduled runs do not repeat the same briefing forever.
 
-`healthcheck` probes the first topic's feed from the resolved config (`--config`, `./digest.config.json`, XDG, or the built-in default). For deterministic smoke tests against a fixed feed, pass `healthcheck --rss-url <url>`.
+`healthcheck` probes the first topic's feed from the resolved config (`--config`, `./digest.config.json`, XDG, or the built-in default), honouring `--timeout-ms` (default `15000`). For deterministic smoke tests against a fixed feed, pass `healthcheck --rss-url <url>`.
 
 ## Requirements
 

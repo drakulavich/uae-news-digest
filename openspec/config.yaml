@@ -4,15 +4,16 @@ context: |
   uae-news-digest (`@drakulavich/uae-news-digest`): a Bun-native CLI + programmatic
   API that turns Google News RSS into a daily, ranked, deduplicated UAE news Digest
   — a terminal briefing or clean JSON for scripts and agents — with optional DeepL
-  translation. The Pipeline (`src/pipeline.ts`, `runDigest`) fetches RSS, normalizes,
+  translation. The Pipeline (`src/pipeline/run.ts`, `runDigest`) fetches RSS, normalizes,
   scores, dedups by title similarity, applies the Signal filter (surface important
   news, drop PR noise), limits, and renders (text or `--json`); a Seen-item state
   file suppresses repeats across runs, and a config file (built-in UAE config by
   default) defines the topics and heuristics. Commands: the default digest (with
-  `--config`, `--hours`, `--limit`, `--dry-run`, `--prompt`, …), `manifest`, and
-  `healthcheck`.
-  Two interfaces: the CLI (`uae-news-digest`, Commander-based `src/index.ts`) and the
-  programmatic API (`@drakulavich/uae-news-digest/core`, `src/core.ts`).
+  `--config`, `--hours`, `--limit`, `--dry-run`, `--prompt`, …), `manifest`,
+  `healthcheck`, `config print-default`, and `config validate`.
+  Two interfaces: the CLI (`uae-news-digest`, Commander-based `src/cli/program.ts`,
+  bin `src/index.ts`) and the programmatic API (`@drakulavich/uae-news-digest/core`,
+  `src/core.ts`).
   Conventions: Bun-only (`Bun.spawn` / `Bun.write` / `Bun.file` / `Bun.$`; TypeScript
   run directly, no build step; `bin` -> `src/index.ts`); `main` is protected, all
   changes go through PRs and CI must pass; use git worktrees for multi-file changes;
