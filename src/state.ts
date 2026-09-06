@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { rename, unlink } from 'node:fs/promises';
+import { mkdir, rename, unlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
 export const DEFAULT_STATE_FILE = './seen_titles.txt';
@@ -13,6 +13,8 @@ export async function readSeenKeys(stateFile: string): Promise<Set<string>> {
 
 export async function writeSeenKeys(stateFile: string, seenKeys: Set<string>): Promise<void> {
   const dir = dirname(stateFile);
+  // Create the directory up front so a permission problem names the directory, not the temp file.
+  await mkdir(dir, { recursive: true });
   const tmpFile = join(dir, `.${basename(stateFile)}.${process.pid}.${randomUUID()}.tmp`);
 
   try {

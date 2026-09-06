@@ -96,7 +96,7 @@ describe('CLI commands', () => {
     expect(parsed.commands.slice(1).map((c: { name: string }) => c.name)).toEqual(['manifest', 'healthcheck', 'config']);
 
     const healthcheck = parsed.commands.find((c: { name: string }) => c.name === 'healthcheck');
-    expect(healthcheck.flags).toEqual(['--rss-url <url>']);
+    expect(healthcheck.flags).toEqual(['--rss-url <url>', '--timeout-ms <number>']);
 
     const config = parsed.commands.find((c: { name: string }) => c.name === 'config');
     expect(config.commands.map((c: { name: string }) => c.name)).toEqual(['print-default', 'validate']);
