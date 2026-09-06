@@ -6,6 +6,7 @@ import { BIN_NAME, DESCRIPTION, TOOL_ID, VERSION } from '../meta';
 import { CliError } from './errors';
 import { makeFetchText } from './adapters';
 import { resolveConfig, type CliEnv } from './config';
+import { validatePositiveNumber } from './run';
 
 type ManifestCommand = { name: string; description: string; flags: string[]; commands: ManifestCommand[] };
 
@@ -43,11 +44,12 @@ export function manifest(program: Command): number {
 }
 
 /** `healthcheck`: GET `--rss-url`, else the first topic of the resolved config; {ok, version, latencyMs} on stdout. */
-export async function healthcheck(opts: { rssUrl?: string; config?: string }, env: CliEnv, cwd: string): Promise<number> {
+export async function healthcheck(opts: { rssUrl?: string; config?: string; timeoutMs?: string | number }, env: CliEnv, cwd: string): Promise<number> {
   const start = performance.now();
+  const timeoutMs = validatePositiveNumber('timeout-ms', opts.timeoutMs ?? 15000);
   try {
     const rssUrl = opts.rssUrl ?? buildFeedUrl((await resolveConfig(opts.config, env, cwd)).config.topics[0]!);
-    await makeFetchText(10_000)(rssUrl);
+    await makeFetchText(timeoutMs)(rssUrl);
     const result = { ok: true, version: VERSION, latencyMs: Math.round(performance.now() - start) };
     console.log(JSON.stringify(result));
     return 0;

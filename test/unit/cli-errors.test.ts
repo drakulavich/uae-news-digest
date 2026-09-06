@@ -37,4 +37,9 @@ describe('classifyFetchError', () => {
     const err = classifyFetchError(new Error('x'), { url: 'not a url', timeoutMs: 1 });
     expect(err.message).toBe('Unable to connect to not a url — check your connection (x)');
   });
+
+  test('a null or undefined rejection still becomes a network error', () => {
+    expect(classifyFetchError(null, ctx).kind).toBe('network');
+    expect(classifyFetchError(undefined, ctx).message).toBe('Unable to connect to localhost:1 — check your connection (undefined)');
+  });
 });

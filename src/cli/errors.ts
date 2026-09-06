@@ -21,7 +21,7 @@ function hostOf(url: string): string {
 
 /** Turn a rejected fetch() into a CliError at the source, so nothing upstream matches on message text. */
 export function classifyFetchError(err: unknown, ctx: { url: string; timeoutMs: number }): CliError {
-  const e = err as { name?: string; code?: string; message?: string };
+  const e = (err ?? {}) as { name?: string; code?: string; message?: string };
   if (e.name === 'TimeoutError' || e.name === 'AbortError') {
     return new CliError('timeout', `RSS request timed out after ${ctx.timeoutMs}ms — retry, or pass --timeout-ms 30000`);
   }

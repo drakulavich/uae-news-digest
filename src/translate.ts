@@ -37,7 +37,12 @@ export async function translateDeepL(
   if (response.status === 456) throw new Error('DeepL returned HTTP 456 (quota exceeded)');
   if (!response.ok) throw new Error(`DeepL returned HTTP ${response.status} ${response.statusText}`);
 
-  const data = (await response.json()) as DeepLResponse;
+  let data: DeepLResponse;
+  try {
+    data = (await response.json()) as DeepLResponse;
+  } catch {
+    throw new Error('DeepL returned a non-JSON response — retry, or check DEEPL_API_URL');
+  }
   const translations = data.translations ?? [];
   if (translations.length !== texts.length) {
     throw new Error(`DeepL returned ${translations.length} translations for ${texts.length} texts`);

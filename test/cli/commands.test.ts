@@ -62,6 +62,14 @@ describe('CLI commands', () => {
     expect(parsed.error).toStartWith('Unable to connect to localhost:1');
   });
 
+  test('healthcheck honours --timeout-ms', async () => {
+    const result = await cli.run(['healthcheck', '--rss-url', `${cli.baseUrl}/rss/hang`, '--timeout-ms', '100']);
+    expectExitCode(result, 1);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error).toBe('RSS request timed out after 100ms — retry, or pass --timeout-ms 30000');
+  });
+
   test('--prompt prints the filter criterion and exits 0', async () => {
     const { stdout, exitCode } = await cli.run(['--prompt']);
     expect(exitCode).toBe(0);
