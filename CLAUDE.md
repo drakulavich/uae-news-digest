@@ -6,7 +6,7 @@ UAE News Digest is a daily UAE news digest CLI: fetches Google News RSS, scores 
 
 Heuristics (skip, scoring, dedupe, importance, emoji) come from the config — never hard-code region knowledge in `src/*.ts`; the built-in UAE set lives in `src/config/default.json`.
 
-Two interfaces: the CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core` — exports `runDigest`, `renderText`, `toJson`, `loadConfig`, `parseConfig`, `DEFAULT_CONFIG`, `parseRss`, plus Seen-item state and DeepL helpers). That is exactly what `src/core.ts` re-exports; `test/unit/core-surface.test.ts` pins the list.
+Two interfaces: the CLI (`uae-news-digest`) and a programmatic API (`@drakulavich/uae-news-digest/core` — exports `runDigest`, `renderText`, `toJson`, `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, `parseRss`, plus Seen-item state and DeepL helpers). That is exactly what `src/core.ts` re-exports; `test/unit/core-surface.test.ts` pins the list.
 
 ```
 src/index.ts → cli/program.ts main(argv) → cli/run.ts (default command)

@@ -111,7 +111,7 @@ export function buildProgram(onExit: (code: number) => void, env: CliEnv, cwd: s
     .command('healthcheck')
     .description('Run smoke test and report status')
     .option('--rss-url <url>', 'RSS URL for deterministic smoke testing')
-    .option('--timeout-ms <number>', 'fetch timeout in milliseconds (default 15000)')
+    .option('--timeout-ms <number>', 'fetch timeout in milliseconds')
     .action(async function (this: Command) {
       const opts = this.optsWithGlobals() as { rssUrl?: string; config?: string; timeoutMs?: string | number };
       onExit(await healthcheck(opts, env, cwd));

@@ -255,18 +255,21 @@ Items are emitted as a flat list in section order; each carries its `topic` slug
 ```typescript
 import { loadConfig, DEFAULT_CONFIG, runDigest, renderText, toJson } from "@drakulavich/uae-news-digest/core";
 
-const config = await loadConfig("./digest.config.json").catch(() => DEFAULT_CONFIG);
+const config = await loadConfig("./digest.config.json"); // or DEFAULT_CONFIG for the built-in UAE set
+const now = new Date();
 const result = await runDigest({
   config,
   seenKeys: new Set(),
   hours: 36,
-  now: new Date(),
+  now,
   fetchText: (url) => fetch(url).then((r) => r.text()),
 });
-console.log(renderText(result, config, new Date()));
+console.log(renderText(result, config, now));
 ```
 
 The `/core` entry point exports `runDigest`, `renderText`, `toJson`, `loadConfig`, `resolveConfigPath`, `parseConfig`, `DEFAULT_CONFIG`, `parseRss`, plus the Seen-item state helpers (`readSeenKeys`, `writeSeenKeys`, `DEFAULT_STATE_FILE`) and DeepL helpers (`translateDeepL`, `DEEPL_API_URL`) — the same filtering, scoring, deduplication, translation fallback, and rendering logic the CLI uses, without spawning a process.
+
+Already holding the RSS XML? Pass `fetchText: async () => xml` and `runDigest` never touches the network — the packed-package smoke test runs exactly that way.
 
 ## How It Works
 

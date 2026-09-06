@@ -40,8 +40,9 @@ export async function translateDeepL(
   let data: DeepLResponse;
   try {
     data = (await response.json()) as DeepLResponse;
-  } catch {
-    throw new Error('DeepL returned a non-JSON response — retry, or check DEEPL_API_URL');
+  } catch (err) {
+    if (err instanceof SyntaxError) throw new Error('DeepL returned a non-JSON response — retry, or check DEEPL_API_URL');
+    throw new Error(`DeepL response body could not be read: ${err instanceof Error ? err.message : String(err)}`);
   }
   const translations = data.translations ?? [];
   if (translations.length !== texts.length) {
