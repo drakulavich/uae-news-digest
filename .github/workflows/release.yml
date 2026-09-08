@@ -19,10 +19,12 @@ jobs:
         with:
           bun-version: 1.3.14
 
+      # npm trusted publishing (OIDC) needs npm >= 11.5.1, which ships with Node 24; no npm token is used.
       - uses: actions/setup-node@v7.0.0
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
 
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
@@ -71,7 +73,5 @@ jobs:
               --notes-file release-notes.md
           fi
 
-      - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm (trusted publishing via OIDC)
         run: npm publish --access public --provenance
