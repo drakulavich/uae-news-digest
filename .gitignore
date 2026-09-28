@@ -3,3 +3,4 @@ dist/
 .env
 seen_titles.txt
 *.tgz
+.worktrees/
