@@ -9,14 +9,14 @@ export const TEST_NOW = new Date('2026-03-22T08:00:00Z');
 const oneHourAgo = new Date(TEST_NOW.getTime() - 3_600_000).toUTCString();
 const twoHoursAgo = new Date(TEST_NOW.getTime() - 7_200_000).toUTCString();
 
-export const RSS_XML = `<?xml version="1.0"?><rss><channel>
+const RSS_XML = `<?xml version="1.0"?><rss><channel>
   <item><title>Dubai airport reopens after rain</title><link>https://news.google.com/rss/articles/dubai-airport</link><pubDate>${oneHourAgo}</pubDate><source url="https://example.com">Reuters</source></item>
   <item><title>Abu Dhabi market overview</title><pubDate>${twoHoursAgo}</pubDate><source url="https://example.com">Gulf News</source></item>
 </channel></rss>`;
 
-export const RSS_EMPTY = `<?xml version="1.0"?><rss><channel></channel></rss>`;
+const RSS_EMPTY = `<?xml version="1.0"?><rss><channel></channel></rss>`;
 
-export const DEEPL_RESPONSE = JSON.stringify({
+const DEEPL_RESPONSE = JSON.stringify({
   translations: [
     { detected_source_language: 'EN', text: 'Flughafen Dubai öffnet nach Regen wieder' },
     { detected_source_language: 'EN', text: 'Marktübersicht Abu Dhabi' },
@@ -27,12 +27,12 @@ export const DEEPL_RESPONSE = JSON.stringify({
 
 export const CLI = join(import.meta.dir, '..', '..', 'src', 'index.ts');
 export const PACKAGE_JSON = join(import.meta.dir, '..', '..', 'package.json');
-export const FIXTURES = join(import.meta.dir, '..', 'fixtures');
+const FIXTURES = join(import.meta.dir, '..', 'fixtures');
 export const TEXT_GOLDEN = join(FIXTURES, 'cli-default-output.txt');
 
 // ── Results and diagnostics ───────────────────────────────────
 
-export type CapturedRequest = { method: string; path: string; body: unknown };
+type CapturedRequest = { method: string; path: string; body: unknown };
 
 export type CliRunResult = {
   command: string[];

@@ -12,19 +12,19 @@ const TermSchema = z
 
 const TermList = z.array(TermSchema).min(1, 'terms must be a non-empty array of strings');
 
-export const LocaleSchema = z.strictObject({
+const LocaleSchema = z.strictObject({
   hl: nonEmpty('hl'),
   gl: nonEmpty('gl'),
   ceid: nonEmpty('ceid'),
 });
 
-export const DisplaySchema = z.strictObject({
+const DisplaySchema = z.strictObject({
   flag: nonEmpty('flag'),
   name: nonEmpty('name'),
   timezone: nonEmpty('timezone'),
 });
 
-export const MatchModeSchema = z.union(
+const MatchModeSchema = z.union(
   [z.literal('all'), z.literal('any'), z.number().int().positive()],
   { error: 'matchMode must be "all", "any", or a positive integer' },
 );
@@ -54,7 +54,7 @@ const TopicSchema = z
 
 const Weight = z.number().nonnegative('weight must be >= 0');
 
-export const ScoringSchema = z.strictObject({
+const ScoringSchema = z.strictObject({
   /** Evaluated in order; the first tier whose list matches the source wins. */
   sourceTiers: z.array(z.strictObject({ weight: Weight, sources: TermList })).default([]),
   /** Additive; each boost applies once if any of its terms matches the title. */
@@ -75,7 +75,7 @@ const DedupeToken = z
   .min(1, 'dedupe tokens must be non-empty strings')
   .regex(/^[A-Za-z0-9]+$/, 'dedupe tokens are single words: ASCII letters and digits only');
 
-export const DedupeSchema = z
+const DedupeSchema = z
   .strictObject({
     similarityThreshold: z.number().min(0, 'similarityThreshold must be within 0..1').max(1, 'similarityThreshold must be within 0..1').default(DEFAULT_SIMILARITY_THRESHOLD),
     synonyms: z.record(DedupeToken, DedupeToken).default({}),
@@ -90,16 +90,16 @@ export const DedupeSchema = z
 const MarkerGroup = z.strictObject({ weight: Weight, markers: TermList });
 const PenaltyGroup = z.strictObject({ penalty: z.number().nonnegative('penalty must be >= 0'), markers: TermList });
 
-export const ImportanceSchema = z.strictObject({
+const ImportanceSchema = z.strictObject({
   threshold: z.number().default(2),
   breaking: MarkerGroup.optional(),
   impact: MarkerGroup.optional(),
   fluff: PenaltyGroup.optional(),
 });
 
-export const EmojiRuleSchema = z.strictObject({ emoji: nonEmpty('emoji'), terms: TermList });
+const EmojiRuleSchema = z.strictObject({ emoji: nonEmpty('emoji'), terms: TermList });
 
-export const DigestConfigSchema = z
+const DigestConfigSchema = z
   .strictObject({
     locale: LocaleSchema,
     display: DisplaySchema.default({ flag: '🌐', name: 'News', timezone: 'UTC' }),
@@ -131,8 +131,6 @@ export const DigestConfigSchema = z
 
 export type DigestConfig = z.output<typeof DigestConfigSchema>;
 export type Topic = DigestConfig['topics'][number];
-export type Locale = z.output<typeof LocaleSchema>;
-export type Display = z.output<typeof DisplaySchema>;
 export type MatchMode = z.output<typeof MatchModeSchema>;
 export type ScoringConfig = z.output<typeof ScoringSchema>;
 export type DedupeConfig = z.output<typeof DedupeSchema>;

@@ -47,7 +47,7 @@ export type SelectContext = {
 
 export type SelectResult = { items: DigestItem[]; droppedByMatch: number };
 
-export function parsePubDate(pubDate: string | undefined): Date | null {
+function parsePubDate(pubDate: string | undefined): Date | null {
   if (!pubDate) return null;
   const parsed = new Date(pubDate);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
