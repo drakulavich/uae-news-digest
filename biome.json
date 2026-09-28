@@ -1,0 +1,256 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "root": true,
+  "files": {
+    "includes": [
+      "src/**",
+      "scripts/**",
+      "test/**"
+    ]
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "assist": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "none",
+      "suspicious": {
+        "noImportCycles": {
+          "level": "error",
+          "options": {
+            "ignoreTypes": false
+          }
+        }
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/config/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "../core"
+                    ],
+                    "message": "Internal code never imports ./core: it is the public API entry, re-exporting internals for package users."
+                  },
+                  {
+                    "group": [
+                      "../pipeline/*",
+                      "../output/*",
+                      "../cli/*",
+                      "../index",
+                      "../state",
+                      "../translate",
+                      "../meta"
+                    ],
+                    "message": "src/config may import only from config: src dirs depend only downward (config → pipeline → output → cli → index); state, translate and meta are leaves."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/pipeline/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "../core"
+                    ],
+                    "message": "Internal code never imports ./core: it is the public API entry, re-exporting internals for package users."
+                  },
+                  {
+                    "group": [
+                      "../output/*",
+                      "../cli/*",
+                      "../index",
+                      "../state",
+                      "../translate",
+                      "../meta"
+                    ],
+                    "message": "src/pipeline may import only from config, pipeline: src dirs depend only downward (config → pipeline → output → cli → index); state, translate and meta are leaves."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/output/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "../core"
+                    ],
+                    "message": "Internal code never imports ./core: it is the public API entry, re-exporting internals for package users."
+                  },
+                  {
+                    "group": [
+                      "../cli/*",
+                      "../index",
+                      "../state",
+                      "../translate",
+                      "../meta"
+                    ],
+                    "message": "src/output may import only from config, pipeline, output: src dirs depend only downward (config → pipeline → output → cli → index); state, translate and meta are leaves."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/cli/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "../core"
+                    ],
+                    "message": "Internal code never imports ./core: it is the public API entry, re-exporting internals for package users."
+                  },
+                  {
+                    "group": [
+                      "../index"
+                    ],
+                    "message": "src/cli may import only from config, pipeline, output, cli, state, translate, meta: src dirs depend only downward (config → pipeline → output → cli → index); state, translate and meta are leaves."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/state.ts",
+        "src/translate.ts",
+        "src/meta.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "./core"
+                    ],
+                    "message": "Internal code never imports ./core: it is the public API entry, re-exporting internals for package users."
+                  },
+                  {
+                    "group": [
+                      "./config/*",
+                      "./pipeline/*",
+                      "./output/*",
+                      "./cli/*",
+                      "./index",
+                      "./state",
+                      "./translate",
+                      "./meta"
+                    ],
+                    "message": "src/state.ts, src/translate.ts and src/meta.ts may import only from nothing in src: src dirs depend only downward (config → pipeline → output → cli → index); state, translate and meta are leaves."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/index.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "./core"
+                    ],
+                    "message": "Internal code never imports ./core: it is the public API entry, re-exporting internals for package users."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/core.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "./cli/*",
+                      "./index"
+                    ],
+                    "message": "src/core.ts may import only from config, pipeline, output, state, translate (never the CLI): src dirs depend only downward (config → pipeline → output → cli → index); state, translate and meta are leaves."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

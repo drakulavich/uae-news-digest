@@ -31,7 +31,7 @@ Default output is English with no translation. It only runs when `--target-lang 
 
 ### VERIFY BEFORE PUSHING
 
-Run `bun test` and `bun run typecheck` locally before every push. Do NOT push broken code.
+Run `bun run check` (typecheck, lint, tests) locally before every push. Do NOT push broken code.
 
 ### ERROR HANDLING
 
@@ -47,6 +47,8 @@ Commands under `src/cli/` return exit codes and throw `CliError`; only `src/inde
 bun install                    # Install dependencies
 bun test                       # Run all tests
 bun run typecheck              # TypeScript type checking
+bun run lint                   # Biome (import cycles, layer rules) + Knip (unused files/exports)
+bun run check                  # typecheck, lint, test: run before every push
 bun run build                  # Emit declaration/build output
 bun run smoke:pack             # Smoke-test the packed npm package
 bun run dev                    # Run CLI in development

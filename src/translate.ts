@@ -1,11 +1,11 @@
 export const DEEPL_API_URL = 'https://api-free.deepl.com/v2/translate';
 
-export type DeepLTranslation = {
+type DeepLTranslation = {
   detected_source_language: string;
   text: string;
 };
 
-export type DeepLResponse = {
+type DeepLResponse = {
   translations: DeepLTranslation[];
 };
 

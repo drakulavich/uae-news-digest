@@ -28,7 +28,7 @@ export function validatePositiveNumber(name: string, raw: string | number): numb
   return value;
 }
 
-export function validatePositiveInteger(name: string, raw: string | number): number {
+function validatePositiveInteger(name: string, raw: string | number): number {
   const isStrictInteger = typeof raw === 'number' ? Number.isInteger(raw) : /^\d+$/.test(String(raw).trim());
   const value = typeof raw === 'number' ? raw : Number(raw);
   if (!isStrictInteger || !Number.isInteger(value) || value <= 0) {
@@ -37,7 +37,7 @@ export function validatePositiveInteger(name: string, raw: string | number): num
   return value;
 }
 
-export function resolveNow(raw: string | undefined): Date {
+function resolveNow(raw: string | undefined): Date {
   if (!raw) return new Date();
   const now = new Date(raw);
   if (Number.isNaN(now.getTime())) {
