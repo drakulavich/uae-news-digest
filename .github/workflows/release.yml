@@ -20,7 +20,7 @@ jobs:
           bun-version: 1.3.14
 
       # npm trusted publishing (OIDC) needs npm >= 11.5.1, which ships with Node 24; no npm token is used.
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
