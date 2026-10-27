@@ -21,22 +21,10 @@ async function run(command: string[], cwd: string, env?: Record<string, string>)
     stderr: "pipe",
     env: { ...process.env, ...env },
   });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
+  const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
 
   if (exitCode !== 0) {
-    throw new Error(
-      [
-        `Command failed: ${command.join(" ")}`,
-        `cwd: ${cwd}`,
-        `exitCode: ${exitCode}`,
-        `stdout:\n${stdout}`,
-        `stderr:\n${stderr}`,
-      ].join("\n"),
-    );
+    throw new Error([`Command failed: ${command.join(" ")}`, `cwd: ${cwd}`, `exitCode: ${exitCode}`, `stdout:\n${stdout}`, `stderr:\n${stderr}`].join("\n"));
   }
 
   return stdout;
@@ -48,9 +36,7 @@ function assertPackedFiles(packResults: PackResult[]): void {
     throw new Error(`npm pack did not report packaged files: ${JSON.stringify(packResults)}`);
   }
 
-  const disallowed = files.filter(
-    (path) => !path.startsWith("src/") && path !== "README.md" && path !== "LICENSE" && path !== "package.json",
-  );
+  const disallowed = files.filter((path) => !path.startsWith("src/") && path !== "README.md" && path !== "LICENSE" && path !== "package.json");
   if (disallowed.length > 0) {
     throw new Error(`Packed artifact contains unexpected files: ${disallowed.join(", ")}`);
   }
@@ -133,11 +119,7 @@ async function main(): Promise<void> {
           XDG_CONFIG_HOME: workDir,
         }),
       );
-      if (
-        digest.tool !== "uae-news-digest" ||
-        digest.count !== 1 ||
-        digest.items[0]?.title !== "Dubai airport reopens after rain"
-      ) {
+      if (digest.tool !== "uae-news-digest" || digest.count !== 1 || digest.items[0]?.title !== "Dubai airport reopens after rain") {
         throw new Error(`Unexpected digest from packed binary: ${JSON.stringify(digest)}`);
       }
     } finally {

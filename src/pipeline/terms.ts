@@ -20,9 +20,7 @@ export function termRegExp(term: string): RegExp {
   if (cached) return cached;
   const stem = term.endsWith("*");
   const body = escapeRegExp(stem ? term.slice(0, -1) : term);
-  const source = stem
-    ? `${NOT_WORD_CHAR_BEFORE}${body}`
-    : `${NOT_WORD_CHAR_BEFORE}${body}(?:e?s)?${NOT_WORD_CHAR_AFTER}`;
+  const source = stem ? `${NOT_WORD_CHAR_BEFORE}${body}` : `${NOT_WORD_CHAR_BEFORE}${body}(?:e?s)?${NOT_WORD_CHAR_AFTER}`;
   const re = new RegExp(source, "iu");
   cache.set(term, re);
   return re;

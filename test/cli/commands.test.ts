@@ -96,11 +96,7 @@ describe("CLI commands", () => {
     ];
     expect(parsed.commands[0].name).toBe("(default)");
     expect(parsed.commands[0].flags).toEqual(expectedFlags);
-    expect(parsed.commands.slice(1).map((c: { name: string }) => c.name)).toEqual([
-      "manifest",
-      "healthcheck",
-      "config",
-    ]);
+    expect(parsed.commands.slice(1).map((c: { name: string }) => c.name)).toEqual(["manifest", "healthcheck", "config"]);
 
     const healthcheck = parsed.commands.find((c: { name: string }) => c.name === "healthcheck");
     expect(healthcheck.flags).toEqual(["--rss-url <url>", "--timeout-ms <number>"]);
@@ -154,10 +150,7 @@ describe("CLI commands", () => {
   test("config validate lists every issue with its JSON path and exits 1", async () => {
     const dir = mkdtempSync(join(tmpdir(), "cli-broken-"));
     const path = join(dir, "broken.json");
-    writeFileSync(
-      path,
-      JSON.stringify({ locale: { hl: "en", gl: "AE", ceid: "AE:en" }, topics: [{ slug: "a", name: "A" }], bogus: 1 }),
-    );
+    writeFileSync(path, JSON.stringify({ locale: { hl: "en", gl: "AE", ceid: "AE:en" }, topics: [{ slug: "a", name: "A" }], bogus: 1 }));
     try {
       const result = await cli.run(["config", "validate", path]);
       expectExitCode(result, 1);

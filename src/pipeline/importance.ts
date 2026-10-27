@@ -22,9 +22,7 @@ export function scoreImportance(title: string, importance: ImportanceConfig | un
   const fluff = findTerms(title, importance.fluff?.markers ?? []);
 
   const score =
-    breaking.length * (importance.breaking?.weight ?? 0) +
-    impact.length * (importance.impact?.weight ?? 0) -
-    fluff.length * (importance.fluff?.penalty ?? 0);
+    breaking.length * (importance.breaking?.weight ?? 0) + impact.length * (importance.impact?.weight ?? 0) - fluff.length * (importance.fluff?.penalty ?? 0);
 
   let tier: ImportanceTier;
   if (breaking.length > 0) tier = "breaking";

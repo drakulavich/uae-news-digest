@@ -57,20 +57,14 @@ export async function runDefault(flags: RunFlags, env: CliEnv, cwd: string): Pro
   if (flags.prompt) {
     const { config, source } = await resolveConfig(flags.config, env, cwd);
     if (!config.agentPrompt) {
-      throw new CliError(
-        "config",
-        `Config at ${source} has no "agentPrompt" — add an "agentPrompt" string to the config to use --prompt.`,
-      );
+      throw new CliError("config", `Config at ${source} has no "agentPrompt" — add an "agentPrompt" string to the config to use --prompt.`);
     }
     process.stdout.write(config.agentPrompt + "\n");
     return 0;
   }
 
   if (flags.targetLang && !deeplAuthKey) {
-    throw new CliError(
-      "usage",
-      "--target-lang requires DEEPL_AUTH_KEY — set it to your DeepL Free API key, or drop --target-lang.",
-    );
+    throw new CliError("usage", "--target-lang requires DEEPL_AUTH_KEY — set it to your DeepL Free API key, or drop --target-lang.");
   }
 
   const { config } = await resolveConfig(flags.config, env, cwd);

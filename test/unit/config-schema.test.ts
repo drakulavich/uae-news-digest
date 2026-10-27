@@ -62,23 +62,16 @@ describe("parseConfig — structure", () => {
   });
 
   test("rejects a non-positive limit", () => {
-    expect(() => parseConfig({ ...minimal, topics: [{ slug: "a", name: "A", query: "q", limit: 0 }] }, "test")).toThrow(
-      /limit/,
-    );
+    expect(() => parseConfig({ ...minimal, topics: [{ slug: "a", name: "A", query: "q", limit: 0 }] }, "test")).toThrow(/limit/);
   });
 
   test("rejects unknown keys (typos)", () => {
-    expect(() =>
-      parseConfig({ ...minimal, topics: [{ slug: "a", name: "A", query: "q", matchmode: "any" }] }, "test"),
-    ).toThrow(/matchmode/);
+    expect(() => parseConfig({ ...minimal, topics: [{ slug: "a", name: "A", query: "q", matchmode: "any" }] }, "test")).toThrow(/matchmode/);
     expect(() => parseConfig({ ...minimal, scorring: {} }, "test")).toThrow(/scorring/);
   });
 
   test("trims whitespace from string fields", () => {
-    const cfg = parseConfig(
-      { ...minimal, topics: [{ slug: "  economy ", name: " Экономика  ", query: "  UAE economy  ", emoji: " 💰 " }] },
-      "test",
-    );
+    const cfg = parseConfig({ ...minimal, topics: [{ slug: "  economy ", name: " Экономика  ", query: "  UAE economy  ", emoji: " 💰 " }] }, "test");
     expect(cfg.topics[0]).toMatchObject({ slug: "economy", name: "Экономика", query: "UAE economy", emoji: "💰" });
   });
 
@@ -87,20 +80,13 @@ describe("parseConfig — structure", () => {
   });
 
   test("accepts an absolute http(s) feedUrl on a topic", () => {
-    const cfg = parseConfig(
-      { ...minimal, topics: [{ slug: "a", name: "A", query: "q", feedUrl: "http://localhost:8080/rss" }] },
-      "test",
-    );
+    const cfg = parseConfig({ ...minimal, topics: [{ slug: "a", name: "A", query: "q", feedUrl: "http://localhost:8080/rss" }] }, "test");
     expect(cfg.topics[0]!.feedUrl).toBe("http://localhost:8080/rss");
   });
 
   test("rejects a relative or non-http feedUrl", () => {
-    expect(() =>
-      parseConfig({ ...minimal, topics: [{ slug: "a", name: "A", query: "q", feedUrl: "/rss" }] }, "test"),
-    ).toThrow(/feedUrl/);
-    expect(() =>
-      parseConfig({ ...minimal, topics: [{ slug: "a", name: "A", query: "q", feedUrl: "ftp://x/rss" }] }, "test"),
-    ).toThrow(/feedUrl/);
+    expect(() => parseConfig({ ...minimal, topics: [{ slug: "a", name: "A", query: "q", feedUrl: "/rss" }] }, "test")).toThrow(/feedUrl/);
+    expect(() => parseConfig({ ...minimal, topics: [{ slug: "a", name: "A", query: "q", feedUrl: "ftp://x/rss" }] }, "test")).toThrow(/feedUrl/);
   });
 });
 
@@ -171,19 +157,13 @@ describe("parseConfig — heuristics", () => {
   });
 
   test("rejects a marker with * anywhere but the end", () => {
-    expect(() =>
-      parseConfig({ ...minimal, importance: { breaking: { weight: 1, markers: ["ev*acuat"] } } }, "test"),
-    ).toThrow(/markers\[0\]/);
+    expect(() => parseConfig({ ...minimal, importance: { breaking: { weight: 1, markers: ["ev*acuat"] } } }, "test")).toThrow(/markers\[0\]/);
     expect(() => parseConfig({ ...minimal, skip: ["**"] }, "test")).toThrow(/skip\[0\]/);
   });
 
   test("rejects negative weights and out-of-range thresholds", () => {
-    expect(() =>
-      parseConfig({ ...minimal, scoring: { sourceTiers: [{ weight: -1, sources: ["x"] }] } }, "test"),
-    ).toThrow(/weight/);
-    expect(() => parseConfig({ ...minimal, dedupe: { similarityThreshold: 1.5 } }, "test")).toThrow(
-      /similarityThreshold/,
-    );
+    expect(() => parseConfig({ ...minimal, scoring: { sourceTiers: [{ weight: -1, sources: ["x"] }] } }, "test")).toThrow(/weight/);
+    expect(() => parseConfig({ ...minimal, dedupe: { similarityThreshold: 1.5 } }, "test")).toThrow(/similarityThreshold/);
   });
 
   test("rejects an empty term list", () => {
@@ -195,21 +175,14 @@ describe("parseConfig — heuristics", () => {
   });
 
   test("lower-cases dedupe synonyms and stop words so they match title tokens", () => {
-    const cfg = parseConfig(
-      { ...minimal, dedupe: { synonyms: { Drone: "UAV", Drones: "uav" }, stopWords: ["The", "says"] } },
-      "test",
-    );
+    const cfg = parseConfig({ ...minimal, dedupe: { synonyms: { Drone: "UAV", Drones: "uav" }, stopWords: ["The", "says"] } }, "test");
     expect(cfg.dedupe!.synonyms).toEqual({ drone: "uav", drones: "uav" });
     expect(cfg.dedupe!.stopWords).toEqual(["the", "says"]);
   });
 
   test("rejects dedupe tokens with spaces or punctuation (they can never match a title token)", () => {
-    expect(() => parseConfig({ ...minimal, dedupe: { synonyms: { "air space": "airport" } } }, "test")).toThrow(
-      /synonyms/,
-    );
-    expect(() => parseConfig({ ...minimal, dedupe: { synonyms: { airspace: "air-port" } } }, "test")).toThrow(
-      /synonyms/,
-    );
+    expect(() => parseConfig({ ...minimal, dedupe: { synonyms: { "air space": "airport" } } }, "test")).toThrow(/synonyms/);
+    expect(() => parseConfig({ ...minimal, dedupe: { synonyms: { airspace: "air-port" } } }, "test")).toThrow(/synonyms/);
     expect(() => parseConfig({ ...minimal, dedupe: { stopWords: ["world's"] } }, "test")).toThrow(/stopWords\[0\]/);
   });
 });

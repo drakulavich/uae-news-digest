@@ -50,11 +50,7 @@ export function manifest(program: Command): number {
 }
 
 /** `healthcheck`: GET `--rss-url`, else the first topic of the resolved config; {ok, version, latencyMs} on stdout. */
-export async function healthcheck(
-  opts: { rssUrl?: string; config?: string; timeoutMs?: string | number },
-  env: CliEnv,
-  cwd: string,
-): Promise<number> {
+export async function healthcheck(opts: { rssUrl?: string; config?: string; timeoutMs?: string | number }, env: CliEnv, cwd: string): Promise<number> {
   const start = performance.now();
   const timeoutMs = validatePositiveNumber("timeout-ms", opts.timeoutMs ?? 15000);
   try {
@@ -65,9 +61,7 @@ export async function healthcheck(
     return 0;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.log(
-      JSON.stringify({ ok: false, version: VERSION, latencyMs: Math.round(performance.now() - start), error: message }),
-    );
+    console.log(JSON.stringify({ ok: false, version: VERSION, latencyMs: Math.round(performance.now() - start), error: message }));
     return 1;
   }
 }

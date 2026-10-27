@@ -40,11 +40,7 @@ function item(over: Partial<DigestItem>): DigestItem {
   };
 }
 
-function result(
-  config: DigestConfig,
-  itemsBySlug: Record<string, DigestItem[]>,
-  warnings: string[] = [],
-): DigestResult {
+function result(config: DigestConfig, itemsBySlug: Record<string, DigestItem[]>, warnings: string[] = []): DigestResult {
   return {
     sections: config.topics.map((topic) => ({ topic, items: itemsBySlug[topic.slug] ?? [] })),
     warnings,
@@ -79,15 +75,9 @@ describe("renderText", () => {
       now,
     );
     expect(out).toBe(
-      [
-        "🇦🇪 UAE digest — 2026-05-22",
-        "",
-        "💰 Economy",
-        "  • GDP up (Reuters, 1h ago)",
-        "",
-        "• Realty",
-        "  • Emaar tower sold (Arabian Business, 2h ago)",
-      ].join("\n"),
+      ["🇦🇪 UAE digest — 2026-05-22", "", "💰 Economy", "  • GDP up (Reuters, 1h ago)", "", "• Realty", "  • Emaar tower sold (Arabian Business, 2h ago)"].join(
+        "\n",
+      ),
     );
   });
 
@@ -113,9 +103,7 @@ describe("renderText", () => {
       now,
     );
     // "airspace" matches the ✈️ rule before "missile" reaches the 🛡️ rule (first matching rule wins).
-    expect(out).toContain(
-      "🚨 Important\n  ✈️ Missile intercepted over Abu Dhabi airspace (Reuters, 1h ago) [missile, airspace] — Economy\n",
-    );
+    expect(out).toContain("🚨 Important\n  ✈️ Missile intercepted over Abu Dhabi airspace (Reuters, 1h ago) [missile, airspace] — Economy\n");
     expect(out).toContain("💰 Economy\n  (all items are in 🚨 Important)");
     expect(out.split("Missile intercepted").length - 1).toBe(1);
   });
@@ -125,9 +113,7 @@ describe("renderText", () => {
     const out = renderText(
       result(c, {
         // fluff: carries signals but stays under the threshold, so it renders in the body
-        economy: [
-          item({ title: "Dubai hotel launches AI concierge", importance: -3, tier: "fluff", signals: ["launches"] }),
-        ],
+        economy: [item({ title: "Dubai hotel launches AI concierge", importance: -3, tier: "fluff", signals: ["launches"] })],
       }),
       c,
       now,
@@ -139,22 +125,14 @@ describe("renderText", () => {
 
   test("uses translatedTitle when present and the config emoji rules for the marker", () => {
     const c = cfg();
-    const out = renderText(
-      result(c, { economy: [item({ title: "Heavy rain expected", translatedTitle: "Ожидается сильный дождь" })] }),
-      c,
-      now,
-    );
+    const out = renderText(result(c, { economy: [item({ title: "Heavy rain expected", translatedTitle: "Ожидается сильный дождь" })] }), c, now);
     expect(out).toContain("  🌧️ Ожидается сильный дождь (Reuters, 1h ago)");
     expect(out).not.toContain("Heavy rain expected");
   });
 
   test("no importance config means no Important block and bullet emoji", () => {
     const c = parseConfig({ locale: LOCALE, topics: [{ slug: "a", name: "A", query: "q" }] }, "test");
-    const out = renderText(
-      result(c, { a: [item({ title: "Missile intercepted", importance: 8, tier: "breaking", signals: ["missile"] })] }),
-      c,
-      now,
-    );
+    const out = renderText(result(c, { a: [item({ title: "Missile intercepted", importance: 8, tier: "breaking", signals: ["missile"] })] }), c, now);
     expect(out).not.toContain("🚨 Important");
     expect(out).toContain("• A\n  • Missile intercepted (Reuters, 1h ago)");
     expect(out.startsWith("🌐 News digest — ")).toBe(true);

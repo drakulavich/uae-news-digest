@@ -23,9 +23,7 @@ export function renderText(result: DigestResult, config: DigestConfig, now: Date
   const lines: string[] = [`${display.flag} ${display.name} digest — ${dateLabel}`, ""];
 
   const threshold = importanceThreshold(config.importance);
-  const important = result.sections.flatMap((s) =>
-    s.items.filter((i) => i.importance >= threshold).map((item) => ({ item, topic: s.topic })),
-  );
+  const important = result.sections.flatMap((s) => s.items.filter((i) => i.importance >= threshold).map((item) => ({ item, topic: s.topic })));
   const importantKeys = new Set(important.map((e) => e.item.key));
 
   if (important.length > 0) {

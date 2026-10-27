@@ -81,11 +81,7 @@ export type CliHarness = {
   /** Spawn the CLI with HOME/XDG neutralised and the test clock set; keys in `env` win. */
   run(args: string[], env?: Record<string, string>, options?: { timeoutMs?: number }): Promise<CliRunResult>;
   /** Spawn the CLI in `cwd` with the real environment plus `env` (config-discovery tests). */
-  runFromCwd(
-    args: string[],
-    opts: { cwd: string; env?: Record<string, string> },
-    options?: { timeoutMs?: number },
-  ): Promise<CliRunResult>;
+  runFromCwd(args: string[], opts: { cwd: string; env?: Record<string, string> }, options?: { timeoutMs?: number }): Promise<CliRunResult>;
 };
 
 export function startCliHarness(): CliHarness {
@@ -208,11 +204,7 @@ export function startCliHarness(): CliHarness {
         options.timeoutMs ?? 5_000,
       ),
     runFromCwd: (args, opts, options = {}) =>
-      spawnCli(
-        ["bun", CLI, ...args],
-        { cwd: opts.cwd, env: { ...process.env, ...opts.env } },
-        options.timeoutMs ?? 10_000,
-      ),
+      spawnCli(["bun", CLI, ...args], { cwd: opts.cwd, env: { ...process.env, ...opts.env } }, options.timeoutMs ?? 10_000),
   };
 }
 
@@ -229,11 +221,7 @@ export function tmpStateFile(): string {
  * `configOverrides` are spread over the top level (pass `{ agentPrompt: undefined }` to drop a key).
  * Returns the `--config` path; call cleanupTempDirs() in afterAll.
  */
-export function feedConfig(
-  feedUrl: string,
-  topicOverrides: Record<string, unknown> = {},
-  configOverrides: Record<string, unknown> = {},
-): string {
+export function feedConfig(feedUrl: string, topicOverrides: Record<string, unknown> = {}, configOverrides: Record<string, unknown> = {}): string {
   const dir = mkdtempSync(join(tmpdir(), "cli-feed-"));
   tempDirs.push(dir);
   const path = join(dir, "digest.config.json");

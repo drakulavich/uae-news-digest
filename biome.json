@@ -39,15 +39,7 @@
                     "message": "Internal code never imports ./core: it is the public API entry, re-exporting internals for package users."
                   },
                   {
-                    "group": [
-                      "../pipeline/*",
-                      "../output/*",
-                      "../cli/*",
-                      "../index",
-                      "../state",
-                      "../translate",
-                      "../meta"
-                    ],
+                    "group": ["../pipeline/*", "../output/*", "../cli/*", "../index", "../state", "../translate", "../meta"],
                     "message": "src/config may import only from config: src dirs depend only downward (config → pipeline → output → cli → index); state, translate and meta are leaves."
                   }
                 ]
@@ -143,16 +135,7 @@
                     "message": "Internal code never imports ./core: it is the public API entry, re-exporting internals for package users."
                   },
                   {
-                    "group": [
-                      "./config/*",
-                      "./pipeline/*",
-                      "./output/*",
-                      "./cli/*",
-                      "./index",
-                      "./state",
-                      "./translate",
-                      "./meta"
-                    ],
+                    "group": ["./config/*", "./pipeline/*", "./output/*", "./cli/*", "./index", "./state", "./translate", "./meta"],
                     "message": "src/state.ts, src/translate.ts and src/meta.ts may import only from nothing in src: src dirs depend only downward (config → pipeline → output → cli → index); state, translate and meta are leaves."
                   }
                 ]

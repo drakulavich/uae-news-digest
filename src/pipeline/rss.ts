@@ -21,8 +21,7 @@ export function parseRss(xml: string): RssItem[] {
   return items.map((item: any) => ({
     title: normalizeWhitespace(String(item.title ?? "")),
     pubDate: item.pubDate ? String(item.pubDate) : undefined,
-    source:
-      typeof item.source === "string" ? item.source : item.source?.["#text"] ? String(item.source["#text"]) : undefined,
+    source: typeof item.source === "string" ? item.source : item.source?.["#text"] ? String(item.source["#text"]) : undefined,
     link: item.link ? String(item.link) : undefined,
   }));
 }

@@ -41,10 +41,7 @@ describe("matchesTerm", () => {
 
 describe("findTerms", () => {
   test("returns matching terms as written, in list order", () => {
-    expect(findTerms("Evacuation after missile strike", ["missile", "evacuat*", "flood"])).toEqual([
-      "missile",
-      "evacuat*",
-    ]);
+    expect(findTerms("Evacuation after missile strike", ["missile", "evacuat*", "flood"])).toEqual(["missile", "evacuat*"]);
   });
 });
 

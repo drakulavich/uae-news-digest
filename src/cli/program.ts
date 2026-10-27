@@ -137,12 +137,7 @@ export function buildProgram(onExit: (code: number) => void, env: CliEnv, cwd: s
 }
 
 /** Parse argv and run; the only place that decides the exit code. Never throws. */
-export async function main(
-  argv: string[],
-  env: CliEnv = process.env,
-  cwd: string = process.cwd(),
-  build: typeof buildProgram = buildProgram,
-): Promise<number> {
+export async function main(argv: string[], env: CliEnv = process.env, cwd: string = process.cwd(), build: typeof buildProgram = buildProgram): Promise<number> {
   let exitCode: number | undefined;
   const program = build(
     (code) => {

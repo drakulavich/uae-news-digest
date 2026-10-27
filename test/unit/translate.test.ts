@@ -29,10 +29,10 @@ beforeEach(() => {
 
 function setupDeepLSuccess(translations: string[]): void {
   deeplHandler = async () =>
-    new Response(
-      JSON.stringify({ translations: translations.map((text) => ({ detected_source_language: "EN", text })) }),
-      { status: 200, headers: { "content-type": "application/json" } },
-    );
+    new Response(JSON.stringify({ translations: translations.map((text) => ({ detected_source_language: "EN", text })) }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
 }
 
 function setupDeepLStatus(status: number): void {
@@ -82,14 +82,11 @@ describe("translateDeepL", () => {
   test("throws if response count mismatches", async () => {
     // Send 2 texts but server returns only 1 translation
     setupDeepLSuccess(["only one"]);
-    await expect(translateDeepL(["text one", "text two"], "fake-key", "RU")).rejects.toThrow(
-      /1 translations for 2 texts/,
-    );
+    await expect(translateDeepL(["text one", "text two"], "fake-key", "RU")).rejects.toThrow(/1 translations for 2 texts/);
   });
 
   test("a non-JSON 200 body is reported as such", async () => {
-    deeplHandler = async () =>
-      new Response("not json", { status: 200, headers: { "content-type": "application/json" } });
+    deeplHandler = async () => new Response("not json", { status: 200, headers: { "content-type": "application/json" } });
     await expect(translateDeepL(["x"], "key", "DE")).rejects.toThrow("DeepL returned a non-JSON response");
   });
 
@@ -97,10 +94,10 @@ describe("translateDeepL", () => {
     let capturedBody: any;
     deeplHandler = async (req) => {
       capturedBody = await req.json();
-      return new Response(
-        JSON.stringify({ translations: [{ detected_source_language: "EN", text: "Markt in Dubai steigt" }] }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ translations: [{ detected_source_language: "EN", text: "Markt in Dubai steigt" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     };
 
     await translateDeepL(["Dubai market rises"], "fake-key", "DE");

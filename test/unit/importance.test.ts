@@ -42,9 +42,7 @@ describe("scoreImportance with the default config", () => {
   });
 
   test("breaking outranks fluff when both are present", () => {
-    expect(scoreImportance("Airport closed after attack; ribbon-cutting ceremony cancelled", importance).tier).toBe(
-      "breaking",
-    );
+    expect(scoreImportance("Airport closed after attack; ribbon-cutting ceremony cancelled", importance).tier).toBe("breaking");
   });
 
   test("whole-word matching avoids false positives", () => {

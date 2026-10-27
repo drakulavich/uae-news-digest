@@ -40,8 +40,6 @@ describe("classifyFetchError", () => {
 
   test("a null or undefined rejection still becomes a network error", () => {
     expect(classifyFetchError(null, ctx).kind).toBe("network");
-    expect(classifyFetchError(undefined, ctx).message).toBe(
-      "Unable to connect to localhost:1 — check your connection (undefined)",
-    );
+    expect(classifyFetchError(undefined, ctx).message).toBe("Unable to connect to localhost:1 — check your connection (undefined)");
   });
 });

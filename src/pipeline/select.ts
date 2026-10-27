@@ -110,9 +110,7 @@ export function selectItems(
 
     const existing = unique.get(key);
     if (existing) {
-      const replace =
-        digestItem.score > existing.score ||
-        (digestItem.score === existing.score && digestItem.publishedAt > existing.publishedAt);
+      const replace = digestItem.score > existing.score || (digestItem.score === existing.score && digestItem.publishedAt > existing.publishedAt);
       if (replace) unique.set(key, digestItem);
       continue;
     }
@@ -120,10 +118,7 @@ export function selectItems(
     let fuzzyDup = false;
     for (const [existingKey, existingItem] of unique) {
       if (titleSimilarity(title, existingItem.title, heuristics.dedupe) >= similarityThreshold) {
-        if (
-          digestItem.score > existingItem.score ||
-          (digestItem.score === existingItem.score && digestItem.publishedAt > existingItem.publishedAt)
-        ) {
+        if (digestItem.score > existingItem.score || (digestItem.score === existingItem.score && digestItem.publishedAt > existingItem.publishedAt)) {
           unique.delete(existingKey);
           unique.set(key, digestItem);
         }
@@ -138,10 +133,7 @@ export function selectItems(
   }
 
   const result = [...unique.values()]
-    .sort(
-      (a, b) =>
-        b.score - a.score || b.publishedAt.getTime() - a.publishedAt.getTime() || a.title.localeCompare(b.title),
-    )
+    .sort((a, b) => b.score - a.score || b.publishedAt.getTime() - a.publishedAt.getTime() || a.title.localeCompare(b.title))
     .slice(0, limit);
   return { items: result, droppedByMatch };
 }

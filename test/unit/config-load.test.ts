@@ -30,9 +30,7 @@ describe("loadConfig", () => {
   });
 
   test("rejects malformed JSON with the file path in the message", async () => {
-    await expect(loadConfig(write("broken.json", "{ not json"))).rejects.toThrow(
-      /Failed to parse config at .*broken\.json/,
-    );
+    await expect(loadConfig(write("broken.json", "{ not json"))).rejects.toThrow(/Failed to parse config at .*broken\.json/);
   });
 
   test("rejects a schema violation with the file path in the message", async () => {
@@ -51,9 +49,7 @@ describe("resolveConfigPath", () => {
   });
 
   test("throws when the explicit path is missing or empty", async () => {
-    await expect(resolveConfigPath({ explicit: "/nope.json", cwd: dir, env: {} })).rejects.toThrow(
-      /Config not found: \/nope\.json/,
-    );
+    await expect(resolveConfigPath({ explicit: "/nope.json", cwd: dir, env: {} })).rejects.toThrow(/Config not found: \/nope\.json/);
     await expect(resolveConfigPath({ explicit: "", cwd: dir, env: {} })).rejects.toThrow(/Config not found/);
   });
 

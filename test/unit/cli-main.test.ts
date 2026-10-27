@@ -5,11 +5,7 @@ import { main } from "../../src/cli/program";
 const NOISE = ["bun", "index.ts"];
 
 /** A minimal program whose default action throws, to exercise main's catch branches without the real CLI. */
-function buildThrowingProgram(
-  _onExit: (code: number) => void,
-  _env: Record<string, string | undefined>,
-  _cwd: string,
-): Command {
+function buildThrowingProgram(_onExit: (code: number) => void, _env: Record<string, string | undefined>, _cwd: string): Command {
   const program = new Command();
   program.exitOverride();
   program.action(() => {
@@ -19,11 +15,7 @@ function buildThrowingProgram(
 }
 
 /** A minimal program whose default action never calls onExit, simulating an action that forgot to report a code. */
-function buildForgetfulProgram(
-  _onExit: (code: number) => void,
-  _env: Record<string, string | undefined>,
-  _cwd: string,
-): Command {
+function buildForgetfulProgram(_onExit: (code: number) => void, _env: Record<string, string | undefined>, _cwd: string): Command {
   const program = new Command();
   program.exitOverride();
   program.action(() => {});

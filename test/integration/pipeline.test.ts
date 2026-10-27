@@ -245,10 +245,7 @@ describe("runDigest — warnings and failures", () => {
   });
 
   test("a config without heuristic sections produces neutral items", async () => {
-    const cfg = parseConfig(
-      { locale: LOCALE, topics: [{ slug: "a", name: "A", query: "q", feedUrl: "http://stub/a" }] },
-      "test",
-    );
+    const cfg = parseConfig({ locale: LOCALE, topics: [{ slug: "a", name: "A", query: "q", feedUrl: "http://stub/a" }] }, "test");
     const result = await runDigest({
       config: cfg,
       seenKeys: new Set(),
@@ -323,9 +320,7 @@ describe("runDigest — translation", () => {
       targetLang: "RU",
       fetchText: feeds({ a: rss([{ title: "GDP up" }]) }),
     });
-    expect(result.warnings).toEqual([
-      "DeepL translation to RU failed (DeepL returned HTTP 456 (quota exceeded)); using original titles.",
-    ]);
+    expect(result.warnings).toEqual(["DeepL translation to RU failed (DeepL returned HTTP 456 (quota exceeded)); using original titles."]);
     expect(result.sections[0]!.items[0]!.translatedTitle).toBeUndefined();
   });
 

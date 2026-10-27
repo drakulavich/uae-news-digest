@@ -47,13 +47,7 @@ describe("CLI digest", () => {
 
   test("default text output with items", async () => {
     const stateFile = tmpStateFile();
-    const { stdout, exitCode } = await cli.run([
-      "--config",
-      feedConfig(`${cli.baseUrl}/rss`),
-      "--state-file",
-      stateFile,
-      "--dry-run",
-    ]);
+    const { stdout, exitCode } = await cli.run(["--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", stateFile, "--dry-run"]);
 
     expect(exitCode).toBe(0);
     expect(stdout).toBe(await Bun.file(TEXT_GOLDEN).text());
@@ -62,28 +56,12 @@ describe("CLI digest", () => {
   test("--json produces agent-friendly envelope", async () => {
     const stateFile = tmpStateFile();
     const packageJson = await Bun.file(PACKAGE_JSON).json();
-    const { stdout, stderr, exitCode } = await cli.run([
-      "--json",
-      "--config",
-      feedConfig(`${cli.baseUrl}/rss`),
-      "--state-file",
-      stateFile,
-      "--dry-run",
-    ]);
+    const { stdout, stderr, exitCode } = await cli.run(["--json", "--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", stateFile, "--dry-run"]);
 
     expect(exitCode).toBe(0);
     expect(stderr).toContain("dry run");
     const parsed = JSON.parse(stdout);
-    expect(Object.keys(parsed).sort()).toEqual([
-      "count",
-      "generatedAt",
-      "items",
-      "query",
-      "tool",
-      "topics",
-      "version",
-      "warnings",
-    ]);
+    expect(Object.keys(parsed).sort()).toEqual(["count", "generatedAt", "items", "query", "tool", "topics", "version", "warnings"]);
     expect(parsed.tool).toBe("uae-news-digest");
     expect(parsed.version).toBe(packageJson.version);
     expect(Object.keys(parsed.query).sort()).toEqual(["hours", "limit", "targetLang"]);
@@ -138,10 +116,9 @@ describe("CLI digest", () => {
 
   test("--json enriches items with importance, signals, and tier", async () => {
     const stateFile = tmpStateFile();
-    const result = await cli.run(
-      ["--json", "--config", feedConfig(`${cli.baseUrl}/rss/fixture`), "--state-file", stateFile, "--dry-run"],
-      { UAE_NEWS_DIGEST_NOW: "2026-04-15T12:00:00Z" },
-    );
+    const result = await cli.run(["--json", "--config", feedConfig(`${cli.baseUrl}/rss/fixture`), "--state-file", stateFile, "--dry-run"], {
+      UAE_NEWS_DIGEST_NOW: "2026-04-15T12:00:00Z",
+    });
     expect(result.exitCode).toBe(0);
     const parsed = JSON.parse(result.stdout);
     expect(parsed.items.length).toBeGreaterThan(0);
@@ -156,13 +133,7 @@ describe("CLI digest", () => {
 
   test("--dry-run does not write state file", async () => {
     const stateFile = tmpStateFile();
-    const { stderr, exitCode } = await cli.run([
-      "--config",
-      feedConfig(`${cli.baseUrl}/rss`),
-      "--state-file",
-      stateFile,
-      "--dry-run",
-    ]);
+    const { stderr, exitCode } = await cli.run(["--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", stateFile, "--dry-run"]);
 
     expect(exitCode).toBe(0);
     expect(stderr).toContain("dry run");
@@ -172,13 +143,10 @@ describe("CLI digest", () => {
 
   test("translation via DeepL with --target-lang", async () => {
     const stateFile = tmpStateFile();
-    const result = await cli.run(
-      ["--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", stateFile, "--target-lang", "DE", "--dry-run"],
-      {
-        DEEPL_AUTH_KEY: "fake-key",
-        DEEPL_API_URL: `${cli.baseUrl}/translate`,
-      },
-    );
+    const result = await cli.run(["--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", stateFile, "--target-lang", "DE", "--dry-run"], {
+      DEEPL_AUTH_KEY: "fake-key",
+      DEEPL_API_URL: `${cli.baseUrl}/translate`,
+    });
 
     expectExitCode(result, 0);
     expect(result.stderr).toContain("Translating to DE");
@@ -208,25 +176,14 @@ describe("CLI digest", () => {
     );
 
     expect(exitCode).toBe(0);
-    expect(stderr).toContain(
-      "DeepL translation to DE failed (DeepL returned HTTP 500 Internal Server Error); using original titles.",
-    );
+    expect(stderr).toContain("DeepL translation to DE failed (DeepL returned HTTP 500 Internal Server Error); using original titles.");
     expect(stdout).toContain("Dubai airport reopens after rain");
   });
 
   test("--json includes warnings when translation falls back", async () => {
     const stateFile = tmpStateFile();
     const { stdout, exitCode } = await cli.run(
-      [
-        "--json",
-        "--config",
-        feedConfig(`${cli.baseUrl}/rss`),
-        "--state-file",
-        stateFile,
-        "--target-lang",
-        "DE",
-        "--dry-run",
-      ],
+      ["--json", "--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", stateFile, "--target-lang", "DE", "--dry-run"],
       {
         DEEPL_AUTH_KEY: "fake-key",
         DEEPL_API_URL: `${cli.baseUrl}/translate/error`,
@@ -235,17 +192,14 @@ describe("CLI digest", () => {
 
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
-    expect(parsed.warnings).toEqual([
-      "DeepL translation to DE failed (DeepL returned HTTP 500 Internal Server Error); using original titles.",
-    ]);
+    expect(parsed.warnings).toEqual(["DeepL translation to DE failed (DeepL returned HTTP 500 Internal Server Error); using original titles."]);
   });
 
   test("--target-lang without DEEPL_AUTH_KEY exits with error", async () => {
     const stateFile = tmpStateFile();
-    const { stderr, exitCode } = await cli.run(
-      ["--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", stateFile, "--target-lang", "DE"],
-      { DEEPL_AUTH_KEY: "" },
-    );
+    const { stderr, exitCode } = await cli.run(["--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", stateFile, "--target-lang", "DE"], {
+      DEEPL_AUTH_KEY: "",
+    });
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain("DEEPL_AUTH_KEY");
@@ -253,10 +207,9 @@ describe("CLI digest", () => {
 
   test("invalid test clock exits with error", async () => {
     const stateFile = tmpStateFile();
-    const { stderr, exitCode } = await cli.run(
-      ["--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", stateFile, "--dry-run"],
-      { UAE_NEWS_DIGEST_NOW: "not-a-date" },
-    );
+    const { stderr, exitCode } = await cli.run(["--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", stateFile, "--dry-run"], {
+      UAE_NEWS_DIGEST_NOW: "not-a-date",
+    });
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain("Invalid UAE_NEWS_DIGEST_NOW");
@@ -264,14 +217,7 @@ describe("CLI digest", () => {
 
   test("RSS timeout shows timeout message and exits 1", async () => {
     const stateFile = tmpStateFile();
-    const result = await cli.run([
-      "--config",
-      feedConfig(`${cli.baseUrl}/rss/hang`),
-      "--state-file",
-      stateFile,
-      "--timeout-ms",
-      "200",
-    ]);
+    const result = await cli.run(["--config", feedConfig(`${cli.baseUrl}/rss/hang`), "--state-file", stateFile, "--timeout-ms", "200"]);
 
     expectExitCode(result, 1);
     expect(result.stderr).toContain("timed out");
@@ -282,26 +228,13 @@ describe("CLI digest", () => {
     const stateFile = tmpStateFile();
 
     await expect(
-      cli.run(
-        ["--config", feedConfig(`${cli.baseUrl}/rss/hang`), "--state-file", stateFile, "--timeout-ms", "5000"],
-        undefined,
-        { timeoutMs: 100 },
-      ),
-    ).rejects.toThrow(
-      /CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*exitCode:[\s\S]*stdout:[\s\S]*stderr:[\s\S]*requests:/,
-    );
+      cli.run(["--config", feedConfig(`${cli.baseUrl}/rss/hang`), "--state-file", stateFile, "--timeout-ms", "5000"], undefined, { timeoutMs: 100 }),
+    ).rejects.toThrow(/CLI command timed out after 100ms[\s\S]*command: bun[\s\S]*exitCode:[\s\S]*stdout:[\s\S]*stderr:[\s\S]*requests:/);
   });
 
   test("RSS network failure shows network message and exits 1", async () => {
     const stateFile = tmpStateFile();
-    const { stderr, exitCode } = await cli.run([
-      "--config",
-      feedConfig("http://localhost:1/rss"),
-      "--state-file",
-      stateFile,
-      "--timeout-ms",
-      "2000",
-    ]);
+    const { stderr, exitCode } = await cli.run(["--config", feedConfig("http://localhost:1/rss"), "--state-file", stateFile, "--timeout-ms", "2000"]);
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain("Unable to connect");
@@ -327,13 +260,7 @@ describe("CLI digest", () => {
 
   test("--json still prints the envelope when every topic fails, and exits 1", async () => {
     const stateFile = tmpStateFile();
-    const result = await cli.run([
-      "--json",
-      "--config",
-      feedConfig(`${cli.baseUrl}/rss/error`),
-      "--state-file",
-      stateFile,
-    ]);
+    const result = await cli.run(["--json", "--config", feedConfig(`${cli.baseUrl}/rss/error`), "--state-file", stateFile]);
 
     expectExitCode(result, 1);
     const parsed = JSON.parse(result.stdout);
@@ -360,13 +287,7 @@ describe("CLI digest", () => {
     );
 
     const stateFile = tmpStateFile();
-    const { stdout, stderr, exitCode } = await cli.run([
-      "--config",
-      configPath,
-      "--state-file",
-      stateFile,
-      "--dry-run",
-    ]);
+    const { stdout, stderr, exitCode } = await cli.run(["--config", configPath, "--state-file", stateFile, "--dry-run"]);
 
     expect(exitCode).toBe(0);
     expect(stderr).toContain('Topic "bad" failed: RSS fetch failed: HTTP 500');
@@ -376,13 +297,7 @@ describe("CLI digest", () => {
 
   test("empty RSS feed shows no-news message", async () => {
     const stateFile = tmpStateFile();
-    const { stdout, stderr, exitCode } = await cli.run([
-      "--config",
-      feedConfig(`${cli.baseUrl}/rss/empty`),
-      "--state-file",
-      stateFile,
-      "--dry-run",
-    ]);
+    const { stdout, stderr, exitCode } = await cli.run(["--config", feedConfig(`${cli.baseUrl}/rss/empty`), "--state-file", stateFile, "--dry-run"]);
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("(no new items)");
@@ -434,30 +349,14 @@ describe("CLI digest", () => {
   });
 
   test("--limit rejects non-integers with a usage error", async () => {
-    const result = await cli.run([
-      "--config",
-      feedConfig(`${cli.baseUrl}/rss`),
-      "--state-file",
-      tmpStateFile(),
-      "--limit",
-      "2.5",
-      "--dry-run",
-    ]);
+    const result = await cli.run(["--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", tmpStateFile(), "--limit", "2.5", "--dry-run"]);
     expectExitCode(result, 1);
     expect(result.stderr).toContain("Invalid --limit: 2.5 — expected a positive integer");
     expect(result.requests).toEqual([]);
   });
 
   test("--limit rejects non-decimal-digit numeric forms with a usage error", async () => {
-    const result = await cli.run([
-      "--config",
-      feedConfig(`${cli.baseUrl}/rss`),
-      "--state-file",
-      tmpStateFile(),
-      "--limit",
-      "1e3",
-      "--dry-run",
-    ]);
+    const result = await cli.run(["--config", feedConfig(`${cli.baseUrl}/rss`), "--state-file", tmpStateFile(), "--limit", "1e3", "--dry-run"]);
     expectExitCode(result, 1);
     expect(result.stderr).toContain("Invalid --limit: 1e3 — expected a positive integer");
     expect(result.requests).toEqual([]);
@@ -490,10 +389,7 @@ describe("config discovery", () => {
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
-      expect(parsed.topics).toEqual([
-        expect.objectContaining({ slug: "a", name: "Alpha" }),
-        expect.objectContaining({ slug: "b", name: "Beta" }),
-      ]);
+      expect(parsed.topics).toEqual([expect.objectContaining({ slug: "a", name: "Alpha" }), expect.objectContaining({ slug: "b", name: "Beta" })]);
       expect(parsed.items.length).toBeGreaterThan(0);
       for (const item of parsed.items) {
         expect(["a", "b"]).toContain(item.topic);
@@ -524,10 +420,10 @@ describe("config discovery", () => {
     );
     try {
       const stateFile = tmpStateFile();
-      const { stdout, exitCode } = await cli.runFromCwd(
-        ["--json", "--config", configPath, "--hours", "99999", "--state-file", stateFile],
-        { cwd, env: { UAE_NEWS_DIGEST_NOW: "2026-04-15T12:00:00Z" } },
-      );
+      const { stdout, exitCode } = await cli.runFromCwd(["--json", "--config", configPath, "--hours", "99999", "--state-file", stateFile], {
+        cwd,
+        env: { UAE_NEWS_DIGEST_NOW: "2026-04-15T12:00:00Z" },
+      });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
       expect(parsed.topics).toEqual([expect.objectContaining({ slug: "x", name: "Xray" })]);
@@ -543,9 +439,7 @@ describe("config discovery", () => {
       join(cwd, "digest.config.json"),
       JSON.stringify({
         locale: { hl: "en", gl: "AE", ceid: "AE:en" },
-        topics: [
-          { slug: "space", name: "Space", emoji: "🚀", query: "satellite", feedUrl: `${cli.baseUrl}/rss/fixture` },
-        ],
+        topics: [{ slug: "space", name: "Space", emoji: "🚀", query: "satellite", feedUrl: `${cli.baseUrl}/rss/fixture` }],
         emoji: [{ emoji: "🛰️", terms: ["satellite"] }],
         importance: { threshold: 1, impact: { weight: 2, markers: ["satellite"] } },
         // The fixture carries two near-duplicate satellite headlines; disable fuzzy
