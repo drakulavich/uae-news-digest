@@ -2,4 +2,4 @@
 preload = ["./test/fetch-guard.ts"]
 
 [fmt]
-printWidth = 120
+printWidth = 160
