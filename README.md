@@ -297,7 +297,7 @@ State file (`seen_titles.txt`) tracks seen articles so scheduled runs do not rep
 
 ## Requirements
 
-- [Bun](https://bun.sh) >= 1.3 (CI pins 1.3.14).
+- [Bun](https://bun.sh) >= 1.3 (CI pins the version in `.bun-version`).
 - CI validates Linux and macOS. Windows is not a supported target yet.
 
 ## License
