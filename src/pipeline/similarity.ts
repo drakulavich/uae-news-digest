@@ -1,15 +1,17 @@
-import type { DedupeConfig } from '../config/schema';
+import type { DedupeConfig } from "../config/schema";
 
 function extractWords(title: string, dedupe: DedupeConfig | undefined): string[] {
   const synonyms = dedupe?.synonyms ?? {};
   const stop = new Set(dedupe?.stopWords ?? []);
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .split(/\s+/)
-    // hasOwn: a plain object inherits keys like "constructor" that must not act as synonyms.
-    .map((w) => (Object.hasOwn(synonyms, w) ? synonyms[w]! : w))
-    .filter((w) => w.length > 1 && !stop.has(w));
+  return (
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .split(/\s+/)
+      // hasOwn: a plain object inherits keys like "constructor" that must not act as synonyms.
+      .map((w) => (Object.hasOwn(synonyms, w) ? synonyms[w]! : w))
+      .filter((w) => w.length > 1 && !stop.has(w))
+  );
 }
 
 /** Jaccard similarity over synonym-normalised, stop-word-filtered title words. */

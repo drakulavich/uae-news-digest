@@ -1,4 +1,4 @@
-export const DEEPL_API_URL = 'https://api-free.deepl.com/v2/translate';
+export const DEEPL_API_URL = "https://api-free.deepl.com/v2/translate";
 
 type DeepLTranslation = {
   detected_source_language: string;
@@ -9,21 +9,17 @@ type DeepLResponse = {
   translations: DeepLTranslation[];
 };
 
-export async function translateDeepL(
-  texts: string[],
-  authKey: string,
-  targetLang: string = 'RU',
-): Promise<string[]> {
+export async function translateDeepL(texts: string[], authKey: string, targetLang: string = "RU"): Promise<string[]> {
   if (texts.length === 0) return [];
 
   const url = process.env.DEEPL_API_URL ?? DEEPL_API_URL;
   let response: Response;
   try {
     response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `DeepL-Auth-Key ${authKey}`,
-        'Content-Type': 'application/json',
+        Authorization: `DeepL-Auth-Key ${authKey}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ text: texts, target_lang: targetLang }),
       signal: AbortSignal.timeout(10_000),
@@ -33,15 +29,16 @@ export async function translateDeepL(
     throw new Error(`DeepL request failed: ${msg}`);
   }
 
-  if (response.status === 429) throw new Error('DeepL returned HTTP 429 (rate limited)');
-  if (response.status === 456) throw new Error('DeepL returned HTTP 456 (quota exceeded)');
+  if (response.status === 429) throw new Error("DeepL returned HTTP 429 (rate limited)");
+  if (response.status === 456) throw new Error("DeepL returned HTTP 456 (quota exceeded)");
   if (!response.ok) throw new Error(`DeepL returned HTTP ${response.status} ${response.statusText}`);
 
   let data: DeepLResponse;
   try {
     data = (await response.json()) as DeepLResponse;
   } catch (err) {
-    if (err instanceof SyntaxError) throw new Error('DeepL returned a non-JSON response — retry, or check DEEPL_API_URL');
+    if (err instanceof SyntaxError)
+      throw new Error("DeepL returned a non-JSON response — retry, or check DEEPL_API_URL");
     throw new Error(`DeepL response body could not be read: ${err instanceof Error ? err.message : String(err)}`);
   }
   const translations = data.translations ?? [];

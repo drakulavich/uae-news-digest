@@ -1,6 +1,6 @@
-import type { Topic } from '../config/schema';
+import type { Topic } from "../config/schema";
 
-const GOOGLE_NEWS_RSS_SEARCH = 'https://news.google.com/rss/search';
+const GOOGLE_NEWS_RSS_SEARCH = "https://news.google.com/rss/search";
 
 /** The feed to fetch for a topic: its explicit `feedUrl`, else a Google News search over its query and locale. */
 export function buildFeedUrl(topic: Topic): string {

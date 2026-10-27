@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -22,8 +22,8 @@ jobs:
       # npm trusted publishing (OIDC) needs npm >= 11.5.1, which ships with Node 24; no npm token is used.
       - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
 
       - run: bun install --frozen-lockfile

@@ -1,7 +1,7 @@
-import { displayTerm, findTerms } from './terms';
-import type { ImportanceConfig } from '../config/schema';
+import { displayTerm, findTerms } from "./terms";
+import type { ImportanceConfig } from "../config/schema";
 
-export type ImportanceTier = 'breaking' | 'impact' | 'neutral' | 'fluff';
+export type ImportanceTier = "breaking" | "impact" | "neutral" | "fluff";
 
 export type ImportanceResult = {
   importance: number;
@@ -15,7 +15,7 @@ export function importanceThreshold(importance: ImportanceConfig | undefined): n
 }
 
 export function scoreImportance(title: string, importance: ImportanceConfig | undefined): ImportanceResult {
-  if (!importance) return { importance: 0, signals: [], tier: 'neutral' };
+  if (!importance) return { importance: 0, signals: [], tier: "neutral" };
 
   const breaking = findTerms(title, importance.breaking?.markers ?? []);
   const impact = findTerms(title, importance.impact?.markers ?? []);
@@ -27,10 +27,10 @@ export function scoreImportance(title: string, importance: ImportanceConfig | un
     fluff.length * (importance.fluff?.penalty ?? 0);
 
   let tier: ImportanceTier;
-  if (breaking.length > 0) tier = 'breaking';
-  else if (score < 0) tier = 'fluff';
-  else if (impact.length > 0) tier = 'impact';
-  else tier = 'neutral';
+  if (breaking.length > 0) tier = "breaking";
+  else if (score < 0) tier = "fluff";
+  else if (impact.length > 0) tier = "impact";
+  else tier = "neutral";
 
   return { importance: score, signals: [...breaking, ...impact, ...fluff].map(displayTerm), tier };
 }

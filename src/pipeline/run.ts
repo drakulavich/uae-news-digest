@@ -1,9 +1,9 @@
 // src/pipeline/run.ts
-import { parseRss } from './rss';
-import { selectItems } from './select';
-import { buildFeedUrl } from './url';
-import type { DigestItem } from './select';
-import type { DigestConfig, Topic } from '../config/schema';
+import { parseRss } from "./rss";
+import { selectItems } from "./select";
+import { buildFeedUrl } from "./url";
+import type { DigestItem } from "./select";
+import type { DigestConfig, Topic } from "../config/schema";
 
 export type TopicSection = {
   topic: Topic;
@@ -53,7 +53,7 @@ export async function runDigest(opts: RunOptions): Promise<DigestResult> {
 
   config.topics.forEach((topic, i) => {
     const outcome = fetched[i]!;
-    if (outcome.status === 'rejected') {
+    if (outcome.status === "rejected") {
       warnings.push(`Topic "${topic.slug}" failed: ${errorMessage(outcome.reason)}`);
       sections.push({ topic, items: [] });
       return;

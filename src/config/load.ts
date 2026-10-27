@@ -1,9 +1,9 @@
-import { join } from 'node:path';
-import defaultJson from './default.json';
-import { parseConfig, type DigestConfig } from './schema';
+import { join } from "node:path";
+import defaultJson from "./default.json";
+import { parseConfig, type DigestConfig } from "./schema";
 
 /** The UAE config the CLI uses when no config file is found. Validated at import time. */
-export const DEFAULT_CONFIG: DigestConfig = parseConfig(defaultJson, 'built-in default config');
+export const DEFAULT_CONFIG: DigestConfig = parseConfig(defaultJson, "built-in default config");
 
 export async function loadConfig(path: string): Promise<DigestConfig> {
   const file = Bun.file(path);
@@ -37,22 +37,22 @@ export type ResolveConfigOptions = {
  */
 export async function resolveConfigPath(opts: ResolveConfigOptions): Promise<string | null> {
   if (opts.explicit !== undefined) {
-    if (opts.explicit === '' || !(await Bun.file(opts.explicit).exists())) {
+    if (opts.explicit === "" || !(await Bun.file(opts.explicit).exists())) {
       throw new Error(`Config not found: ${opts.explicit}`);
     }
     return opts.explicit;
   }
 
   if (!opts.cwd) {
-    throw new Error('resolveConfigPath: cwd is required');
+    throw new Error("resolveConfigPath: cwd is required");
   }
 
-  const cwdCandidate = join(opts.cwd, 'digest.config.json');
+  const cwdCandidate = join(opts.cwd, "digest.config.json");
   if (await Bun.file(cwdCandidate).exists()) return cwdCandidate;
 
-  const xdg = opts.env.XDG_CONFIG_HOME ?? (opts.env.HOME ? join(opts.env.HOME, '.config') : null);
+  const xdg = opts.env.XDG_CONFIG_HOME ?? (opts.env.HOME ? join(opts.env.HOME, ".config") : null);
   if (xdg) {
-    const xdgCandidate = join(xdg, 'uae-news-digest', 'topics.json');
+    const xdgCandidate = join(xdg, "uae-news-digest", "topics.json");
     if (await Bun.file(xdgCandidate).exists()) return xdgCandidate;
   }
 
