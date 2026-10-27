@@ -2,11 +2,11 @@
 // title boosts, emoji rules, topic match lists). Terms are plain strings, never regexes.
 
 export function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const NOT_WORD_CHAR_BEFORE = '(?<![\\p{L}\\p{N}])';
-const NOT_WORD_CHAR_AFTER = '(?![\\p{L}\\p{N}])';
+const NOT_WORD_CHAR_BEFORE = "(?<![\\p{L}\\p{N}])";
+const NOT_WORD_CHAR_AFTER = "(?![\\p{L}\\p{N}])";
 
 const cache = new Map<string, RegExp>();
 
@@ -18,12 +18,10 @@ const cache = new Map<string, RegExp>();
 export function termRegExp(term: string): RegExp {
   const cached = cache.get(term);
   if (cached) return cached;
-  const stem = term.endsWith('*');
+  const stem = term.endsWith("*");
   const body = escapeRegExp(stem ? term.slice(0, -1) : term);
-  const source = stem
-    ? `${NOT_WORD_CHAR_BEFORE}${body}`
-    : `${NOT_WORD_CHAR_BEFORE}${body}(?:e?s)?${NOT_WORD_CHAR_AFTER}`;
-  const re = new RegExp(source, 'iu');
+  const source = stem ? `${NOT_WORD_CHAR_BEFORE}${body}` : `${NOT_WORD_CHAR_BEFORE}${body}(?:e?s)?${NOT_WORD_CHAR_AFTER}`;
+  const re = new RegExp(source, "iu");
   cache.set(term, re);
   return re;
 }
@@ -39,5 +37,5 @@ export function findTerms(haystack: string, terms: readonly string[]): string[] 
 
 /** Marker as shown to users: "evacuat*" → "evacuat". */
 export function displayTerm(term: string): string {
-  return term.endsWith('*') ? term.slice(0, -1) : term;
+  return term.endsWith("*") ? term.slice(0, -1) : term;
 }

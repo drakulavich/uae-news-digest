@@ -1,5 +1,5 @@
-import { matchesTerm } from './terms';
-import type { ScoringConfig } from '../config/schema';
+import { matchesTerm } from "./terms";
+import type { ScoringConfig } from "../config/schema";
 
 /** Source-tier weight (first matching tier wins) plus one additive weight per matching title boost. */
 export function scoreItem(title: string, source: string, scoring: ScoringConfig | undefined): number {

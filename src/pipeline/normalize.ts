@@ -1,13 +1,13 @@
 export function normalizeWhitespace(value: string): string {
-  return value.replace(/\s+/g, ' ').trim();
+  return value.replace(/\s+/g, " ").trim();
 }
 
 export function normalizeTitle(title: string): string {
-  return normalizeWhitespace(title.replace(/\s+-\s+[^-]+$/, '').trim());
+  return normalizeWhitespace(title.replace(/\s+-\s+[^-]+$/, "").trim());
 }
 
 export function normalizeSource(source?: string): string {
-  return normalizeWhitespace(source ?? '');
+  return normalizeWhitespace(source ?? "");
 }
 
 export function makeKey(title: string, source?: string): string {

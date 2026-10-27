@@ -1,13 +1,13 @@
-import { normalizeTitle, normalizeSource, makeKey } from './normalize';
-import { scoreItem } from './scoring';
-import { titleSimilarity } from './similarity';
-import { scoreImportance, type ImportanceTier } from './importance';
-import { matchesTerm } from './terms';
-import type { RssItem } from './rss';
-import { DEFAULT_SIMILARITY_THRESHOLD } from '../config/schema';
-import type { Heuristics, MatchMode, Topic } from '../config/schema';
+import { normalizeTitle, normalizeSource, makeKey } from "./normalize";
+import { scoreItem } from "./scoring";
+import { titleSimilarity } from "./similarity";
+import { scoreImportance, type ImportanceTier } from "./importance";
+import { matchesTerm } from "./terms";
+import type { RssItem } from "./rss";
+import { DEFAULT_SIMILARITY_THRESHOLD } from "../config/schema";
+import type { Heuristics, MatchMode, Topic } from "../config/schema";
 
-export type { MatchMode } from '../config/schema';
+export type { MatchMode } from "../config/schema";
 
 export type DigestItem = {
   score: number;
@@ -23,15 +23,11 @@ export type DigestItem = {
   url?: string;
 };
 
-export function matchTerms(
-  title: string,
-  match: string[],
-  mode: MatchMode,
-): { ok: boolean; matchedTerms: string[] } {
+export function matchTerms(title: string, match: string[], mode: MatchMode): { ok: boolean; matchedTerms: string[] } {
   const matchedTerms = match.filter((t) => matchesTerm(title, t));
   let need: number;
-  if (mode === 'all') need = match.length;
-  else if (mode === 'any') need = 1;
+  if (mode === "all") need = match.length;
+  else if (mode === "any") need = 1;
   else need = Math.max(1, Math.min(mode, match.length));
   return { ok: matchedTerms.length >= need, matchedTerms };
 }
@@ -62,13 +58,13 @@ export function selectItems(
   // `match`/`matchMode` as Partial: Topic's `matchMode` is a required key typed `MatchMode | undefined`
   // (the config transform always sets it, even to undefined), so a bare `Pick` would force callers to
   // pass `matchMode: undefined` explicitly even when omitting `match` entirely.
-  topic: Pick<Topic, 'limit'> & Partial<Pick<Topic, 'match' | 'matchMode'>>,
+  topic: Pick<Topic, "limit"> & Partial<Pick<Topic, "match" | "matchMode">>,
   ctx: SelectContext,
 ): SelectResult {
   const { seenKeys, hours, now, heuristics } = ctx;
   const limit = ctx.limitOverride ?? topic.limit;
   const match = topic.match;
-  const matchMode = topic.matchMode ?? 'all';
+  const matchMode = topic.matchMode ?? "all";
   const skip = heuristics.skip ?? [];
   const similarityThreshold = heuristics.dedupe?.similarityThreshold ?? DEFAULT_SIMILARITY_THRESHOLD;
   const cutoff = new Date(now.getTime() - hours * 60 * 60 * 1000);
@@ -91,7 +87,10 @@ export function selectItems(
     let matchedTerms: string[] = [];
     if (match && match.length > 0) {
       const m = matchTerms(title, match, matchMode);
-      if (!m.ok) { droppedByMatch++; continue; }
+      if (!m.ok) {
+        droppedByMatch++;
+        continue;
+      }
       matchedTerms = m.matchedTerms;
     }
 

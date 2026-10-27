@@ -1,8 +1,8 @@
 const originalFetch = globalThis.fetch;
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function requestUrl(input: RequestInfo | URL): string {
-  if (typeof input === 'string') return input;
+  if (typeof input === "string") return input;
   if (input instanceof URL) return input.href;
   return input.url;
 }
@@ -14,7 +14,7 @@ function isAllowedTestUrl(rawUrl: string): boolean {
   } catch {
     return false;
   }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return true;
+  if (url.protocol !== "http:" && url.protocol !== "https:") return true;
   return LOOPBACK_HOSTS.has(url.hostname);
 }
 

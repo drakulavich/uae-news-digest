@@ -1,5 +1,5 @@
 // src/config/schema.ts
-import { z } from 'zod';
+import { z } from "zod";
 
 const nonEmpty = (what: string) => z.string().trim().min(1, `${what} must be a non-empty string`);
 
@@ -7,52 +7,51 @@ const nonEmpty = (what: string) => z.string().trim().min(1, `${what} must be a n
 const TermSchema = z
   .string()
   .trim()
-  .min(1, 'term must be a non-empty string')
+  .min(1, "term must be a non-empty string")
   .regex(/^[^*]+\*?$/, 'a term may contain "*" only as its last character');
 
-const TermList = z.array(TermSchema).min(1, 'terms must be a non-empty array of strings');
+const TermList = z.array(TermSchema).min(1, "terms must be a non-empty array of strings");
 
 const LocaleSchema = z.strictObject({
-  hl: nonEmpty('hl'),
-  gl: nonEmpty('gl'),
-  ceid: nonEmpty('ceid'),
+  hl: nonEmpty("hl"),
+  gl: nonEmpty("gl"),
+  ceid: nonEmpty("ceid"),
 });
 
 const DisplaySchema = z.strictObject({
-  flag: nonEmpty('flag'),
-  name: nonEmpty('name'),
-  timezone: nonEmpty('timezone'),
+  flag: nonEmpty("flag"),
+  name: nonEmpty("name"),
+  timezone: nonEmpty("timezone"),
 });
 
-const MatchModeSchema = z.union(
-  [z.literal('all'), z.literal('any'), z.number().int().positive()],
-  { error: 'matchMode must be "all", "any", or a positive integer' },
-);
+const MatchModeSchema = z.union([z.literal("all"), z.literal("any"), z.number().int().positive()], {
+  error: 'matchMode must be "all", "any", or a positive integer',
+});
 
 const TopicSchema = z
   .strictObject({
-    slug: nonEmpty('slug'),
-    name: nonEmpty('name'),
-    emoji: nonEmpty('emoji').optional(),
-    query: nonEmpty('query'),
+    slug: nonEmpty("slug"),
+    name: nonEmpty("name"),
+    emoji: nonEmpty("emoji").optional(),
+    query: nonEmpty("query"),
     /** Advanced: fetch this RSS URL instead of building a Google News search URL from `query`. */
     feedUrl: z
       .string()
       .trim()
-      .refine((v) => /^https?:\/\/\S+$/.test(v), 'feedUrl must be an absolute http:// or https:// URL')
+      .refine((v) => /^https?:\/\/\S+$/.test(v), "feedUrl must be an absolute http:// or https:// URL")
       .optional(),
-    match: z.array(TermSchema).min(1, 'match must be a non-empty array of strings').optional(),
+    match: z.array(TermSchema).min(1, "match must be a non-empty array of strings").optional(),
     matchMode: MatchModeSchema.optional(),
-    limit: z.number().int().positive('limit must be a positive integer').default(5),
+    limit: z.number().int().positive("limit must be a positive integer").default(5),
     locale: LocaleSchema.optional(),
   })
   .superRefine((t, ctx) => {
     if (t.matchMode !== undefined && t.match === undefined) {
-      ctx.addIssue({ code: 'custom', path: ['matchMode'], message: 'matchMode requires a "match" array to be set' });
+      ctx.addIssue({ code: "custom", path: ["matchMode"], message: 'matchMode requires a "match" array to be set' });
     }
   });
 
-const Weight = z.number().nonnegative('weight must be >= 0');
+const Weight = z.number().nonnegative("weight must be >= 0");
 
 const ScoringSchema = z.strictObject({
   /** Evaluated in order; the first tier whose list matches the source wins. */
@@ -72,12 +71,16 @@ export const DEFAULT_SIMILARITY_THRESHOLD = 0.45;
 const DedupeToken = z
   .string()
   .trim()
-  .min(1, 'dedupe tokens must be non-empty strings')
-  .regex(/^[A-Za-z0-9]+$/, 'dedupe tokens are single words: ASCII letters and digits only');
+  .min(1, "dedupe tokens must be non-empty strings")
+  .regex(/^[A-Za-z0-9]+$/, "dedupe tokens are single words: ASCII letters and digits only");
 
 const DedupeSchema = z
   .strictObject({
-    similarityThreshold: z.number().min(0, 'similarityThreshold must be within 0..1').max(1, 'similarityThreshold must be within 0..1').default(DEFAULT_SIMILARITY_THRESHOLD),
+    similarityThreshold: z
+      .number()
+      .min(0, "similarityThreshold must be within 0..1")
+      .max(1, "similarityThreshold must be within 0..1")
+      .default(DEFAULT_SIMILARITY_THRESHOLD),
     synonyms: z.record(DedupeToken, DedupeToken).default({}),
     stopWords: z.array(DedupeToken).default([]),
   })
@@ -88,7 +91,7 @@ const DedupeSchema = z
   }));
 
 const MarkerGroup = z.strictObject({ weight: Weight, markers: TermList });
-const PenaltyGroup = z.strictObject({ penalty: z.number().nonnegative('penalty must be >= 0'), markers: TermList });
+const PenaltyGroup = z.strictObject({ penalty: z.number().nonnegative("penalty must be >= 0"), markers: TermList });
 
 const ImportanceSchema = z.strictObject({
   threshold: z.number().default(2),
@@ -97,25 +100,25 @@ const ImportanceSchema = z.strictObject({
   fluff: PenaltyGroup.optional(),
 });
 
-const EmojiRuleSchema = z.strictObject({ emoji: nonEmpty('emoji'), terms: TermList });
+const EmojiRuleSchema = z.strictObject({ emoji: nonEmpty("emoji"), terms: TermList });
 
 const DigestConfigSchema = z
   .strictObject({
     locale: LocaleSchema,
-    display: DisplaySchema.default({ flag: '🌐', name: 'News', timezone: 'UTC' }),
-    topics: z.array(TopicSchema).min(1, 'at least one topic is required'),
+    display: DisplaySchema.default({ flag: "🌐", name: "News", timezone: "UTC" }),
+    topics: z.array(TopicSchema).min(1, "at least one topic is required"),
     skip: z.array(TermSchema).optional(),
     scoring: ScoringSchema.optional(),
     dedupe: DedupeSchema.optional(),
     importance: ImportanceSchema.optional(),
     emoji: z.array(EmojiRuleSchema).optional(),
-    agentPrompt: nonEmpty('agentPrompt').optional(),
+    agentPrompt: nonEmpty("agentPrompt").optional(),
   })
   .superRefine((cfg, ctx) => {
     const seen = new Set<string>();
     cfg.topics.forEach((t, i) => {
       if (seen.has(t.slug)) {
-        ctx.addIssue({ code: 'custom', path: ['topics', i, 'slug'], message: `duplicate topic slug "${t.slug}"` });
+        ctx.addIssue({ code: "custom", path: ["topics", i, "slug"], message: `duplicate topic slug "${t.slug}"` });
       }
       seen.add(t.slug);
     });
@@ -124,13 +127,13 @@ const DigestConfigSchema = z
     ...cfg,
     topics: cfg.topics.map((t) => ({
       ...t,
-      matchMode: t.match ? (t.matchMode ?? 'all') : undefined,
+      matchMode: t.match ? (t.matchMode ?? "all") : undefined,
       locale: t.locale ?? cfg.locale,
     })),
   }));
 
 export type DigestConfig = z.output<typeof DigestConfigSchema>;
-export type Topic = DigestConfig['topics'][number];
+export type Topic = DigestConfig["topics"][number];
 export type MatchMode = z.output<typeof MatchModeSchema>;
 export type ScoringConfig = z.output<typeof ScoringSchema>;
 export type DedupeConfig = z.output<typeof DedupeSchema>;
@@ -138,7 +141,7 @@ export type ImportanceConfig = z.output<typeof ImportanceSchema>;
 export type EmojiRule = z.output<typeof EmojiRuleSchema>;
 
 /** The slice the pipeline consumes. Every field optional: absent = neutral behaviour. */
-export type Heuristics = Pick<DigestConfig, 'skip' | 'scoring' | 'dedupe' | 'importance' | 'emoji'>;
+export type Heuristics = Pick<DigestConfig, "skip" | "scoring" | "dedupe" | "importance" | "emoji">;
 
 /**
  * Validate a parsed JSON value. `source` names where it came from (a file path,

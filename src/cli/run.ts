@@ -1,11 +1,11 @@
-import { readSeenKeys, writeSeenKeys } from '../state';
-import { runDigest } from '../pipeline/run';
-import { renderText } from '../output/text';
-import { toJson } from '../output/json';
-import { TOOL_ID, VERSION } from '../meta';
-import { makeFetchText, makeTranslate } from './adapters';
-import { CliError } from './errors';
-import { resolveConfig, type CliEnv } from './config';
+import { readSeenKeys, writeSeenKeys } from "../state";
+import { runDigest } from "../pipeline/run";
+import { renderText } from "../output/text";
+import { toJson } from "../output/json";
+import { TOOL_ID, VERSION } from "../meta";
+import { makeFetchText, makeTranslate } from "./adapters";
+import { CliError } from "./errors";
+import { resolveConfig, type CliEnv } from "./config";
 
 /** Commander's option object for the default command (camelCased flag names). */
 export type RunFlags = {
@@ -21,18 +21,18 @@ export type RunFlags = {
 };
 
 export function validatePositiveNumber(name: string, raw: string | number): number {
-  const value = typeof raw === 'number' ? raw : Number(raw);
+  const value = typeof raw === "number" ? raw : Number(raw);
   if (!Number.isFinite(value) || value <= 0) {
-    throw new CliError('usage', `Invalid --${name}: ${raw}`);
+    throw new CliError("usage", `Invalid --${name}: ${raw}`);
   }
   return value;
 }
 
 function validatePositiveInteger(name: string, raw: string | number): number {
-  const isStrictInteger = typeof raw === 'number' ? Number.isInteger(raw) : /^\d+$/.test(String(raw).trim());
-  const value = typeof raw === 'number' ? raw : Number(raw);
+  const isStrictInteger = typeof raw === "number" ? Number.isInteger(raw) : /^\d+$/.test(String(raw).trim());
+  const value = typeof raw === "number" ? raw : Number(raw);
   if (!isStrictInteger || !Number.isInteger(value) || value <= 0) {
-    throw new CliError('usage', `Invalid --${name}: ${raw} — expected a positive integer`);
+    throw new CliError("usage", `Invalid --${name}: ${raw} — expected a positive integer`);
   }
   return value;
 }
@@ -41,30 +41,30 @@ function resolveNow(raw: string | undefined): Date {
   if (!raw) return new Date();
   const now = new Date(raw);
   if (Number.isNaN(now.getTime())) {
-    throw new CliError('usage', `Invalid UAE_NEWS_DIGEST_NOW: ${raw}`);
+    throw new CliError("usage", `Invalid UAE_NEWS_DIGEST_NOW: ${raw}`);
   }
   return now;
 }
 
 /** The default command. Returns the exit code; throws CliError for usage/config problems. */
 export async function runDefault(flags: RunFlags, env: CliEnv, cwd: string): Promise<number> {
-  const hours = validatePositiveNumber('hours', flags.hours);
-  const limitOverride = flags.limit === undefined ? undefined : validatePositiveInteger('limit', flags.limit);
-  const timeoutMs = validatePositiveNumber('timeout-ms', flags.timeoutMs);
+  const hours = validatePositiveNumber("hours", flags.hours);
+  const limitOverride = flags.limit === undefined ? undefined : validatePositiveInteger("limit", flags.limit);
+  const timeoutMs = validatePositiveNumber("timeout-ms", flags.timeoutMs);
   const deeplAuthKey = env.DEEPL_AUTH_KEY;
   const now = resolveNow(env.UAE_NEWS_DIGEST_NOW);
 
   if (flags.prompt) {
     const { config, source } = await resolveConfig(flags.config, env, cwd);
     if (!config.agentPrompt) {
-      throw new CliError('config', `Config at ${source} has no "agentPrompt" — add an "agentPrompt" string to the config to use --prompt.`);
+      throw new CliError("config", `Config at ${source} has no "agentPrompt" — add an "agentPrompt" string to the config to use --prompt.`);
     }
-    process.stdout.write(config.agentPrompt + '\n');
+    process.stdout.write(config.agentPrompt + "\n");
     return 0;
   }
 
   if (flags.targetLang && !deeplAuthKey) {
-    throw new CliError('usage', '--target-lang requires DEEPL_AUTH_KEY — set it to your DeepL Free API key, or drop --target-lang.');
+    throw new CliError("usage", "--target-lang requires DEEPL_AUTH_KEY — set it to your DeepL Free API key, or drop --target-lang.");
   }
 
   const { config } = await resolveConfig(flags.config, env, cwd);
@@ -86,11 +86,18 @@ export async function runDefault(flags: RunFlags, env: CliEnv, cwd: string): Pro
   });
 
   if (flags.json) {
-    const json = toJson(result, { tool: TOOL_ID, version: VERSION, hours, limit: limitOverride, targetLang: flags.targetLang, now });
-    process.stdout.write(JSON.stringify(json, null, 2) + '\n');
+    const json = toJson(result, {
+      tool: TOOL_ID,
+      version: VERSION,
+      hours,
+      limit: limitOverride,
+      targetLang: flags.targetLang,
+      now,
+    });
+    process.stdout.write(JSON.stringify(json, null, 2) + "\n");
   } else {
     for (const warning of result.warnings) console.error(warning);
-    process.stdout.write(renderText(result, config, now) + '\n');
+    process.stdout.write(renderText(result, config, now) + "\n");
   }
 
   if (result.fetchedTopics === 0) {
@@ -98,7 +105,7 @@ export async function runDefault(flags: RunFlags, env: CliEnv, cwd: string): Pro
     return 1;
   }
 
-  if (flags.dryRun) console.error('(dry run — state file not updated)');
+  if (flags.dryRun) console.error("(dry run — state file not updated)");
   const producedItems = result.sections.some((s) => s.items.length > 0);
   if (producedItems && !flags.dryRun) {
     await writeSeenKeys(flags.stateFile, result.nextSeenKeys);

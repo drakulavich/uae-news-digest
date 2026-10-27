@@ -22,8 +22,9 @@
   "scripts": {
     "dev": "bun src/index.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome ci && knip --include files,exports,types",
+    "typecheck": "bun check --no-script",
+    "lint": "bun fmt --check && biome ci && knip --include files,exports,types",
+    "fmt": "bun fmt",
     "check": "bun run typecheck && bun run lint && bun run test",
     "build": "tsc -p tsconfig.build.json",
     "smoke:pack": "bun scripts/smoke-pack.ts"

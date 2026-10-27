@@ -1,6 +1,6 @@
-import type { DigestResult } from '../pipeline/run';
-import type { ImportanceTier } from '../pipeline/importance';
-import { hoursAgo } from './time';
+import type { DigestResult } from "../pipeline/run";
+import type { ImportanceTier } from "../pipeline/importance";
+import { hoursAgo } from "./time";
 
 export type DigestJsonItem = {
   topic: string;
