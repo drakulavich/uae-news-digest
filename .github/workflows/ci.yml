@@ -6,8 +6,21 @@ on:
   pull_request:
 
 jobs:
+  size:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    steps:
+      - uses: drakulavich/bite-the-diff@v1.1.0
+
   test:
     name: test (${{ matrix.os }})
+    needs: size
+    # size is skipped on push; != failure lets test run then
+    if: ${{ !cancelled() && needs.size.result != 'failure' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
